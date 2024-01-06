@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="include\engine.hpp" />
+    <ClInclude Include="include\system\logger_internal.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\defines.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\config.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\logger.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\engine.cpp" />
+    <ClCompile Include="src\system\logger_internal.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="system">
+      <UniqueIdentifier>{0517e0be-7247-4811-8f5a-99865c8945db}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
