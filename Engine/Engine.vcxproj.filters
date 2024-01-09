@@ -14,10 +14,16 @@
     <ClInclude Include="include\system\logger.hpp">
       <Filter>system</Filter>
     </ClInclude>
+    <ClInclude Include="include\system\window.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
     <ClCompile Include="src\system\logger_internal.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\system\window.cpp">
       <Filter>system</Filter>
     </ClCompile>
   </ItemGroup>

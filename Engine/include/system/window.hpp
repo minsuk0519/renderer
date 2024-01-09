@@ -1,0 +1,28 @@
+#pragma once
+
+#include <Windows.h>
+
+#include "defines.hpp"
+
+class window
+{
+private:
+	uint screenWidth;
+	uint screenHeight;
+
+	std::string windowTitle;
+
+	HWND hWindow = nullptr;
+
+protected:
+	static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+public:
+	bool init(HINSTANCE hInstance, int nCmdShow, uint width, uint height);
+
+	void run();
+
+	void close();
+};
+
+static window s_globWindow;

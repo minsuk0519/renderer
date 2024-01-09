@@ -89,10 +89,12 @@
     <ClInclude Include="include\system\defines.hpp" />
     <ClInclude Include="include\system\logger.hpp" />
     <ClInclude Include="include\system\logger_internal.hpp" />
+    <ClInclude Include="include\system\window.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
     <ClCompile Include="src\system\logger_internal.cpp" />
+    <ClCompile Include="src\system\window.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

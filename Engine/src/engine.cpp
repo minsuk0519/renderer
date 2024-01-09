@@ -2,12 +2,14 @@
 
 #include "system\config.hpp"
 #include "system\logger.hpp"
+#include "system\window.hpp"
 
 #include <filesystem>
 #include <shlobj.h>
 
 #include <wrl.h>
 #include <d3d12.h>
+#include <dxgi1_6.h>
 
 #if CONFIG_PIX_ENABLED
 static std::wstring GetLatestWinPixGpuCapturerPath()
@@ -42,8 +44,6 @@ static std::wstring GetLatestWinPixGpuCapturerPath()
 
 bool engine::init(HINSTANCE hInstance, int nCmdShow)
 {
-    TC_LOG("engine initializing start...");
-
 #ifdef _DEBUG
 #if CONFIG_PIX_ENABLED
 	if ((GetModuleHandle(L"WinPixGpuCapturer.dll") == 0))
@@ -57,7 +57,44 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
     debugInterface->EnableDebugLayer();
 #endif // #ifdef _DEBUG
 
-	TC_LOG("engine initializing success!");
+    //create factory
+    Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
+    UINT createFactoryFlags = 0;
+#if defined(_DEBUG)
+    createFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
+#endif
+    TC_CONDITIONB(CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&factory)) == S_OK, "Failed to create factory");
+
+    Microsoft::WRL::ComPtr<IDXGIAdapter1> hardwareAdapter;
+    Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
+
+    Microsoft::WRL::ComPtr<IDXGIFactory6> factory6;
+    if (SUCCEEDED(factory->QueryInterface(IID_PPV_ARGS(&factory6))))
+    {
+        for (
+            UINT adapterIndex = 0;
+            DXGI_ERROR_NOT_FOUND != factory6->EnumAdapterByGpuPreference(
+                adapterIndex,
+                DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
+                IID_PPV_ARGS(&adapter));
+            ++adapterIndex)
+        {
+            DXGI_ADAPTER_DESC1 desc;
+            adapter->GetDesc1(&desc);
+
+            if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
+            {
+                continue;
+            }
+
+            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+            {
+                break;
+            }
+        }
+    }
+
+    TC_INIT(s_globWindow.init(hInstance, nCmdShow, 1600, 800));
 
 	return true;
 }

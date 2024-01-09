@@ -22,9 +22,9 @@
 
 #define TC_APPEND_STR(A, B) #A " " #B
 
-#define TC_INIT(func)	TC_LOG_INFO(TC_APPEND_STR(func, " start...")); \
+#define TC_INIT(func)	TC_LOG_INFO(TC_APPEND_STR(func, "initializing start...")); \
 						TC_CHECK(func); \
-						TC_LOG_INFO(TC_APPEND_STR(func, " end!"))
+						TC_LOG_INFO(TC_APPEND_STR(func, "initializing end!"))
 
 #define TC_LOG_INFO(str) logger::print_log(str, __LINE__, __FILE__, logger::LOG_LEVEL::LOG_INFO)
 #define TC_LOG_WARNING(str) logger::print_log(str, __LINE__, __FILE__, logger::LOG_LEVEL::LOG_WARNING)

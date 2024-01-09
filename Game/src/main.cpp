@@ -1,4 +1,5 @@
 #include <engine.hpp>
+#include <system\logger.hpp>
 
 #define MEMLEAK 0
 
@@ -22,7 +23,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 	AllocConsole();
 #endif // #ifdef _DEBUG
 
-	s_globEngine.init(hInstance, nCmdShow);
+	TC_INIT(s_globEngine.init(hInstance, nCmdShow));
 
 	s_globEngine.run();
 
