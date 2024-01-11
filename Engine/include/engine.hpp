@@ -14,4 +14,4 @@ public:
 	void close();
 };
 
-static engine s_globEngine;
+extern engine e_globEngine;

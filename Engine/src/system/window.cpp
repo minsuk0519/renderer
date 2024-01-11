@@ -1,8 +1,12 @@
 #include <string>
 
-#include <system/window.hpp>
+#include <system\window.hpp>
 
-#include <system/logger.hpp>
+#include <system\logger.hpp>
+#include <system\input.hpp>
+#include <system\gui.hpp>
+
+window e_globWindow;
 
 bool window::init(HINSTANCE hInstance, int nCmdShow, uint width, uint height)
 {
@@ -46,64 +50,82 @@ bool window::init(HINSTANCE hInstance, int nCmdShow, uint width, uint height)
 
     ShowWindow(hWindow, nCmdShow);
 
+    input::init();
+
 	return true;
 }
 
 void window::run()
 {
+    input::update();
 }
 
 void window::close()
 {
 }
 
+HWND window::getWindow() const
+{
+    return hWindow;
+}
+
+uint window::width() const
+{
+    return screenWidth;
+}
+
+uint window::height() const
+{
+    return screenHeight;
+}
+
 LRESULT CALLBACK window::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    //if (gui::guiInputHandle(hWnd, message, wParam, lParam)) return true;
+    if (gui::guiInputHandle(hWnd, message, wParam, lParam)) return true;
 
-    //switch (message)
-    //{
-    //case WM_CREATE:
-    //{
-    //    // Save the DXSample* passed in to CreateWindow.
-    //    LPCREATESTRUCT pCreateStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
-    //    SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
-    //}
-    //return 0;
+    switch (message)
+    {
+    case WM_CREATE:
+    {
+        // Save the DXSample* passed in to CreateWindow.
+        LPCREATESTRUCT pCreateStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
+    }
+    return 0;
 
-    //case WM_KEYDOWN:
-    //    input::keyEvent(static_cast<int>(wParam), true);
-    //    return 0;
+    case WM_KEYDOWN:
+        input::keyEvent(static_cast<int>(wParam), true);
+        return 0;
 
-    //case WM_KEYUP:
-    //    input::keyEvent(static_cast<int>(wParam), false);
-    //    return 0;
+    case WM_KEYUP:
+        input::keyEvent(static_cast<int>(wParam), false);
+        return 0;
 
-    //case WM_MOUSEMOVE:
-    //    //input::mouseEvent(((int)(short)LOWORD(lParam)), window::get_instance()->height() - ((int)(short)HIWORD(lParam)));
-    //    return 0;
+    case WM_MOUSEMOVE:
+        //input::mouseEvent(((int)(short)LOWORD(lParam)), window::get_instance()->height() - ((int)(short)HIWORD(lParam)));
+        return 0;
 
-    //case WM_PAINT:
+    case WM_PAINT:
 
-    //    return 0;
+        return 0;
 
-    //case WM_LBUTTONDOWN:
-    //    input::keyEvent(VK_LBUTTON, true);
-    //    return 0;
-    //case WM_RBUTTONDOWN:
-    //    input::keyEvent(VK_RBUTTON, true);
-    //    return 0;
-    //case WM_LBUTTONUP:
-    //    input::keyEvent(VK_LBUTTON, false);
-    //    return 0;
-    //case WM_RBUTTONUP:
-    //    input::keyEvent(VK_RBUTTON, false);
-    //    return 0;
+    case WM_LBUTTONDOWN:
+        input::keyEvent(VK_LBUTTON, true);
+        return 0;
+    case WM_RBUTTONDOWN:
+        input::keyEvent(VK_RBUTTON, true);
+        return 0;
+    case WM_LBUTTONUP:
+        input::keyEvent(VK_LBUTTON, false);
+        return 0;
+    case WM_RBUTTONUP:
+        input::keyEvent(VK_RBUTTON, false);
+        return 0;
 
-    //case WM_DESTROY:
-    //    PostQuitMessage(0);
-    //    return 0;
-    //}
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+    }
 
     // Handle any messages the switch statement didn't.
     return DefWindowProc(hWnd, message, wParam, lParam);

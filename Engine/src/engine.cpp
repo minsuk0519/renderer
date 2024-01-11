@@ -3,6 +3,8 @@
 #include "system\config.hpp"
 #include "system\logger.hpp"
 #include "system\window.hpp"
+#include "system\input.hpp"
+#include "render\renderer.hpp"
 
 #include <filesystem>
 #include <shlobj.h>
@@ -10,6 +12,8 @@
 #include <wrl.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
+
+engine e_globEngine;
 
 #if CONFIG_PIX_ENABLED
 static std::wstring GetLatestWinPixGpuCapturerPath()
@@ -94,7 +98,9 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
         }
     }
 
-    TC_INIT(s_globWindow.init(hInstance, nCmdShow, 1600, 800));
+    TC_INIT(e_globWindow.init(hInstance, nCmdShow, 1600, 800));
+
+    TC_INIT(e_GlobRenderer.init(factory, adapter));
 
 	return true;
 }
@@ -111,6 +117,8 @@ void engine::run()
     MSG msg = {};
     while (msg.message != WM_QUIT)
     {
+        e_globWindow.run();
+
         if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
@@ -118,7 +126,7 @@ void engine::run()
         }
 
         //when user press the escape key break the loop
-        //if (input::isPressed(input::KEY_ESC)) break;
+        if (input::isPressed(input::KEY_ESC)) break;
 
         ++frameCounter;
         auto t1 = clock.now();
@@ -135,6 +143,10 @@ void engine::run()
         }
 
         float dt = static_cast<float>(deltaTime.count() * 1e-5);
+
+        e_GlobRenderer.preDraw(dt);
+
+        e_GlobRenderer.draw(dt);
     }
 }
 

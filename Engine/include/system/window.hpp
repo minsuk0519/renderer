@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <string>
 
 #include "defines.hpp"
 
@@ -23,6 +24,11 @@ public:
 	void run();
 
 	void close();
+
+	HWND getWindow() const;
+
+	uint width() const;
+	uint height() const;
 };
 
-static window s_globWindow;
+extern window e_globWindow;

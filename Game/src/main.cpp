@@ -23,11 +23,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 	AllocConsole();
 #endif // #ifdef _DEBUG
 
-	TC_INIT(s_globEngine.init(hInstance, nCmdShow));
+	TC_INIT(e_globEngine.init(hInstance, nCmdShow));
 
-	s_globEngine.run();
+	e_globEngine.run();
 
-	s_globEngine.close();
+	e_globEngine.close();
 
 	return 0;
 }
