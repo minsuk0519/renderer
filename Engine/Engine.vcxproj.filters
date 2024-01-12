@@ -44,6 +44,12 @@
     <ClInclude Include="include\render\buffer.hpp">
       <Filter>render</Filter>
     </ClInclude>
+    <ClInclude Include="include\render\transform.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\camera.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
@@ -78,6 +84,12 @@
       <Filter>render</Filter>
     </ClCompile>
     <ClCompile Include="src\render\buffer.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\transform.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\camera.cpp">
       <Filter>render</Filter>
     </ClCompile>
   </ItemGroup>

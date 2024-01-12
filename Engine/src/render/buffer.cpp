@@ -183,7 +183,6 @@ namespace buf
 
     std::vector<buffer*> trackedBuffer;
  
-    Microsoft::WRL::ComPtr<ID3D12Device2> device;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList;
 
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
@@ -266,7 +265,7 @@ namespace buf
             CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
             CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(requiredSize);
             
-            device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediateResource));
+            e_GlobRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediateResource));
             
             UpdateSubresources(cmdList.Get(), buffer->resource.Get(), intermediateResource.Get(), 0, 0, static_cast<uint>(subresources.size()), subresources.data());
 
@@ -289,7 +288,7 @@ namespace buf
         CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
         CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
-        device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
+        e_GlobRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buf->resource));
 
         UINT8* pVertexDataBegin;
@@ -321,7 +320,7 @@ namespace buf
         CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
         bufDesc.Flags |= flags;
 
-        device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
+        e_GlobRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             state, nullptr, IID_PPV_ARGS(&buf->resource));
 
         return true;
@@ -360,98 +359,98 @@ namespace buf
         //        bufferContainer[VERTEX_TRIANGLE] = createVertexBuffer(triangleVertices, sizeof(triangleVertices), sizeof(float) * 3);
         //    }
 
-        //    //create triangle vertex
-        //    {
-        //        float cubeVertices[] =
-        //        {
-        //            0.5f,  0.5f,  0.5f,
-        //            0.5f, -0.5f,  0.5f,
-        //           -0.5f,  0.5f,  0.5f,
-        //           -0.5f, -0.5f,  0.5f,
+            //create triangle vertex
+            {
+                float cubeVertices[] =
+                {
+                    0.5f,  0.5f,  0.5f,
+                    0.5f, -0.5f,  0.5f,
+                   -0.5f,  0.5f,  0.5f,
+                   -0.5f, -0.5f,  0.5f,
 
-        //            0.5f,  0.5f, -0.5f,
-        //            0.5f, -0.5f, -0.5f,
-        //           -0.5f,  0.5f, -0.5f,
-        //           -0.5f, -0.5f, -0.5f,
+                    0.5f,  0.5f, -0.5f,
+                    0.5f, -0.5f, -0.5f,
+                   -0.5f,  0.5f, -0.5f,
+                   -0.5f, -0.5f, -0.5f,
 
-        //            0.5f,  0.5f,  0.5f,
-        //            0.5f,  0.5f, -0.5f,
-        //           -0.5f,  0.5f,  0.5f,
-        //           -0.5f,  0.5f, -0.5f,
+                    0.5f,  0.5f,  0.5f,
+                    0.5f,  0.5f, -0.5f,
+                   -0.5f,  0.5f,  0.5f,
+                   -0.5f,  0.5f, -0.5f,
 
-        //            0.5f, -0.5f,  0.5f,
-        //            0.5f, -0.5f, -0.5f,
-        //           -0.5f, -0.5f,  0.5f,
-        //           -0.5f, -0.5f, -0.5f,
+                    0.5f, -0.5f,  0.5f,
+                    0.5f, -0.5f, -0.5f,
+                   -0.5f, -0.5f,  0.5f,
+                   -0.5f, -0.5f, -0.5f,
 
-        //            0.5f,  0.5f,  0.5f,
-        //            0.5f,  0.5f, -0.5f,
-        //            0.5f, -0.5f,  0.5f,
-        //            0.5f, -0.5f, -0.5f,
+                    0.5f,  0.5f,  0.5f,
+                    0.5f,  0.5f, -0.5f,
+                    0.5f, -0.5f,  0.5f,
+                    0.5f, -0.5f, -0.5f,
 
-        //           -0.5f,  0.5f,  0.5f,
-        //           -0.5f, -0.5f,  0.5f,
-        //           -0.5f,  0.5f, -0.5f,
-        //           -0.5f, -0.5f, -0.5f,
-        //        };
+                   -0.5f,  0.5f,  0.5f,
+                   -0.5f, -0.5f,  0.5f,
+                   -0.5f,  0.5f, -0.5f,
+                   -0.5f, -0.5f, -0.5f,
+                };
 
-        //        float cubeNorm[] = {
-        //            0.0f, 0.0f, 1.0f,
-        //            0.0f, 0.0f, 1.0f,
-        //            0.0f, 0.0f, 1.0f,
-        //            0.0f, 0.0f, 1.0f,
+                float cubeNorm[] = {
+                    0.0f, 0.0f, 1.0f,
+                    0.0f, 0.0f, 1.0f,
+                    0.0f, 0.0f, 1.0f,
+                    0.0f, 0.0f, 1.0f,
 
-        //            0.0f, 0.0f, -1.0f,
-        //            0.0f, 0.0f, -1.0f,
-        //            0.0f, 0.0f, -1.0f,
-        //            0.0f, 0.0f, -1.0f,
+                    0.0f, 0.0f, -1.0f,
+                    0.0f, 0.0f, -1.0f,
+                    0.0f, 0.0f, -1.0f,
+                    0.0f, 0.0f, -1.0f,
 
-        //            0.0f, 1.0f, 0.0f,
-        //            0.0f, 1.0f, 0.0f,
-        //            0.0f, 1.0f, 0.0f,
-        //            0.0f, 1.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f,
 
-        //            0.0f, -1.0f, 0.0f,
-        //            0.0f, -1.0f, 0.0f,
-        //            0.0f, -1.0f, 0.0f,
-        //            0.0f, -1.0f, 0.0f,
+                    0.0f, -1.0f, 0.0f,
+                    0.0f, -1.0f, 0.0f,
+                    0.0f, -1.0f, 0.0f,
+                    0.0f, -1.0f, 0.0f,
 
-        //            1.0f, 0.0f, 0.0f,
-        //            1.0f, 0.0f, 0.0f,
-        //            1.0f, 0.0f, 0.0f,
-        //            1.0f, 0.0f, 0.0f,
+                    1.0f, 0.0f, 0.0f,
+                    1.0f, 0.0f, 0.0f,
+                    1.0f, 0.0f, 0.0f,
+                    1.0f, 0.0f, 0.0f,
 
-        //            -1.0f, 0.0f, 0.0f,
-        //            -1.0f, 0.0f, 0.0f,
-        //            -1.0f, 0.0f, 0.0f,
-        //            -1.0f, 0.0f, 0.0f,
-        //        };
+                    -1.0f, 0.0f, 0.0f,
+                    -1.0f, 0.0f, 0.0f,
+                    -1.0f, 0.0f, 0.0f,
+                    -1.0f, 0.0f, 0.0f,
+                };
 
-        //        bufferContainer[VERTEX_CUBE] = createVertexBuffer(cubeVertices, sizeof(cubeVertices), sizeof(float) * 3);
-        //        bufferContainer[VERTEX_CUBE_NORM] = createVertexBuffer(cubeNorm, sizeof(cubeNorm), sizeof(float) * 3);
+                bufferContainer[VERTEX_CUBE] = createVertexBuffer(cubeVertices, sizeof(cubeVertices), sizeof(float) * 3);
+                bufferContainer[VERTEX_CUBE_NORM] = createVertexBuffer(cubeNorm, sizeof(cubeNorm), sizeof(float) * 3);
 
-        //        uint cubeIndices[] = {
-        //            3, 2, 0,
-        //            0, 1, 3,
+                uint cubeIndices[] = {
+                    3, 2, 0,
+                    0, 1, 3,
 
-        //            7, 5, 4,
-        //            7, 4, 6,
+                    7, 5, 4,
+                    7, 4, 6,
 
-        //            10, 11, 8,
-        //            8, 11, 9,
+                    10, 11, 8,
+                    8, 11, 9,
 
-        //            13, 15, 12,
-        //            12, 15, 14,
+                    13, 15, 12,
+                    12, 15, 14,
 
-        //            19, 18, 16,
-        //            19, 16, 17,
+                    19, 18, 16,
+                    19, 16, 17,
 
-        //            21, 23, 20,
-        //            20, 23, 22,
-        //        };
+                    21, 23, 20,
+                    20, 23, 22,
+                };
 
-        //        bufferContainer[INDEX_CUBE] = createIndexBuffer(cubeIndices, sizeof(cubeIndices));
-        //    }
+                bufferContainer[INDEX_CUBE] = createIndexBuffer(cubeIndices, sizeof(cubeIndices));
+            }
 
         //    {
         //        //loadFile("asset/model/bun_zipper.ply", VERTEX_OBJ, VERTEX_OBJ_NORM, INDEX_OBJ);
@@ -787,7 +786,7 @@ namespace buf
 
         CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
 
-        device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
+        e_GlobRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             state, nullptr, IID_PPV_ARGS(&newBuffer->resource));
 
         return newBuffer;

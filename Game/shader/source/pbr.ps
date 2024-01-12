@@ -5,7 +5,7 @@
 
 struct PSInput
 {
-    float4 position : SV_POSITION;
+	float4 position : SV_POSITION;
     float3 worldPos : WORLD_POS;
     float3 normal : NORMAL;
 };
@@ -14,25 +14,23 @@ float4 PSMain(PSInput input) : SV_TARGET
 {
     float3 position = input.worldPos;
 	float3 normal = normalize(input.normal);
-
-	float3 albedovalue = obj.albedo;
 	
 	float3 viewDir = normalize(proj.camPos - position);
 	
-	float3 F0 = float3(0.04, 0.04, 0.04);// = vec3(pow((1 - refractiveindex) / (1 + refractiveindex), 2));
-	
-    F0 = F0 * obj.metal + albedovalue * (1 - obj.metal);
-	
-	float3 resultColor = float3(0,0,0);
-
-	resultColor = calcImageBasedLight(viewDir, normal, obj.roughness, obj.metal, albedovalue, F0);
-	
-	float3 lightDir = normalize(-sunDir);
-	
-	resultColor += calcLight(lightDir, viewDir, normal, albedovalue, float3(1,1,1), obj.roughness, obj.metal, F0);
-	resultColor += albedovalue * 0.1;
-
-	//resultColor = pow(resultColor / (resultColor + float3(1.0, 1.0, 1.0)), float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
-
-    return float4(resultColor, 1.0);
+	float ambientStrength = 0.1;
+    float3 ambient = ambientStrength * float3(1,1,1);
+  	
+    // diffuse 
+    float3 lightDir = float3(0,-1.0f,0);
+    float diff = max(dot(normal, lightDir), 0.0);
+    float3 diffuse = diff;
+    
+    // specular
+    float specularStrength = 0.5;
+    float3 reflectDir = reflect(-lightDir, normal);  
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    float3 specular = specularStrength * spec;  
+        
+    float3 result = (ambient + diffuse + specular);
+    return float4(result, 1.0);
 }

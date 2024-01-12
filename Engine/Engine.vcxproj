@@ -87,12 +87,14 @@
   <ItemGroup>
     <ClInclude Include="include\engine.hpp" />
     <ClInclude Include="include\render\buffer.hpp" />
+    <ClInclude Include="include\render\camera.hpp" />
     <ClInclude Include="include\render\commandqueue.hpp" />
     <ClInclude Include="include\render\descriptorheap.hpp" />
     <ClInclude Include="include\render\pipelinestate.hpp" />
     <ClInclude Include="include\render\renderer.hpp" />
     <ClInclude Include="include\render\rootsignature.hpp" />
     <ClInclude Include="include\render\shader.hpp" />
+    <ClInclude Include="include\render\transform.hpp" />
     <ClInclude Include="include\system\config.hpp" />
     <ClInclude Include="include\system\defines.hpp" />
     <ClInclude Include="include\system\gui.hpp" />
@@ -104,12 +106,14 @@
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
     <ClCompile Include="src\render\buffer.cpp" />
+    <ClCompile Include="src\render\camera.cpp" />
     <ClCompile Include="src\render\commandqueue.cpp" />
     <ClCompile Include="src\render\descriptorheap.cpp" />
     <ClCompile Include="src\render\pipelinestate.cpp" />
     <ClCompile Include="src\render\renderer.cpp" />
     <ClCompile Include="src\render\rootsignature.cpp" />
     <ClCompile Include="src\render\shader.cpp" />
+    <ClCompile Include="src\render\transform.cpp" />
     <ClCompile Include="src\system\gui.cpp" />
     <ClCompile Include="src\system\input.cpp" />
     <ClCompile Include="src\system\logger_internal.cpp" />

@@ -3,6 +3,8 @@
 #include <render/pipelinestate.hpp>
 #include <render/shader.hpp>
 #include <render/rootsignature.hpp>
+#include <render/transform.hpp>
+#include <render/camera.hpp>
 
 #include <system/logger.hpp>
 #include <system/window.hpp>
@@ -176,6 +178,11 @@ void renderer::preDraw(float dt)
 
 }
 
+constantbuffer* projectionBuffer = nullptr;
+descriptor desc;
+float FAR_PLANE = 100.0f;
+camera camObj;
+
 void renderer::draw(float dt)
 {
 	auto frameBuffer = swapchainBuffer[frameIndex]->resource;
@@ -189,6 +196,56 @@ void renderer::draw(float dt)
 	cmdList->ResourceBarrier(1, &barrier);
 
 	renderScene();
+
+	if(projectionBuffer == nullptr)
+	{
+		projectionBuffer = buf::createConstantBuffer(sizeof(float) * (4 * 4 * 2 + 4));
+
+		desc = (descheap::getHeap(descheap::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, projectionBuffer));
+
+		auto transformPtr = new transform();
+
+		transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,1.0f });
+
+		DirectX::XMVECTOR rotation = transformPtr->getQuaternion();
+
+		DirectX::XMVECTOR up = transformPtr->getUP();
+		DirectX::XMVECTOR right = transformPtr->getRIGHT();
+
+		DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);
+
+		DirectX::XMVECTOR pos = transformPtr->getPosition();
+
+		DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, up);
+
+		DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), e_globWindow.width() / (float)(e_globWindow.height()), 0.1f, FAR_PLANE);
+
+		DirectX::XMMATRIX proj[2] = { projection, view };
+
+		memcpy(projectionBuffer->info.cbvDataBegin, proj, sizeof(float) * 4 * 4 * 2);
+		memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 * 2, &pos, sizeof(float) * 3);
+		memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 * 2 + sizeof(float) * 3, &FAR_PLANE, sizeof(float));
+		camObj.init();
+	}
+
+	{
+		camObj.update(dt);
+
+		D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
+
+		root::getRootSignature(root::ROOT_PBR)->setRootSignature(cmdList);
+		root::getRootSignature(root::ROOT_PBR)->registerDescHeap(cmdList);
+
+		camObj.preDraw(cmdList, rtv);
+		camObj.draw(0, cmdList);
+
+		cmdList->IASetVertexBuffers(0, 1, &buf::getVertexBuffer(buf::VERTEX_CUBE)->view);
+		cmdList->IASetVertexBuffers(1, 1, &buf::getVertexBuffer(buf::VERTEX_CUBE_NORM)->view);
+
+		cmdList->IASetIndexBuffer(&buf::getIndexBuffer(buf::INDEX_CUBE)->view);
+
+		cmdList->DrawIndexedInstanced(36, 1, 0, 0, 0);
+	}
 
 	gui::render(cmdList.Get());
 
