@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="include\engine.hpp" />
+    <ClInclude Include="include\system\logger_internal.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\defines.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\config.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\logger.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\window.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\input.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\gui.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\renderer.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\commandqueue.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\descriptorheap.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\pipelinestate.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\rootsignature.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\shader.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\buffer.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\transform.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\camera.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\jsonhelper.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\engine.cpp" />
+    <ClCompile Include="src\system\logger_internal.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\system\window.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\system\input.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\system\gui.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\renderer.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\commandqueue.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\descriptorheap.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\pipelinestate.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\rootsignature.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\shader.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\buffer.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\transform.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\camera.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\system\jsonhelper.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="system">
+      <UniqueIdentifier>{0517e0be-7247-4811-8f5a-99865c8945db}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="render">
+      <UniqueIdentifier>{d4578b99-f5a6-4ad0-9a0d-a94e2f2631ec}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+</Project>
