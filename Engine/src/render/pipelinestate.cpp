@@ -1,25 +1,22 @@
 #include <render/pipelinestate.hpp>
 #include <render/rootsignature.hpp>
 #include <render/shader.hpp>
+#include <render/renderer.hpp>
 
 #include <array>
 
 #include <d3dx12.h>
 
-namespace pso
+namespace render
 {
-	Microsoft::WRL::ComPtr<ID3D12Device2> device;
-
 	std::array<pipelinestate*, PSO_END> pipelineStateObjects;
 	
-	bool loadResources(Microsoft::WRL::ComPtr<ID3D12Device2> dxdevice)
+	bool initPSO()
 	{
-		device = dxdevice;
-
 		{
 			pipelinestate* newObject = new pipelinestate();
 
-			newObject->init(shaders::PBR_VS, shaders::PBR_PS, root::ROOT_PBR, { DXGI_FORMAT_R8G8B8A8_UNORM }, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, true);
+			newObject->init(shaders::PBR_VS, shaders::PBR_PS, render::ROOT_PBR, { DXGI_FORMAT_R8G8B8A8_UNORM }, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, true);
 
 			pipelineStateObjects[PSO_PBR] = newObject;
 		}
@@ -27,7 +24,7 @@ namespace pso
 		return true;
 	}
 
-	void cleanUp()
+	void cleanUpPSO()
 	{
 		for (uint i = 0; i < PSO_END; ++i)
 		{
@@ -50,7 +47,7 @@ bool pipelinestate::init(uint VS, uint PS, uint root, std::vector<DXGI_FORMAT> f
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 	psoDesc.InputLayout.NumElements = static_cast<uint>(vs->inputs.size());
 	psoDesc.InputLayout.pInputElementDescs = vs->inputs.data();
-	psoDesc.pRootSignature = root::getRootSignature(root::ROOT_INDEX(root))->getrootSignature();
+	psoDesc.pRootSignature = render::getRootSignature(render::ROOT_INDEX(root))->getrootSignature();
 	psoDesc.VS = vs->getByteCode();
 	psoDesc.PS = ps->getByteCode();
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -79,7 +76,7 @@ bool pipelinestate::init(uint VS, uint PS, uint root, std::vector<DXGI_FORMAT> f
 		psoDesc.DepthStencilState.StencilEnable = FALSE;
 	}
 	psoDesc.SampleDesc.Count = 1;
-	pso::device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	e_GlobRenderer.device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
 
 	return true;
 }
@@ -94,12 +91,12 @@ bool pipelinestate::initCS(uint CS, uint root)
 		CD3DX12_PIPELINE_STATE_STREAM_CS CS;
 	} pipelineStateStream;
 
-	pipelineStateStream.pRootSignature = root::getRootSignature(root::ROOT_INDEX(root))->getrootSignature();
+	pipelineStateStream.pRootSignature = render::getRootSignature(render::ROOT_INDEX(root))->getrootSignature();
 	pipelineStateStream.CS = cs->getByteCode();
 
 	D3D12_PIPELINE_STATE_STREAM_DESC psoDesc = { sizeof(PipelineStateStream), &pipelineStateStream };
 
-	pso::device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	e_GlobRenderer.device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
 
 	return true;
 }

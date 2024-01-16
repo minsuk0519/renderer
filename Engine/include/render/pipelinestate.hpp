@@ -9,7 +9,7 @@
 
 class pipelinestate;
 
-namespace pso
+namespace render
 {
 	enum PSO_INDEX
 	{
@@ -17,8 +17,8 @@ namespace pso
 		PSO_END,
 	};
 
-	bool loadResources(Microsoft::WRL::ComPtr<ID3D12Device2> dxdevice);
-	void cleanUp();
+	bool initPSO();
+	void cleanUpPSO();
 
 	pipelinestate* getpipelinestate(PSO_INDEX index);
 }

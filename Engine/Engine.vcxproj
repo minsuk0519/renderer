@@ -99,6 +99,7 @@
     <ClInclude Include="include\system\defines.hpp" />
     <ClInclude Include="include\system\gui.hpp" />
     <ClInclude Include="include\system\input.hpp" />
+    <ClInclude Include="include\system\jsonhelper.hpp" />
     <ClInclude Include="include\system\logger.hpp" />
     <ClInclude Include="include\system\logger_internal.hpp" />
     <ClInclude Include="include\system\window.hpp" />
@@ -116,6 +117,7 @@
     <ClCompile Include="src\render\transform.cpp" />
     <ClCompile Include="src\system\gui.cpp" />
     <ClCompile Include="src\system\input.cpp" />
+    <ClCompile Include="src\system\jsonhelper.cpp" />
     <ClCompile Include="src\system\logger_internal.cpp" />
     <ClCompile Include="src\system\window.cpp" />
   </ItemGroup>

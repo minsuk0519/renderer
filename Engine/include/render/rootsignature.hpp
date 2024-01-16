@@ -10,7 +10,7 @@
 
 class rootsignature;
 
-namespace root
+namespace render
 {
 	enum ROOT_INDEX
 	{
@@ -25,8 +25,8 @@ namespace root
 		uint num = 1;
 	};
 
-	bool initRootSignatures(Microsoft::WRL::ComPtr<ID3D12Device2> dxdevice);
-	void cleanUp();
+	bool initRootSignatures();
+	void cleanUpRootSignature();
 
 	rootsignature* getRootSignature(const ROOT_INDEX index);
 };
@@ -36,13 +36,13 @@ class rootsignature
 private:
 	//will be changed later
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
-	std::vector<descheap::descriptorHeapIndex> descHeaps;
+	std::vector<render::descriptorHeapIndex> descHeaps;
 
 	bool compute = false;
 public:
 
-	bool init(std::vector<root::root_init_param> descriptors, std::vector<uint> constantNums, bool CS = false);
-	void setDescriptorHeap(std::vector<descheap::descriptorHeapIndex> descHeapsIdx);
+	bool init(std::vector<render::root_init_param> descriptors, std::vector<uint> constantNums, bool CS = false);
+	void setDescriptorHeap(std::vector<render::descriptorHeapIndex> descHeapsIdx);
 
 	void setRootSignature(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 	void registerDescHeap(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);

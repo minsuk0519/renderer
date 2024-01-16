@@ -18,30 +18,8 @@ uint vsync = 0;
 
 renderer e_GlobRenderer;
 
-bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter)
+bool initGui()
 {
-	factory = dxFactory;
-
-	TC_CONDITIONB(createDevice(factory, adapter) == true, "Failed to create device");
-
-	TC_INIT(shaders::loadResources());
-
-	cmdqueue::allocateCmdQueue(device);
-
-	TC_CONDITIONB(createSwapChain() == true, "Failed to create swapchain");
-
-	cmdList = cmdqueue::createCommandList(cmdqueue::QUEUE_GRAPHIC, true);
-	copyCmdList = cmdqueue::createCommandList(cmdqueue::QUEUE_COPY, true);
-	computeCmdList = cmdqueue::createCommandList(cmdqueue::QUEUE_COMPUTE, true);
-
-	TC_INIT(buf::loadResources(device, copyCmdList));
-
-	descheap::loadResources(device);
-	createFrameResources();
-
-	root::initRootSignatures(device);
-	pso::loadResources(device);
-
 	//setting up gui
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
 	{
@@ -50,17 +28,43 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-		TC_CONDITIONB(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&guiHeap)) == S_OK, "Failed to create DescriptorHeap");
+		if (e_GlobRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&guiHeap)) != S_OK)
+		{
+			return false;
+		}
 	}
 
-	TC_INIT(gui::init(e_globWindow.getWindow(), device.Get(), guiHeap.Get()));
+	gui::init(e_globWindow.getWindow(), e_GlobRenderer.device.Get(), guiHeap.Get());
+}
+
+bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter)
+{
+	factory = dxFactory;
+
+	TC_CONDITIONB(createDevice(factory, adapter) == true, "Failed to create device");
+	TC_INIT(shaders::loadResources());
+	TC_INIT(render::allocateCmdQueue());
+	TC_CONDITIONB(createSwapChain() == true, "Failed to create swapchain");
+	TC_INIT(buf::loadResources());
+	TC_INIT(render::initDescHeap());
+	TC_INIT(createFrameResources());
+	TC_INIT(render::initRootSignatures());
+	TC_INIT(render::initPSO());
+
+	TC_INIT(initGui());
 
 	return true;
 }
 
 void renderer::close()
 {
-
+	gui::close();
+	render::cleanUpPSO();
+	render::cleanUpRootSignature();
+	render::cleanUpDescHeap();
+	buf::cleanUp();
+	render::closeCmdQueue();
+	shaders::cleanup();
 }
 
 bool renderer::createDevice(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter)
@@ -141,7 +145,7 @@ bool renderer::createSwapChain()
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain1;
 	HRESULT result = factory->CreateSwapChainForHwnd(
-		cmdqueue::getCmdQueue(cmdqueue::QUEUE_GRAPHIC)->getQueue(),
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue(),
 		e_globWindow.getWindow(),
 		&swapChainDesc,
 		nullptr,
@@ -167,7 +171,7 @@ bool renderer::createFrameResources()
 
 		swapChain->GetBuffer(i, IID_PPV_ARGS(&swapchainBuffer[i]->resource));
 
-		swapchainDesc[i] = descheap::getHeap(descheap::DESCRIPTORHEAP_RENDERTARGET)->requestdescriptor(buf::BUFFER_RT_TYPE, swapchainBuffer[i]);
+		swapchainDesc[i] = render::getHeap(render::DESCRIPTORHEAP_RENDERTARGET)->requestdescriptor(buf::BUFFER_RT_TYPE, swapchainBuffer[i]);
 	}
 
 	return true;
@@ -186,22 +190,33 @@ camera camObj;
 void renderer::draw(float dt)
 {
 	auto frameBuffer = swapchainBuffer[frameIndex]->resource;
-	auto cmdAllocator = cmdqueue::getCmdQueue(cmdqueue::QUEUE_GRAPHIC)->getAllocator();
+	auto cmdAllocator = render::getCmdQueue(render::QUEUE_GRAPHIC)->getAllocator();
+
+	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
 	cmdAllocator->Reset();
-	cmdList->Reset(cmdAllocator.Get(), pso::getpipelinestate(pso::PSO_PBR)->getPSO());
+	cmdList->Reset(cmdAllocator.Get(), render::getpipelinestate(render::PSO_PBR)->getPSO());
 
 	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(frameBuffer.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 	cmdList->ResourceBarrier(1, &barrier);
 
-	renderScene();
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
+	D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(render::getHeap(render::DESCRIPTORHEAP_DEPTH)->getCPUPos(0));
+
+	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
+
+	cmdList->ClearRenderTargetView(rtv, &backgroundColor.x, 0, nullptr);
+	cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	//draw may be called on here
+	cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
 	if(projectionBuffer == nullptr)
 	{
 		projectionBuffer = buf::createConstantBuffer(sizeof(float) * (4 * 4 * 2 + 4));
 
-		desc = (descheap::getHeap(descheap::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, projectionBuffer));
+		desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, projectionBuffer));
 
 		auto transformPtr = new transform();
 
@@ -233,8 +248,8 @@ void renderer::draw(float dt)
 
 		D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
 
-		root::getRootSignature(root::ROOT_PBR)->setRootSignature(cmdList);
-		root::getRootSignature(root::ROOT_PBR)->registerDescHeap(cmdList);
+		render::getRootSignature(render::ROOT_PBR)->setRootSignature(cmdList);
+		render::getRootSignature(render::ROOT_PBR)->registerDescHeap(cmdList);
 
 		camObj.preDraw(cmdList, rtv);
 		camObj.draw(0, cmdList);
@@ -252,24 +267,12 @@ void renderer::draw(float dt)
 	barrier = CD3DX12_RESOURCE_BARRIER::Transition(frameBuffer.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 	cmdList->ResourceBarrier(1, &barrier);
 
-	cmdqueue::getCmdQueue(cmdqueue::QUEUE_GRAPHIC)->execute({ cmdList });
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
 	TC_CONDITION(swapChain->Present(vsync, DXGI_PRESENT_ALLOW_TEARING) == S_OK, "Failed to present the swapchain");
 
 	//signal the queue graphics fence and wait for it.
-	cmdqueue::getCmdQueue(cmdqueue::QUEUE_GRAPHIC)->flush();
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
-}
-
-void renderer::renderScene()
-{
-	D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
-	D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(descheap::getHeap(descheap::DESCRIPTORHEAP_DEPTH)->getCPUPos(0));
-
-	cmdList->ClearRenderTargetView(rtv, &backgroundColor.x, 0, nullptr);
-	cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-	//draw may be called on here
-	cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 }

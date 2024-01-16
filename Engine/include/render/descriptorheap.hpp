@@ -11,7 +11,7 @@
 
 class descriptorheap;
 
-namespace descheap
+namespace render
 {
 	enum descriptorHeapIndex
 	{
@@ -30,8 +30,8 @@ namespace descheap
 
 	descriptorheap* getHeap(uint index);
 
-	void loadResources(Microsoft::WRL::ComPtr<ID3D12Device2> dxdevice);
-	void cleanUp();
+	bool initDescHeap();
+	void cleanUpDescHeap();
 
 	void createSampler(descriptorHeapIndex heapIndex, uint offset);
 }
@@ -39,7 +39,7 @@ namespace descheap
 struct descriptor
 {
 	uint heapOffset;
-	descheap::descriptorHeapIndex heapIndex;
+	render::descriptorHeapIndex heapIndex;
 
 	D3D12_GPU_DESCRIPTOR_HANDLE getHandle() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE getCPUHandle() const;
@@ -52,7 +52,7 @@ private:
 	uint incrementalSize = 0;
 	uint numDescriptor;
 
-	std::array<std::vector<descriptor>, descheap::DESCRIPTORHEAP_MAX> occupiedDescriptor;
+	std::array<std::vector<descriptor>, render::DESCRIPTORHEAP_MAX> occupiedDescriptor;
 
 public:
 	bool init(D3D12_DESCRIPTOR_HEAP_TYPE type, uint count, D3D12_DESCRIPTOR_HEAP_FLAGS flags);
@@ -68,6 +68,6 @@ public:
 
 	descriptor requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf);
 
-	uint getRemainPos(descheap::descriptorHeapIndex heapIdx) const;
+	uint getRemainPos(render::descriptorHeapIndex heapIdx) const;
 };
 

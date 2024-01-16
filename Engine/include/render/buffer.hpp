@@ -83,7 +83,7 @@ namespace buf
 		DEPTH_END,
 	};
 
-	bool loadResources(Microsoft::WRL::ComPtr<ID3D12Device2> devicePtr, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> copyCmdList);
+	bool loadResources();
 	void cleanUp();
 
 	void loadFiletoMesh(std::string fileName, meshData* meshdata);

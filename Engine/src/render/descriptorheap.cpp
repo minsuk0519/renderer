@@ -5,19 +5,17 @@
 
 constexpr uint MAX_DESCRIPTOR_SIZE = 1024;
 
-namespace descheap
+namespace render
 {
-	Microsoft::WRL::ComPtr<ID3D12Device2> device;
 	std::array<descriptorheap*, DESCRIPTORHEAP_MAX> descriptorHeaps;
 
 	descriptorheap* getHeap(uint index)
 	{
 		return descriptorHeaps[index];
 	}
-	void loadResources(Microsoft::WRL::ComPtr<ID3D12Device2> dxdevice)
-	{
-		descheap::device = dxdevice;
 
+	bool initDescHeap()
+	{
 		//create rendertarget rtv
 		{
 			descriptorheap* newHeap = new descriptorheap();
@@ -40,13 +38,15 @@ namespace descheap
 			descriptorheap* newHeap = new descriptorheap();
 			newHeap->init(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, MAX_DESCRIPTOR_SIZE, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 
-			descheap::device->CreateDepthStencilView(buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->resource.Get(), &buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->view, D3D12_CPU_DESCRIPTOR_HANDLE(newHeap->getCPUPos(0)));
+			e_GlobRenderer.device->CreateDepthStencilView(buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->resource.Get(), &buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->view, D3D12_CPU_DESCRIPTOR_HANDLE(newHeap->getCPUPos(0)));
 
 			descriptorHeaps[DESCRIPTORHEAP_DEPTH] = newHeap;
 		}
+
+		return true;
 	}
 
-	void cleanUp()
+	void cleanUpDescHeap()
 	{
 		for (uint i = 0; i < DESCRIPTORHEAP_MAX; ++i)
 		{
@@ -68,7 +68,7 @@ namespace descheap
 		samplerDesc.MaxAnisotropy = 1;
 		samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
 
-		device->CreateSampler(&samplerDesc, D3D12_CPU_DESCRIPTOR_HANDLE(descriptorHeaps[heapIndex]->getCPUPos(offset)));
+		e_GlobRenderer.device->CreateSampler(&samplerDesc, D3D12_CPU_DESCRIPTOR_HANDLE(descriptorHeaps[heapIndex]->getCPUPos(offset)));
 	}
 }
 
@@ -82,9 +82,9 @@ bool descriptorheap::init(D3D12_DESCRIPTOR_HEAP_TYPE type, uint count, D3D12_DES
 	desc.Type = type;
 	desc.Flags = flags;
 
-	TC_CONDITIONB(descheap::device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&heap)) == S_OK, "Failed to create DescriptorHeap");
+	TC_CONDITIONB(e_GlobRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&heap)) == S_OK, "Failed to create DescriptorHeap");
 
-	incrementalSize = descheap::device->GetDescriptorHandleIncrementSize(type);
+	incrementalSize = e_GlobRenderer.device->GetDescriptorHandleIncrementSize(type);
 
 	return true;
 }
@@ -129,11 +129,11 @@ uint descriptorheap::setRootTable(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandLi
 
 descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf)
 {
-	descheap::descriptorHeapIndex heapIdx;
+	render::descriptorHeapIndex heapIdx;
 
-	if (type == buf::BUFFER_DEPTH_TYPE) heapIdx = descheap::DESCRIPTORHEAP_DEPTH;
-	else if (type == buf::BUFFER_RT_TYPE) heapIdx = descheap::DESCRIPTORHEAP_RENDERTARGET;
-	else heapIdx = descheap::DESCRIPTORHEAP_BUFFER;
+	if (type == buf::BUFFER_DEPTH_TYPE) heapIdx = render::DESCRIPTORHEAP_DEPTH;
+	else if (type == buf::BUFFER_RT_TYPE) heapIdx = render::DESCRIPTORHEAP_RENDERTARGET;
+	else heapIdx = render::DESCRIPTORHEAP_BUFFER;
 
 	uint pos = getRemainPos(heapIdx);
 
@@ -147,26 +147,26 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 	case buf::BUFFER_CONSTANT_TYPE:
 	{
 		constantbuffer* constantBuffer = dynamic_cast<constantbuffer*>(buf);
-		descheap::device->CreateConstantBufferView(&constantBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_GlobRenderer.device->CreateConstantBufferView(&constantBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_DEPTH_TYPE:
 	{
 		depthbuffer* depthBuffer = dynamic_cast<depthbuffer*>(buf);
-		descheap::device->CreateDepthStencilView(depthBuffer->resource.Get(), &depthBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_GlobRenderer.device->CreateDepthStencilView(depthBuffer->resource.Get(), &depthBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_IMAGE_TYPE:
 	{
 		imagebuffer* imageBuffer = dynamic_cast<imagebuffer*>(buf);
-		descheap::device->CreateShaderResourceView(imageBuffer->resource.Get(), &imageBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_GlobRenderer.device->CreateShaderResourceView(imageBuffer->resource.Get(), &imageBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_UAV_TYPE:
 	{
 		uavbuffer* uavBuffer = dynamic_cast<uavbuffer*>(buf);
 
-		descheap::device->CreateUnorderedAccessView(uavBuffer->resource.Get(), nullptr, &uavBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_GlobRenderer.device->CreateUnorderedAccessView(uavBuffer->resource.Get(), nullptr, &uavBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_RT_TYPE:
@@ -178,7 +178,7 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 		//force render target to texture2d
 		view.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
-		descheap::device->CreateRenderTargetView(imageBuffer->resource.Get(), &view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_GlobRenderer.device->CreateRenderTargetView(imageBuffer->resource.Get(), &view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	default:
@@ -189,7 +189,7 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 	return result;
 }
 
-uint descriptorheap::getRemainPos(descheap::descriptorHeapIndex heapIdx) const
+uint descriptorheap::getRemainPos(render::descriptorHeapIndex heapIdx) const
 {
 	uint result = 0;
 
@@ -209,11 +209,11 @@ uint descriptorheap::getRemainPos(descheap::descriptorHeapIndex heapIdx) const
 D3D12_GPU_DESCRIPTOR_HANDLE descriptor::getHandle() const
 {
 	//will be not only for the descriptorheap buffer
-	return D3D12_GPU_DESCRIPTOR_HANDLE(descheap::descriptorHeaps[heapIndex]->getGPUPos(heapOffset));
+	return D3D12_GPU_DESCRIPTOR_HANDLE(render::descriptorHeaps[heapIndex]->getGPUPos(heapOffset));
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE descriptor::getCPUHandle() const
 {
 
-	return D3D12_CPU_DESCRIPTOR_HANDLE(descheap::descriptorHeaps[heapIndex]->getCPUPos(heapOffset));
+	return D3D12_CPU_DESCRIPTOR_HANDLE(render::descriptorHeaps[heapIndex]->getCPUPos(heapOffset));
 }

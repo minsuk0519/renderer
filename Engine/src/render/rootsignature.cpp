@@ -1,6 +1,7 @@
 #include <render\rootsignature.hpp>
 #include <system\defines.hpp>
 #include <system/logger.hpp>
+#include <render/renderer.hpp>
 
 #include <string>
 #include <iterator>
@@ -8,21 +9,18 @@
 
 #include <d3dx12.h>
 
-namespace root
+namespace render
 {
 	enum RANGE_TYPE
 	{
 		D3D12_RANGE_TYPE_CONSTANT = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER + 1
 	};
 
-	Microsoft::WRL::ComPtr<ID3D12Device2> device;
-
 	std::array<rootsignature*, ROOT_END> rootsignatures;
 
-	bool initRootSignatures(Microsoft::WRL::ComPtr<ID3D12Device2> dxdevice)
+	bool initRootSignatures()
 	{
-		device = dxdevice;
-
+		//TODO : find the automatic system
 		{
 			rootsignature* rootsig = new rootsignature;
 
@@ -32,7 +30,7 @@ namespace root
 				//object
 				{D3D12_DESCRIPTOR_RANGE_TYPE_CBV, D3D12_SHADER_VISIBILITY_ALL},
 				}, {});
-			rootsig->setDescriptorHeap({ descheap::DESCRIPTORHEAP_BUFFER });
+			rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
 
 			rootsignatures[ROOT_PBR] = rootsig;
 		}
@@ -40,7 +38,7 @@ namespace root
 		return true;
 	}
 
-	void cleanUp()
+	void cleanUpRootSignature()
 	{
 		for (uint i = 0; i < ROOT_END; ++i)
 		{
@@ -55,7 +53,7 @@ namespace root
 
 }
 
-bool rootsignature::init(std::vector<root::root_init_param> descriptors, std::vector<uint> constantNums, bool CS)
+bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::vector<uint> constantNums, bool CS)
 {
 	compute = CS;
 
@@ -66,14 +64,14 @@ bool rootsignature::init(std::vector<root::root_init_param> descriptors, std::ve
 	rootParameters.resize(descriptors.size() + constantNums.size());
 
 	D3D12_DESCRIPTOR_RANGE_TYPE currentType = descriptors[0].type;
-	uint index[root::D3D12_RANGE_TYPE_CONSTANT] = { 0 };
+	uint index[render::D3D12_RANGE_TYPE_CONSTANT] = { 0 };
 	for (int i = 0; i < descriptors.size(); ++i)
 	{
 		D3D12_DESCRIPTOR_RANGE_TYPE type = descriptors[i].type;
 		D3D12_SHADER_VISIBILITY visibility = descriptors[i].vis;
 		uint descNum = descriptors[i].num;
 
-		if (type == (D3D12_DESCRIPTOR_RANGE_TYPE)root::D3D12_RANGE_TYPE_CONSTANT)
+		if (type == (D3D12_DESCRIPTOR_RANGE_TYPE)render::D3D12_RANGE_TYPE_CONSTANT)
 		{
 			rootParameters[i].InitAsConstantBufferView(index[D3D12_DESCRIPTOR_RANGE_TYPE_CBV], 0, visibility);
 			++index[D3D12_DESCRIPTOR_RANGE_TYPE_CBV];
@@ -129,12 +127,12 @@ bool rootsignature::init(std::vector<root::root_init_param> descriptors, std::ve
 		return false;
 	}
 
-	root::device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	e_GlobRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 
 	return true;
 }
 
-void rootsignature::setDescriptorHeap(std::vector<descheap::descriptorHeapIndex> descHeapsIdx)
+void rootsignature::setDescriptorHeap(std::vector<render::descriptorHeapIndex> descHeapsIdx)
 {
 	descHeaps = descHeapsIdx;
 }
@@ -150,7 +148,7 @@ void rootsignature::registerDescHeap(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	std::vector<ID3D12DescriptorHeap*> heaps;
 	for (auto descheap : descHeaps)
 	{
-		heaps.push_back(descheap::getHeap(descheap)->getHeap());
+		heaps.push_back(render::getHeap(descheap)->getHeap());
 	}
 
 	cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
@@ -158,7 +156,7 @@ void rootsignature::registerDescHeap(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	uint offset = 0;
 	for (auto descheap : descHeaps)
 	{
-		offset = descheap::getHeap(descheap)->setRootTable(cmdList, offset);
+		offset = render::getHeap(descheap)->setRootTable(cmdList, offset);
 	}
 }
 

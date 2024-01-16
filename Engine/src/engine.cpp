@@ -5,6 +5,7 @@
 #include "system\window.hpp"
 #include "system\input.hpp"
 #include "render\renderer.hpp"
+#include "system\jsonhelper.hpp"
 
 #include <filesystem>
 #include <shlobj.h>
@@ -12,6 +13,8 @@
 #include <wrl.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
+
+configJson config{};
 
 engine e_globEngine;
 
@@ -39,7 +42,7 @@ static std::wstring GetLatestWinPixGpuCapturerPath()
 
     if (newestVersionFound.empty())
     {
-        // TODO: Error, no PIX installation found
+        TC_LOG_ERROR("Cannot find PIX installation");
     }
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
@@ -98,7 +101,9 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
         }
     }
 
-    TC_INIT(e_globWindow.init(hInstance, nCmdShow, 1600, 800));
+    readJsonBuffer(config, "data/config.json");
+
+    TC_INIT(e_globWindow.init(hInstance, nCmdShow, config.width, config.height));
 
     TC_INIT(e_GlobRenderer.init(factory, adapter));
 
@@ -152,5 +157,7 @@ void engine::run()
 
 void engine::close()
 {
+    writeJsonBuffer(config, "data/config.json");
+
     TC_LOG("shutting down engine!");
 }

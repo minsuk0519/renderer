@@ -29,21 +29,12 @@ private:
 	bool createFrameResources();
 
 private:
-	void renderScene();
-
-public:
-
-private:
 	//created from engine
 	Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain;
 
 	uint frameIndex = 0;
-
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> copyCmdList;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> computeCmdList;
 
 	bool eject = false;
 

@@ -9,7 +9,7 @@
 
 class commandqueue;
 
-namespace cmdqueue
+namespace render
 {
 	struct fence
 	{
@@ -27,9 +27,9 @@ namespace cmdqueue
 	};
 
 	commandqueue* getCmdQueue(const QUEUE_INDEX index);
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> createCommandList(const cmdqueue::QUEUE_INDEX& queueType, bool close);
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> createCommandList(const render::QUEUE_INDEX& queueType, bool close);
 
-	bool allocateCmdQueue(Microsoft::WRL::ComPtr<ID3D12Device2> dxdevice);
+	bool allocateCmdQueue();
 	void closeCmdQueue();
 };
 
@@ -38,8 +38,9 @@ class commandqueue
 private:
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> commandQueue;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList;
 
-	cmdqueue::fence fence;
+	render::fence fence;
 	HANDLE fenceEvent;
 
 	D3D12_COMMAND_LIST_TYPE type;
@@ -53,7 +54,9 @@ public:
 
 	bool init(const D3D12_COMMAND_LIST_TYPE commandType);
 
-	void execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>> cmdLists);//const std::vector<ID3D12CommandList*> cmdLists);
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> getCmdList() const;
+
+	void execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>> cmdLists);
 	void flush();
 
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> createCommandList(bool close);

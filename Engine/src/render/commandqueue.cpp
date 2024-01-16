@@ -1,9 +1,10 @@
 #include <render/commandqueue.hpp>
 #include <system/logger.hpp>
+#include <render/renderer.hpp>
 
 #include <array>
 
-namespace cmdqueue
+namespace render
 {
 	const D3D12_COMMAND_LIST_TYPE queuetypes[] = {
 		D3D12_COMMAND_LIST_TYPE_DIRECT,
@@ -13,39 +14,27 @@ namespace cmdqueue
 
 	TC_ASSERT(static_cast<int>(sizeof(queuetypes) / sizeof(D3D12_COMMAND_LIST_TYPE)) == QUEUE_MAX);
 
-	Microsoft::WRL::ComPtr<ID3D12Device2> device;
 	std::array<commandqueue*, QUEUE_MAX> cmdQueues;
+
+	std::array<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>, QUEUE_MAX> a;
 
 	commandqueue* getCmdQueue(const QUEUE_INDEX index)
 	{
 		return cmdQueues[index];
 	}
 
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> createCommandList(const cmdqueue::QUEUE_INDEX& queueType, bool close)
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> createCommandList(const render::QUEUE_INDEX& queueType, bool close)
 	{
 		return cmdQueues[queueType]->createCommandList(close);
 	}
 
-	bool allocateCmdQueue(Microsoft::WRL::ComPtr<ID3D12Device2> dxdevice)
+	bool allocateCmdQueue()
 	{
-		cmdqueue::device = dxdevice;
-
+		for (uint type = 0; type < QUEUE_MAX; ++type)
 		{
-			commandqueue* graphicsQueue = new commandqueue();
-			graphicsQueue->init(queuetypes[QUEUE_GRAPHIC]);
-			cmdQueues[QUEUE_GRAPHIC] = graphicsQueue;
-		}
-
-		{
-			commandqueue* computeQueue = new commandqueue();
-			computeQueue->init(queuetypes[QUEUE_COMPUTE]);
-			cmdQueues[QUEUE_COMPUTE] = computeQueue;
-		}
-
-		{
-			commandqueue* copyQueue = new commandqueue();
-			copyQueue->init(queuetypes[QUEUE_COPY]);
-			cmdQueues[QUEUE_COPY] = copyQueue;
+			commandqueue* newQueue = new commandqueue();
+			newQueue->init(queuetypes[type]);
+			cmdQueues[type] = newQueue;
 		}
 
 		return true;
@@ -82,10 +71,17 @@ bool commandqueue::init(const D3D12_COMMAND_LIST_TYPE commandType)
 	desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	desc.NodeMask = 0;
 
-	TC_CONDITIONB(cmdqueue::device->CreateCommandQueue(&desc, IID_PPV_ARGS(&commandQueue)) == S_OK, "Failed to create command queue");
+	TC_CONDITIONB(e_GlobRenderer.device->CreateCommandQueue(&desc, IID_PPV_ARGS(&commandQueue)) == S_OK, "Failed to create command queue");
 	createFence();
 
+	createCommandList(true);
+
 	return true;
+}
+
+Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandqueue::getCmdList() const
+{
+	return commandList;
 }
 
 void commandqueue::execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>> cmdLists)// const std::vector<ID3D12CommandList*> cmdLists)
@@ -104,14 +100,14 @@ void commandqueue::execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12Graphi
 
 bool commandqueue::createCommandAllocator()
 {
-	TC_CONDITIONB(cmdqueue::device->CreateCommandAllocator(type, IID_PPV_ARGS(&commandAllocator)) == S_OK, "Failed to create CommandAllocator");
+	TC_CONDITIONB(e_GlobRenderer.device->CreateCommandAllocator(type, IID_PPV_ARGS(&commandAllocator)) == S_OK, "Failed to create CommandAllocator");
 	
 	return true;
 }
 
 bool commandqueue::createFence()
 {
-	TC_CONDITIONB(cmdqueue::device->CreateFence(fence.fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence.fence)) == S_OK, "Failed to create fence");
+	TC_CONDITIONB(e_GlobRenderer.device->CreateFence(fence.fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence.fence)) == S_OK, "Failed to create fence");
 
 	HANDLE result = CreateEvent(NULL, FALSE, FALSE, NULL);
 	TC_CONDITION(result != NULL, "Failed to create event");
@@ -137,13 +133,11 @@ void commandqueue::flush()
 
 Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandqueue::createCommandList(bool close)
 {
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> result;
+	TC_CONDITION(e_GlobRenderer.device->CreateCommandList(0, type, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList)) == S_OK, "Failed to create CommandList");
 
-	TC_CONDITION(cmdqueue::device->CreateCommandList(0, type, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&result)) == S_OK, "Failed to create CommandList");
+	if (close) TC_CONDITION(commandList->Close() == S_OK, "Failed to close CommandList");
 
-	if (close) TC_CONDITION(result->Close() == S_OK, "Failed to close CommandList");
-
-	return result;
+	return commandList;
 }
 
 

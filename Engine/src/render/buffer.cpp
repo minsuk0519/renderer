@@ -183,8 +183,6 @@ namespace buf
 
     std::vector<buffer*> trackedBuffer;
  
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList;
-
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
 
     void loadFile(std::string fileName, const uint vertexIndex, const uint normalIndex, const uint indexIndex)
@@ -249,13 +247,12 @@ namespace buf
         imagebuffer* buffer = createImageBuffer(static_cast<uint>(image->width), static_cast<uint>(image->height), mipSize, image->format, D3D12_RESOURCE_FLAG_NONE);
 
         {
-
-            cmdqueue::getCmdQueue(cmdqueue::QUEUE_COPY)->getAllocator()->Reset();
-            cmdList->Reset(cmdqueue::getCmdQueue(cmdqueue::QUEUE_COPY)->getAllocator().Get(), nullptr);
-            //cmdList->Close();
+            render::getCmdQueue(render::QUEUE_COPY)->getAllocator()->Reset();
+            render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->Reset(render::getCmdQueue(render::QUEUE_COPY)->getAllocator().Get(), nullptr);
+            //render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->Close();
             //// The "before" state is not important. It will be resolved by the resource state tracker.
             //CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(buffer->resource.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
-            //cmdList->ResourceBarrier(1, &barrier);
+            //render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->ResourceBarrier(1, &barrier);
         
             UINT64 requiredSize = GetRequiredIntermediateSize(buffer->resource.Get(), 0, static_cast<uint>(subresources.size()));
             
@@ -267,14 +264,14 @@ namespace buf
             
             e_GlobRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediateResource));
             
-            UpdateSubresources(cmdList.Get(), buffer->resource.Get(), intermediateResource.Get(), 0, 0, static_cast<uint>(subresources.size()), subresources.data());
+            UpdateSubresources(render::getCmdQueue(render::QUEUE_COPY)->getCmdList().Get(), buffer->resource.Get(), intermediateResource.Get(), 0, 0, static_cast<uint>(subresources.size()), subresources.data());
 
             intermediates.push_back(intermediateResource);
         }
 
-        cmdqueue::getCmdQueue(cmdqueue::QUEUE_COPY)->execute({ cmdList.Get() });
+        render::getCmdQueue(render::QUEUE_COPY)->execute({ render::getCmdQueue(render::QUEUE_COPY)->getCmdList().Get() });
 
-        cmdqueue::getCmdQueue(cmdqueue::QUEUE_COPY)->flush();
+        render::getCmdQueue(render::QUEUE_COPY)->flush();
         intermediates.clear();
 
         return buffer;
@@ -340,11 +337,8 @@ namespace buf
         return true;
     }
 
-	bool loadResources(Microsoft::WRL::ComPtr<ID3D12Device2> devicePtr, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> copyCmdList)
+	bool loadResources()
 	{
-        //device = devicePtr;
-        //cmdList = copyCmdList;
-
         ////create vertex buffer
         //{
         //    //create triangle vertex
@@ -504,7 +498,7 @@ namespace buf
             //}
 
             //after copying all image buffer flush
-            //cmdqueue::getCmdQueue(cmdqueue::QUEUE_COPY)->execute({ cmdList.Get() });
+            //cmdqueue::getCmdQueue(cmdqueue::QUEUE_COPY)->execute({ render::getCmdQueue(render::QUEUE_COPY)->getCmdList().Get() });
             //
             //cmdqueue::getCmdQueue(cmdqueue::QUEUE_COPY)->flush();
             //intermediates.clear();
