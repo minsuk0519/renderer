@@ -5,6 +5,7 @@
 #include <render/rootsignature.hpp>
 #include <render/transform.hpp>
 #include <render/camera.hpp>
+#include <render/mesh.hpp>
 
 #include <system/logger.hpp>
 #include <system/window.hpp>
@@ -50,6 +51,7 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	TC_INIT(createFrameResources());
 	TC_INIT(render::initRootSignatures());
 	TC_INIT(render::initPSO());
+	TC_INIT(msh::loadResources());
 
 	TC_INIT(initGui());
 
@@ -58,6 +60,8 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 
 void renderer::close()
 {
+	msh::cleanUp();
+
 	gui::close();
 	render::cleanUpPSO();
 	render::cleanUpRootSignature();
@@ -201,16 +205,16 @@ void renderer::draw(float dt)
 
 	cmdList->ResourceBarrier(1, &barrier);
 
-	D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
-	D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(render::getHeap(render::DESCRIPTORHEAP_DEPTH)->getCPUPos(0));
+	{
+		D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
+		D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(render::getHeap(render::DESCRIPTORHEAP_DEPTH)->getCPUPos(0));
 
-	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
+		cmdList->ClearRenderTargetView(rtv, &backgroundColor.x, 0, nullptr);
+		cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-	cmdList->ClearRenderTargetView(rtv, &backgroundColor.x, 0, nullptr);
-	cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-	//draw may be called on here
-	cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+		//draw may be called on here
+		cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+	}
 
 	if(projectionBuffer == nullptr)
 	{
@@ -254,12 +258,17 @@ void renderer::draw(float dt)
 		camObj.preDraw(cmdList, rtv);
 		camObj.draw(0, cmdList);
 
-		cmdList->IASetVertexBuffers(0, 1, &buf::getVertexBuffer(buf::VERTEX_CUBE)->view);
-		cmdList->IASetVertexBuffers(1, 1, &buf::getVertexBuffer(buf::VERTEX_CUBE_NORM)->view);
+		auto mesh = msh::getMesh(msh::MESH_BUNNY)->getData();
 
-		cmdList->IASetIndexBuffer(&buf::getIndexBuffer(buf::INDEX_CUBE)->view);
+		cmdList->IASetVertexBuffers(0, 1, &mesh->vbs->view);
 
-		cmdList->DrawIndexedInstanced(36, 1, 0, 0, 0);
+		if(mesh->norm) cmdList->IASetVertexBuffers(1, 1, &mesh->norm->view);
+
+		cmdList->IASetIndexBuffer(&mesh->idx->view);
+
+		//cmdList->DrawIndexedInstanced(36, 1, 0, 0, 0);
+		//cmdList->DrawIndexedInstanced(2880, 1, 0, 0, 0);
+		cmdList->DrawIndexedInstanced(208353, 1, 0, 0, 0);
 	}
 
 	gui::render(cmdList.Get());

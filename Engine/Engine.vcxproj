@@ -90,6 +90,7 @@
     <ClInclude Include="include\render\camera.hpp" />
     <ClInclude Include="include\render\commandqueue.hpp" />
     <ClInclude Include="include\render\descriptorheap.hpp" />
+    <ClInclude Include="include\render\mesh.hpp" />
     <ClInclude Include="include\render\pipelinestate.hpp" />
     <ClInclude Include="include\render\renderer.hpp" />
     <ClInclude Include="include\render\rootsignature.hpp" />
@@ -110,6 +111,7 @@
     <ClCompile Include="src\render\camera.cpp" />
     <ClCompile Include="src\render\commandqueue.cpp" />
     <ClCompile Include="src\render\descriptorheap.cpp" />
+    <ClCompile Include="src\render\mesh.cpp" />
     <ClCompile Include="src\render\pipelinestate.cpp" />
     <ClCompile Include="src\render\renderer.cpp" />
     <ClCompile Include="src\render\rootsignature.cpp" />

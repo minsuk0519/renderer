@@ -1,15 +1,17 @@
+#include <rapidobj/rapidobj.hpp>
+
 #include <render/buffer.hpp>
 #include <render/commandqueue.hpp>
 #include <render/renderer.hpp>
+#include <render/mesh.hpp>
 #include <system/window.hpp>
+#include <system/logger.hpp>
 
 #include <vector>
 
 #include <d3d12.h>
 #include <d3dx12.h>
 #include <DirectXTex.h>
-
-//#include <rapidobj/rapidobj.hpp>
 
 constexpr uint CBVALLIGNMENT = 256;
 
@@ -199,14 +201,43 @@ namespace buf
 
     void loadFiletoMesh(std::string fileName, meshData* meshdata)
     {
-        //std::vector<meshloadhelper::vertindex> data = meshloadhelper::readassimp(fileName, meshdata->AABB);
+        auto result = rapidobj::ParseFile(fileName);
 
-        ////TODO
-        //meshdata->vbs = createVertexBuffer(data[0].vertices.data(), static_cast<uint>(sizeof(float) * data[0].vertices.size()), sizeof(float) * 3);
-        //if (data[0].normals.size() != 0) meshdata->norm = createVertexBuffer(data[0].normals.data(), static_cast<uint>(sizeof(float) * data[0].normals.size()), sizeof(float) * 3);
-        //else meshdata->norm = nullptr;
-        //meshdata->idx = createIndexBuffer(data[0].indices.data(), static_cast<uint>(sizeof(uint) * data[0].indices.size()));
-        //meshdata->idxLine = createIndexBuffer(data[0].indicesLine.data(), static_cast<uint>(sizeof(uint) * data[0].indicesLine.size()));
+        if (result.error) 
+        {
+            auto errorMsg = result.error.code.message();
+            std::string errorLog = "Failed to load file : " + fileName + '\n' + errorMsg;
+            TC_LOG_ERROR(errorLog.c_str());
+            return;
+        }
+
+        rapidobj::Triangulate(result);
+
+        if (result.error) 
+        {
+            auto errorMsg = result.error.code.message();
+            std::string errorLog = "Failed to triangulate file : " + fileName + '\n' + errorMsg;
+            TC_LOG_ERROR(errorLog.c_str());
+            return;
+        }
+
+        std::vector<uint> indices;
+
+        for (const auto& shape : result.shapes)
+        {
+            for (auto index : shape.mesh.indices)
+            {
+                indices.push_back(index.position_index);
+            }
+        }
+
+        meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);
+        if (result.attributes.normals.size() != 0) meshdata->norm = createVertexBuffer(result.attributes.normals.data(), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3);
+        else meshdata->norm = nullptr;
+        meshdata->idx = createIndexBuffer(indices.data(), static_cast<uint>(sizeof(uint) * indices.size()));
+
+        //TODO : not support now
+        //meshdata->idxLine = createIndexBuffer(result.shapes[0].lines.indices.data(), static_cast<uint>(sizeof(uint) * result.shapes[0].lines.indices.size()));
     }
 
     imagebuffer* loadTextureFromFile(std::wstring filename, bool mip)
@@ -221,7 +252,7 @@ namespace buf
         //we assume there will be only one image from one file
         const DirectX::Image* image = scratchImage.GetImages();
 
-        uint maxDim = max(static_cast<uint>(image->width), static_cast<uint>(image->height));
+        uint maxDim = std::max(static_cast<uint>(image->width), static_cast<uint>(image->height));
 
         uint mipSize = 1;
 
@@ -618,7 +649,7 @@ namespace buf
 
     constantbuffer* getConstantBuffer(int index)
     {
-        //assert(index < CONSTANT_END && index >= CONSTANT_START);
+        assert(index < CONSTANT_END && index >= CONSTANT_START);
 
         return dynamic_cast<constantbuffer*>(bufferContainer[index]);
     }
@@ -657,7 +688,7 @@ namespace buf
 
     indexbuffer* getIndexBuffer(int index)
     {
-        //assert(index < INDEX_END && index >= INDEX_START);
+        assert(index < INDEX_END && index >= INDEX_START);
 
         return dynamic_cast<indexbuffer*>(bufferContainer[index]);
     }
@@ -683,7 +714,7 @@ namespace buf
 
     depthbuffer* getDepthBuffer(int index)
     {
-        //assert(index < DEPTH_END && index >= DEPTH_START);
+        assert(index < DEPTH_END && index >= DEPTH_START);
 
         return dynamic_cast<depthbuffer*>(bufferContainer[index]);
     }
@@ -722,7 +753,7 @@ namespace buf
 
     imagebuffer* getImageBuffer(int index)
     {
-        //assert(index < IMAGE_END && index >= IMAGE_START);
+        assert(index < IMAGE_END && index >= IMAGE_START);
 
         return dynamic_cast<imagebuffer*>(bufferContainer[index]);
     }
@@ -749,24 +780,24 @@ namespace buf
 
     uavbuffer* getUAVBuffer(int index)
     {
-        //assert(index < UAV_END && index >= UAV_START);
+        assert(index < UAV_END && index >= UAV_START);
 
         return dynamic_cast<uavbuffer*>(bufferContainer[index]);
     }
 
-    //BUFFER_TYPE typeFromIndex(const uint index)
-    //{
-    //    if (index < VERTEX_END && index >= VERTEX_START) return BUFFER_VERTEX_TYPE;
-    //    else if (index < CONSTANT_END && index >= CONSTANT_START) return BUFFER_CONSTANT_TYPE;
-    //    else if (index < UAV_END && index >= UAV_START) return BUFFER_UAV_TYPE;
-    //    else if (index < IMAGE_END && index >= IMAGE_START) return BUFFER_IMAGE_TYPE;
-    //    else if (index < INDEX_END && index >= INDEX_START) return BUFFER_INDEX_TYPE;
-    //    else if (index < DEPTH_END && index >= DEPTH_START) return BUFFER_DEPTH_TYPE;
+    BUFFER_TYPE typeFromIndex(const uint index)
+    {
+        if (index < VERTEX_END && index >= VERTEX_START) return BUFFER_VERTEX_TYPE;
+        else if (index < CONSTANT_END && index >= CONSTANT_START) return BUFFER_CONSTANT_TYPE;
+        else if (index < UAV_END && index >= UAV_START) return BUFFER_UAV_TYPE;
+        else if (index < IMAGE_END && index >= IMAGE_START) return BUFFER_IMAGE_TYPE;
+        else if (index < INDEX_END && index >= INDEX_START) return BUFFER_INDEX_TYPE;
+        else if (index < DEPTH_END && index >= DEPTH_START) return BUFFER_DEPTH_TYPE;
 
-    //    //this should not happen
-    //    
-    //    return BUFFER_TYPE();
-    //}
+        //this should not happen
+        
+        return BUFFER_TYPE();
+    }
 
     buffer* createReadBackBuffer(uint size)
     {

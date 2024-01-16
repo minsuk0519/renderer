@@ -53,6 +53,9 @@
     <ClInclude Include="include\system\jsonhelper.hpp">
       <Filter>system</Filter>
     </ClInclude>
+    <ClInclude Include="include\render\mesh.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
@@ -97,6 +100,9 @@
     </ClCompile>
     <ClCompile Include="src\system\jsonhelper.cpp">
       <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\mesh.cpp">
+      <Filter>render</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

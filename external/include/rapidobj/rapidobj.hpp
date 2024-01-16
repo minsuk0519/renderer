@@ -6949,7 +6949,7 @@ inline void ProcessBlocksImpl(
                     return;
                 }
                 line = text.substr(0, pos);
-                if (EndsWith(line, '\r')) {
+                while (EndsWith(line, '\r')) {
                     line.remove_suffix(1);
                 }
                 text.remove_prefix(pos + 1);

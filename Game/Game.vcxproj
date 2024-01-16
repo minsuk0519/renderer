@@ -57,7 +57,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\;$(SolutionDir)external\libs\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Engine.lib;d3d12.lib;dxgi.lib;dxguid.lib;imgui\imgui.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Engine.lib;d3d12.lib;dxgi.lib;dxguid.lib;dxcompiler.lib;imgui\imgui.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -77,7 +77,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\;$(SolutionDir)external\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Engine.lib;d3d12.lib;dxgi.lib;dxguid.lib;imgui\imgui.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Engine.lib;d3d12.lib;dxgi.lib;dxguid.lib;dxcompiler.lib;imgui\imgui.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

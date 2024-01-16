@@ -5,6 +5,7 @@
 #include <wrl.h>
 
 #include <d3d12.h>
+#include <dxcapi.h>
 
 #include <vector>
 
@@ -45,11 +46,12 @@ public:
 
 	//only for the vertex shader
 	void setInput(std::vector<inputDesc> input);
+	void setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result);
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputs;
 	D3D12_SHADER_BYTECODE getByteCode() const;
 private:
-	Microsoft::WRL::ComPtr<ID3DBlob> shaderSource;
+	Microsoft::WRL::ComPtr<IDxcBlob> shaderSource;
 	shaders::SHADER_TYPE type;
 
 };
