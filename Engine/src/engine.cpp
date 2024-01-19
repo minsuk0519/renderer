@@ -101,7 +101,7 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
         }
     }
 
-    readJsonBuffer(config, "data/config.json");
+    readJsonBuffer(config, JSON_FILE_NAME::CONFIG_FILE);
 
     TC_INIT(e_globWindow.init(hInstance, nCmdShow, config.width, config.height));
 
@@ -157,7 +157,7 @@ void engine::run()
 
 void engine::close()
 {
-    writeJsonBuffer(config, "data/config.json");
+    writeJsonBuffer(config, JSON_FILE_NAME::CONFIG_FILE);
 
     TC_LOG("shutting down engine!");
 }

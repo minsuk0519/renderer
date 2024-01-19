@@ -1,5 +1,6 @@
 #include <render/shader.hpp>
 #include <system/logger.hpp>
+#include <system/jsonhelper.hpp>
 
 #include <d3d12shader.h>
 #include <d3dx12.h>
@@ -65,40 +66,31 @@ namespace shaders
 
 	bool loadResources()
 	{
+		std::vector<shaderJson> shaderJsons;
+
+		readJsonBuffer(shaderJsons, JSON_FILE_NAME::SHADER_FILE);
+
 		DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
 		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
 		pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
 		
+		for (auto shaderData : shaderJsons)
 		{
-			std::wstring filePath = L"data/shader/source/pbr.vs";
+			std::wstring filePath = std::wstring(shaderData.shaderFile.begin(), shaderData.shaderFile.end());
+			std::wstring entryPoint = std::wstring(shaderData.entryPoint.begin(), shaderData.entryPoint.end());
+			std::wstring target = std::wstring(shaderData.target.begin(), shaderData.target.end());
 
 			DxcBuffer Source;
 			loadShaderSource(Source, filePath.c_str());
 			Microsoft::WRL::ComPtr<IDxcResult> pResults;
-			compileShader(filePath, L"VSMain", L"vs_6_5", Source, pResults);
+			compileShader(filePath, entryPoint.c_str(), target.c_str(), Source, pResults);
 
 			shader* newShader = new shader();
 
-			newShader->setshaderSource(pResults, shaders::SHADER_VS);
+			newShader->setshaderSource(pResults, (shaders::SHADER_TYPE)shaderData.shaderType);
 			newShader->decipherHLSL();
 
-			shaders[PBR_VS] = newShader;
-		}
-
-		{
-			std::wstring filePath = L"data/shader/source/pbr.ps";
-
-			DxcBuffer Source;
-			loadShaderSource(Source, filePath.c_str());
-			Microsoft::WRL::ComPtr<IDxcResult> pResults;
-			compileShader(filePath, L"PSMain", L"ps_6_5", Source, pResults);
-
-			shader* newShader = new shader();
-		
-			newShader->setshaderSource(pResults, shaders::SHADER_PS);
-			newShader->decipherHLSL();
-
-			shaders[PBR_PS] = newShader;
+			shaders[shaderData.shaderIndex] = newShader;
 		}
 
 		return true;

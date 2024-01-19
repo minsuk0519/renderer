@@ -12,26 +12,49 @@ struct configJson
 	uint height;
 };
 
+struct shaderJson
+{
+	std::string shaderFile;
+	std::string entryPoint;
+	std::string target;
+	uint shaderType;
+	uint shaderIndex;
+};
+
+enum JSON_FILE_NAME
+{
+	CONFIG_FILE = 0,
+	SHADER_FILE,
+	MAX_FILE,
+};
+
+const std::string JSON_FILE_PATHS[MAX_FILE] = {
+	"data/config.json",
+	"data/shader.json",
+};
+
 template <typename Buffer>
-void readJsonBuffer(Buffer& buf, const std::string& fileName)
+void readJsonBuffer(Buffer& buf, const JSON_FILE_NAME& fileIndex)
 {
 	std::string str{};
-	auto error = glz::read_file_json(buf, "data/config.json", str);
+	auto error = glz::read_file_json(buf, JSON_FILE_PATHS[fileIndex], str);
 
 	if (error.ec != glz::error_code::none)
 	{
-		TC_LOG_ERROR("Failed to read config file");
+		std::string errorMessage = "Failed to read file : " + JSON_FILE_PATHS[fileIndex];
+		TC_LOG_ERROR(errorMessage.c_str());
 	}
 }
 
 template <typename Buffer>
-void writeJsonBuffer(const Buffer& buf, const std::string& fileName)
+void writeJsonBuffer(const Buffer& buf, const JSON_FILE_NAME& fileIndex)
 {
 	std::string str{};
-	auto error = glz::write_file_json(buf, "data/config.json", str);
+	auto error = glz::write_file_json(buf, JSON_FILE_PATHS[fileIndex], str);
 
 	if (error.ec != glz::error_code::none)
 	{
-		TC_LOG_ERROR("Failed to write config file");
+		std::string errorMessage = "Failed to write file : " + JSON_FILE_PATHS[fileIndex];
+		TC_LOG_ERROR(errorMessage.c_str());
 	}
 }
