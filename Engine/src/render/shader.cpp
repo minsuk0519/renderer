@@ -1,5 +1,4 @@
 #include <render/shader.hpp>
-#include <system\defines.hpp>
 #include <system/logger.hpp>
 
 #include <d3d12shader.h>
@@ -50,7 +49,7 @@ namespace shaders
 		std::string fileStr = std::string(filePath.begin(), filePath.end());
 		if (pErrors != nullptr && pErrors->GetStringLength() != 0)
 		{
-			std::string warning = std::format("Warning on compile shader : %s : \n%s", fileStr.c_str(), pErrors->GetStringPointer());
+			std::string warning = std::format("Warning on compile shader : {} : \n{}", fileStr.c_str(), pErrors->GetStringPointer());
 			TC_LOG_ERROR(warning.c_str());
 		}
 
@@ -80,31 +79,24 @@ namespace shaders
 
 			shader* newShader = new shader();
 
-			newShader->setshaderSource(pResults);
-			newShader->setInput({
-				{"POSITION", DXGI_FORMAT_R32G32B32_FLOAT},
-				{"NORMAL", DXGI_FORMAT_R32G32B32_FLOAT}
-				});
+			newShader->setshaderSource(pResults, shaders::SHADER_VS);
+			newShader->decipherHLSL();
 
 			shaders[PBR_VS] = newShader;
 		}
 
 		{
- 		//	shader* newShader = new shader();
+			std::wstring filePath = L"data/shader/source/pbr.ps";
 
-			//newShader->load(L"data/shader/pbr.vs.cso");
-			//newShader->setInput({
-			//	{"POSITION", DXGI_FORMAT_R32G32B32_FLOAT},
-			//	{"NORMAL", DXGI_FORMAT_R32G32B32_FLOAT}
-			//	});
+			DxcBuffer Source;
+			loadShaderSource(Source, filePath.c_str());
+			Microsoft::WRL::ComPtr<IDxcResult> pResults;
+			compileShader(filePath, L"PSMain", L"ps_6_5", Source, pResults);
 
-			//shaders[PBR_VS] = newShader;
-		}
-
-		{
 			shader* newShader = new shader();
-
-			newShader->load(L"data/shader/pbr.ps.cso");
+		
+			newShader->setshaderSource(pResults, shaders::SHADER_PS);
+			newShader->decipherHLSL();
 
 			shaders[PBR_PS] = newShader;
 		}
@@ -145,20 +137,313 @@ void shader::close()
 	shaderSource->Release();
 }
 
-void shader::setInput(std::vector<inputDesc> input)
-{
-	uint index = 0;
-	for (auto desc : input)
-	{
-		inputs.push_back({ desc.name, 0, desc.format, index, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 });
-		++index;
-	}
-}
-
-void shader::setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result)
+void shader::setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result, shaders::SHADER_TYPE shaderType)
 {
 	Microsoft::WRL::ComPtr<IDxcBlobUtf16> pShaderName = nullptr;
 	result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderSource), &pShaderName);
+
+	type = shaderType;
+}
+
+void shader::decipherHLSL()
+{
+	//get desaseembly from program
+	DxcBuffer source;
+	source.Ptr = shaderSource->GetBufferPointer();
+	source.Size = shaderSource->GetBufferSize();
+
+	Microsoft::WRL::ComPtr<IDxcResult> pResults;
+	shaders::pCompiler->Disassemble(&source, IID_PPV_ARGS(&pResults));
+	Microsoft::WRL::ComPtr<IDxcBlobUtf8> pText = nullptr;
+	pResults->GetOutput(DXC_OUT_DISASSEMBLY, IID_PPV_ARGS(&pText), nullptr);
+	std::string sourceString;
+	sourceString.assign(reinterpret_cast<const char*>(pText->GetBufferPointer()), pText->GetBufferSize());
+
+	//input signature
+	{
+		auto find = sourceString.find("Input signature:") + 1;
+		find = sourceString.find("-------------------- ----- ------ -------- -------- ------- ------", find);
+		find = sourceString.find("; ", find) + 1;
+
+		while (true)
+		{
+			auto find2 = sourceString.find("\n", find) + 1;
+			std::string line = sourceString.substr(find, find2 - find);
+			find = find2;
+
+			if (line.find(";\n") != std::string::npos)
+			{
+				break;
+			}
+
+			shaders::hlslBuf hlslbuf;
+
+			uint variableIndex = 0;
+
+			find2 = 0;
+
+			while (true)
+			{
+				find2 = line.find_first_not_of("; ", find2);
+
+				if (find2 == std::string::npos)
+				{
+					break;
+				}
+
+				auto find3 = line.find_first_of(' ', find2);
+				std::string str = line.substr(find2, find3 - find2);
+
+				if (variableIndex == 0)
+				{
+					hlslbuf.name = str;
+				}
+				if (variableIndex == 2)
+				{
+					hlslbuf.data = str.size();
+				}
+				if (variableIndex == 3)
+				{
+					hlslbuf.loc = std::stoi(str);
+				}
+				find2 = find3;
+
+				++variableIndex;
+			}
+
+			bufData.inputContainer.push_back(hlslbuf);
+		}
+	}
+
+	//output signature
+	{
+		auto find = sourceString.find("Output signature:") + 1;
+		find = sourceString.find("-------------------- ----- ------ -------- -------- ------- ------", find);
+		find = sourceString.find("; ", find) + 1;
+
+		while (true)
+		{
+			auto find2 = sourceString.find("\n", find) + 1;
+			std::string line = sourceString.substr(find, find2 - find);
+			find = find2;
+
+			if (line.find(";\n") != std::string::npos)
+			{
+				break;
+			}
+
+			shaders::hlslBuf hlslbuf;
+
+			uint variableIndex = 0;
+
+			find2 = 0;
+
+			while (true)
+			{
+				find2 = line.find_first_not_of("; ", find2);
+
+				if (find2 == std::string::npos)
+				{
+					break;
+				}
+
+				auto find3 = line.find_first_of(' ', find2);
+				std::string str = line.substr(find2, find3 - find2);
+
+				if (variableIndex == 0)
+				{
+					hlslbuf.name = str;
+				}
+				if (variableIndex == 2)
+				{
+					hlslbuf.data = str.size();
+				}
+				if (variableIndex == 3)
+				{
+					hlslbuf.loc = std::stoi(str);
+				}
+				find2 = find3;
+
+				++variableIndex;
+			}
+
+			bufData.outputContainer.push_back(hlslbuf);
+		}
+	}
+
+	//constant buffer
+	{
+		auto find = sourceString.find("Resource Bindings:") + 1;
+		find = sourceString.find("------------------------------ ---------- ------- ----------- ------- -------------- ------", find);
+		find = sourceString.find("; ", find) + 1;
+
+		while (true)
+		{
+			auto find2 = sourceString.find("\n", find) + 1;
+			std::string line = sourceString.substr(find, find2 - find);
+			find = find2;
+
+			if (line.find(";\n") != std::string::npos)
+			{
+				break;
+			}
+
+			shaders::hlslBuf hlslbuf;
+
+			uint variableIndex = 0;
+
+			find2 = 0;
+
+			while (true)
+			{
+				find2 = line.find_first_not_of("; ", find2);
+
+				if (find2 == std::string::npos)
+				{
+					break;
+				}
+
+				auto find3 = line.find_first_of(' ', find2);
+				std::string str = line.substr(find2, find3 - find2);
+
+				if (variableIndex == 4)
+				{
+					std::string cBufferLoc = str.substr(2);
+					hlslbuf.loc = std::stoi(cBufferLoc);
+					bufData.constantContainer.push_back(hlslbuf);
+					break;
+				}
+				find2 = find3;
+
+				++variableIndex;
+			}
+		}
+
+		find = sourceString.find("\n%dx.alignment.legacy") + 1;
+
+		uint cbufferNum = 0;
+		while (true)
+		{
+			auto find2 = sourceString.find("\n", find) + 1;
+			std::string line = sourceString.substr(find, find2 - find);
+			find = find2;
+
+			if (line.size() == 1)
+			{
+				break;
+			}
+
+			find2 = 0;
+
+			{
+				auto find3 = line.find("%dx.alignment.legacy") + 21;
+				find2 = line.find(" ");
+
+				std::string Name = line.substr(find3, find2 - find3);
+
+				if (Name.find("struct") != std::string::npos)
+				{
+					continue;
+				}
+
+				bufData.constantContainer[cbufferNum].name = Name;
+
+				uint size = 0;
+
+				find2 = line.find("type { ") + 7;
+				while (true)
+				{
+					line = line.substr(find2);
+					find3 = line.find_first_of(", }");
+					std::string constantName = line.substr(0, find3);
+
+					if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
+					{
+						size += 4;
+						find2 = line.find_first_not_of(", }", find3);
+						continue;
+					}
+
+					if (constantName.size() < 3)
+					{
+						break;
+					}
+
+					//get size from struct
+					{
+						auto constantSizePos = sourceString.find(constantName + " = type { ") + constantName.size() + 11;
+						std::string constantSizeString = sourceString.substr(constantSizePos);
+
+						uint stringIndex = 0;
+
+						uint cumulate = 1;
+
+						while (true)
+						{
+							char c = constantSizeString[stringIndex];
+
+							if (c == '}') break;
+							else if (c == 'f')
+							{
+								size += cumulate * 4;
+								cumulate = 1;
+								stringIndex += 5;
+							}
+							else if (c == 'i')
+							{
+								size += cumulate * 4;
+								cumulate = 1;
+								stringIndex += 3;
+							}
+							uint num = 0;
+							while (c >= '0' && c <= '9')
+							{
+								uint i = static_cast<uint>(c - '0');
+								num = num * 10 + i;
+								++stringIndex;
+								c = constantSizeString[stringIndex];
+							}
+							if (num != 0) cumulate *= num;
+
+							++stringIndex;
+						}
+					}
+
+					find2 = line.find_first_not_of(", }", find3);
+				}
+				bufData.constantContainer[cbufferNum].data = size;
+			}
+			++cbufferNum;
+		}
+	}
+
+	//set input signature
+	if (type == shaders::SHADER_VS)
+	{
+		for (auto& input : bufData.inputContainer)
+		{
+			DXGI_FORMAT format;
+
+			if (input.data == 4)
+			{
+				format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+			}
+			else if (input.data == 3)
+			{
+				format = DXGI_FORMAT_R32G32B32_FLOAT;
+			}
+			else if (input.data == 2)
+			{
+				format = DXGI_FORMAT_R32G32_FLOAT;
+			}
+			else if (input.data == 1)
+			{
+				format = DXGI_FORMAT_R32_FLOAT;
+			}
+
+			inputs.push_back({ input.name.c_str(), 0, format, input.loc, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
+		}
+	}
 }
 
 D3D12_SHADER_BYTECODE shader::getByteCode() const

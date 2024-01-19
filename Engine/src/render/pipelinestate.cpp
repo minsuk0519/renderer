@@ -78,7 +78,7 @@ bool pipelinestate::init(uint VS, uint PS, uint root, std::vector<DXGI_FORMAT> f
 	psoDesc.SampleDesc.Count = 1;
 	e_GlobRenderer.device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
 
-	return true;
+ 	return true;
 }
 
 bool pipelinestate::initCS(uint CS, uint root)
