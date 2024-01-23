@@ -1,8 +1,5 @@
 #include <system\gui.hpp>
-
-#include <imgui\imgui.h>
-#include <imgui\imgui_impl_dx12.h>
-#include <imgui\imgui_impl_win32.h>
+#include <render/shader.hpp>
 
 #include <dxgi1_6.h>
 
@@ -49,65 +46,8 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
     return true;
 }
 
-void DirectoryTreeViewRecursive(const std::filesystem::path& path, uint* count, uint& selection_mask, std::filesystem::path& selectedPath)
-{
-    ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_SpanFullWidth;
-
-    bool any_node_clicked = false;
-
-    for (const auto& entry : std::filesystem::directory_iterator(path))
-    {
-        ImGuiTreeNodeFlags node_flags = base_flags;
-        const bool is_selected = (selection_mask == *count);
-        if (is_selected) node_flags |= ImGuiTreeNodeFlags_Selected;
-
-        std::string name = entry.path().string();
-
-        auto lastSlash = name.find_last_of("/\\");
-        lastSlash = lastSlash == std::string::npos ? 0 : lastSlash + 1;
-        name = name.substr(lastSlash, name.size() - lastSlash);
-
-        bool entryIsFile = !std::filesystem::is_directory(entry.path());
-        if (entryIsFile) node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-
-        bool node_open = ImGui::TreeNodeEx((void*)(count), node_flags, name.c_str());
-
-        if (ImGui::IsItemClicked())
-        {
-            selection_mask = *count;
-            any_node_clicked = true;
-
-            if (entryIsFile)
-            {
-                selectedPath = entry.path();
-            }
-            else
-            {
-                selectedPath.clear();
-            }
-        }
-
-        (*count)--;
-
-        if (!entryIsFile)
-        {
-            if (node_open)
-            {
-                DirectoryTreeViewRecursive(entry.path(), count, selection_mask, selectedPath);
-
-                ImGui::TreePop();
-            }
-            else
-            {
-                for (const auto& e : std::filesystem::recursive_directory_iterator(entry.path())) (*count)--;
-            }
-        }
-    }
-}
-
-std::string basePath = "data/shader/source";
-char bytes[1024 * 16];
-std::ifstream::pos_type fileSize;
+static bool showWindow;
+static bool showShadersWindow = true;
 
 void gui::render(ID3D12GraphicsCommandList* cmdList)
 {
@@ -115,51 +55,24 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::Begin("Window");
+    ImGui::Begin("Window", &showWindow, ImGuiWindowFlags_MenuBar);
+
+    if (ImGui::BeginMenuBar())
+    {
+        if (ImGui::BeginMenu("Tools"))
+        {
+            ImGui::MenuItem("Main menu bar", NULL, &showShadersWindow);
+            
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMenuBar();
+    }
 
     ImGui::BeginTabBar("Category");
 
     if (ImGui::BeginTabItem("Shader"))
     {
-        //render::guiSetting();
-        {
-            uint32_t count = 0;
-            for (const auto& entry : std::filesystem::recursive_directory_iterator(basePath)) count++;
-
-            static uint selection_mask = 0;
-            static uint prev_selection_mask = 0;
-            static std::filesystem::path selectedPath;
-
-            ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
-
-            DirectoryTreeViewRecursive(basePath, &count, selection_mask, selectedPath);
-
-            ImGui::EndChild();
-
-            ImGui::SameLine();
-
-            ImGui::BeginChild("item view", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
-
-            if (!selectedPath.empty())
-            {
-                if(prev_selection_mask != selection_mask)
-                {
-                    std::ifstream ifs(selectedPath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
-
-                    fileSize = ifs.tellg();
-                    ifs.seekg(0, std::ios::beg);
-
-                    ifs.read(bytes, fileSize);
-
-                    prev_selection_mask = selection_mask;
-                }
-
-                static ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput;
-                ImGui::InputTextMultiline("##source", bytes, IM_ARRAYSIZE(bytes), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 32), flags);
-            }
-
-            ImGui::EndChild();
-        }
 
         ImGui::EndTabItem();
     }
@@ -167,6 +80,15 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     ImGui::EndTabBar();
 
     ImGui::End();
+
+    if (showShadersWindow)
+    {
+        ImGui::Begin("Shader", &showShadersWindow);
+
+        shaders::guiSetting();
+
+        ImGui::End();
+    }
 
     ImGui::Render();
 

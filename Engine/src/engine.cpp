@@ -14,7 +14,7 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 
-configJson config{};
+configJson configFile{};
 
 engine e_globEngine;
 
@@ -101,9 +101,9 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
         }
     }
 
-    readJsonBuffer(config, JSON_FILE_NAME::CONFIG_FILE);
+    readJsonBuffer(configFile, JSON_FILE_NAME::CONFIG_FILE);
 
-    TC_INIT(e_globWindow.init(hInstance, nCmdShow, config.width, config.height));
+    TC_INIT(e_globWindow.init(hInstance, nCmdShow, configFile.width, configFile.height));
 
     TC_INIT(e_GlobRenderer.init(factory, adapter));
 
@@ -157,7 +157,7 @@ void engine::run()
 
 void engine::close()
 {
-    writeJsonBuffer(config, JSON_FILE_NAME::CONFIG_FILE);
+    writeJsonBuffer(configFile, JSON_FILE_NAME::CONFIG_FILE);
 
     TC_LOG("shutting down engine!");
 }

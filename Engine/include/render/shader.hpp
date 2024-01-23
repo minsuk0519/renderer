@@ -45,6 +45,8 @@ namespace shaders
 		std::vector<hlslBuf> outputContainer;
 		std::vector<hlslBuf> constantContainer;
 	};
+
+	void guiSetting();
 };
 
 class shader

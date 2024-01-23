@@ -1,11 +1,13 @@
 #include <render/shader.hpp>
 #include <system/logger.hpp>
 #include <system/jsonhelper.hpp>
+#include <system/gui.hpp>
 
 #include <d3d12shader.h>
 #include <d3dx12.h>
 
 #include <array>
+#include <filesystem>
 
 namespace shaders
 {
@@ -108,6 +110,116 @@ namespace shaders
 	shader* getShader(const SHADER_INDEX index)
 	{
 		return shaders[index];
+	}
+
+	static char bytes[1024 * 16];
+	std::ifstream::pos_type endFile;
+
+	void DirectoryTreeViewRecursive(const std::filesystem::path& path, uint* count, uint& selection_mask, std::filesystem::path& selectedPath)
+	{
+		ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_SpanFullWidth;
+
+		bool any_node_clicked = false;
+
+		for (const auto& entry : std::filesystem::directory_iterator(path))
+		{
+			ImGuiTreeNodeFlags node_flags = base_flags;
+			const bool is_selected = (selection_mask == *count);
+			if (is_selected) node_flags |= ImGuiTreeNodeFlags_Selected;
+
+			std::string name = entry.path().string();
+
+			auto lastSlash = name.find_last_of("/\\");
+			lastSlash = lastSlash == std::string::npos ? 0 : lastSlash + 1;
+			name = name.substr(lastSlash, name.size() - lastSlash);
+
+			bool entryIsFile = !std::filesystem::is_directory(entry.path());
+			if (entryIsFile) node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+
+			bool node_open = ImGui::TreeNodeEx((void*)(count), node_flags, name.c_str());
+
+			if (ImGui::IsItemClicked())
+			{
+				selection_mask = *count;
+				any_node_clicked = true;
+
+				if (entryIsFile)
+				{
+					selectedPath = entry.path();
+				}
+				else
+				{
+					selectedPath.clear();
+				}
+			}
+
+			(*count)--;
+
+			if (!entryIsFile)
+			{
+				if (node_open)
+				{
+					DirectoryTreeViewRecursive(entry.path(), count, selection_mask, selectedPath);
+
+					ImGui::TreePop();
+				}
+				else
+				{
+					for (const auto& e : std::filesystem::recursive_directory_iterator(entry.path())) (*count)--;
+				}
+			}
+		}
+	}
+
+	void guiSetting()
+	{
+		uint32_t count = 0;
+		for (const auto& entry : std::filesystem::recursive_directory_iterator(config::shaderBasePath)) count++;
+
+		static uint selection_mask = 0;
+		static uint prev_selection_mask = 0;
+		static std::filesystem::path selectedPath;
+
+		ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+
+		DirectoryTreeViewRecursive(config::shaderBasePath, &count, selection_mask, selectedPath);
+
+		ImGui::EndChild();
+
+		ImGui::SameLine();
+
+		ImGui::BeginChild("item view", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
+
+		if (!selectedPath.empty())
+		{
+			if (prev_selection_mask != selection_mask)
+			{
+				memset(bytes, '\0', endFile);
+
+				std::ifstream ifs(selectedPath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
+
+				endFile = ifs.tellg();
+				ifs.seekg(0, std::ios::beg);
+
+				ifs.read(bytes, endFile);
+
+				prev_selection_mask = selection_mask;
+			}
+
+			static ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput;
+			ImGui::InputTextMultiline("##source", bytes, IM_ARRAYSIZE(bytes), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 32), flags);
+
+			if (ImGui::Button("Save"))
+			{
+				std::ofstream ofs(selectedPath.c_str(), std::ios::out | std::ios::binary | std::ios::ate);
+
+				ofs.write(bytes, (int)strlen(bytes));
+			}
+
+			ImGui::SameLine();
+		}
+
+		ImGui::EndChild();
 	}
 }
 

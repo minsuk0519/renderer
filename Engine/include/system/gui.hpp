@@ -1,10 +1,15 @@
 #pragma once
 #include <system\defines.hpp>
 
+#include <imgui\imgui.h>
+#include <imgui\imgui_impl_dx12.h>
+#include <imgui\imgui_impl_win32.h>
+
 #include <wrl.h>
 #include <d3d12.h>
 
 #include <string>
+#include <filesystem>
 
 namespace gui
 {
