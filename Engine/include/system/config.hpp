@@ -9,5 +9,5 @@
 
 namespace config
 {
-	std::string shaderBasePath = "data/shader/source";
+	const std::string shaderBasePath = "data/shader/source";
 }

@@ -2,10 +2,12 @@
 #include <system\defines.hpp>
 #include <system/logger.hpp>
 #include <render/renderer.hpp>
+#include <render/shader.hpp>
 
 #include <string>
 #include <iterator>
 #include <array>
+#include <map>
 
 #include <d3dx12.h>
 
@@ -35,6 +37,15 @@ namespace render
 			rootsignatures[ROOT_PBR] = rootsig;
 		}
 
+		{
+			rootsignature* rootsig = new rootsignature;
+
+			rootsig->initFromShader({ shaders::PBR_VS, shaders::PBR_PS });
+			rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
+
+			rootsignatures[ROOT_PBR] = rootsig;
+		}
+
 		return true;
 	}
 
@@ -51,6 +62,91 @@ namespace render
 		return rootsignatures[index];
 	}
 
+}
+
+bool rootsignature::initFromShader(std::vector<uint> shaderIDs)
+{
+	std::map<std::string, std::pair<uint, uint>> constantMaps;
+
+	for (auto id : shaderIDs)
+	{
+		shader* shader = shaders::getShader((shaders::SHADER_INDEX)id);
+
+		for (auto constant : shader->bufData.constantContainer)
+		{
+			constantMaps[constant.name].first |= (1 << shader->getType());
+			constantMaps[constant.name].second = constant.loc;
+		}
+	}
+
+	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters;
+
+	rootParameters.resize(constantMaps.size());
+
+	uint index = 0;
+
+	for (auto constantData : constantMaps)
+	{
+		D3D12_SHADER_VISIBILITY vis;
+
+		if (constantData.second.first == 1)
+		{
+			vis = D3D12_SHADER_VISIBILITY_VERTEX;
+		}
+		else if (constantData.second.first == 2)
+		{
+			vis = D3D12_SHADER_VISIBILITY_PIXEL;
+		}
+		else
+		{
+			vis = D3D12_SHADER_VISIBILITY_ALL;
+		}
+
+		CD3DX12_DESCRIPTOR_RANGE range;
+		range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, constantData.second.second, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
+		//++index[type];
+		rootParameters[index].InitAsDescriptorTable(1, &range, vis);
+
+		//rootParameters[index].InitAsConstantBufferView(constantData.second.second, 0, vis);
+		++index;
+	}
+
+	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
+	CD3DX12_STATIC_SAMPLER_DESC samplerDesc = CD3DX12_STATIC_SAMPLER_DESC(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+	rootSignatureDesc.Init(static_cast<UINT>(rootParameters.size()), rootParameters.data(), 1, &samplerDesc, rootSignatureFlags);
+
+	Microsoft::WRL::ComPtr<ID3DBlob> signature;
+	Microsoft::WRL::ComPtr<ID3DBlob> error;
+
+	D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+
+	std::string errorMsg;
+	if (error != nullptr)
+	{
+		auto* p = reinterpret_cast<unsigned char*>(error->GetBufferPointer());
+		auto  n = error->GetBufferSize();
+		std::vector<unsigned char> buff;
+
+		buff.reserve(n);
+		std::copy(p, p + n, std::back_inserter(buff));
+
+		for (auto c : buff) errorMsg += c;
+
+		TC_LOG_ERROR("Cannot serialize root signature!");
+
+		return false;
+	}
+
+	e_GlobRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+
+	return true;
 }
 
 bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::vector<uint> constantNums, bool CS)

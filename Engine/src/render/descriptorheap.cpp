@@ -24,7 +24,6 @@ namespace render
 			descriptorHeaps[DESCRIPTORHEAP_RENDERTARGET] = newHeap;
 		}
 
-		//projection descriptor heap
 		{
 			descriptorheap* newHeap = new descriptorheap();
 			newHeap->init(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, MAX_DESCRIPTOR_SIZE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
@@ -33,7 +32,6 @@ namespace render
 			descriptorHeaps[DESCRIPTORHEAP_BUFFER] = newHeap;
 		}
 
-		//object descriptor heap
 		{
 			descriptorheap* newHeap = new descriptorheap();
 			newHeap->init(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, MAX_DESCRIPTOR_SIZE, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);

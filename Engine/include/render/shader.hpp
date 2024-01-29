@@ -61,9 +61,12 @@ public:
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputs;
 	D3D12_SHADER_BYTECODE getByteCode() const;
+
+	shaders::SHADER_TYPE getType() const;
+
+	shaders::hlslData bufData;
+
 private:
 	Microsoft::WRL::ComPtr<IDxcBlob> shaderSource;
 	shaders::SHADER_TYPE type;
-
-	shaders::hlslData bufData;
 };

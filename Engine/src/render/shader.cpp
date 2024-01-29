@@ -554,3 +554,8 @@ D3D12_SHADER_BYTECODE shader::getByteCode() const
 {
 	return CD3DX12_SHADER_BYTECODE(shaderSource->GetBufferPointer(), shaderSource->GetBufferSize());
 }
+
+shaders::SHADER_TYPE shader::getType() const
+{
+	return type;
+}

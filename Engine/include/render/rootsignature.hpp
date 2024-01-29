@@ -40,8 +40,8 @@ private:
 
 	bool compute = false;
 public:
-
 	bool init(std::vector<render::root_init_param> descriptors, std::vector<uint> constantNums, bool CS = false);
+	bool initFromShader(std::vector<uint> shaderIDs);
 	void setDescriptorHeap(std::vector<render::descriptorHeapIndex> descHeapsIdx);
 
 	void setRootSignature(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);

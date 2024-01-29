@@ -38,6 +38,8 @@ namespace render
 	}
 }
 
+#include <render/descriptorheap.hpp>
+
 bool pipelinestate::init(uint VS, uint PS, uint root, std::vector<DXGI_FORMAT> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth)
 {
 	shader* vs = shaders::getShader(shaders::SHADER_INDEX(VS));

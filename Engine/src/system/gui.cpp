@@ -47,7 +47,7 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
 }
 
 static bool showWindow;
-static bool showShadersWindow = true;
+static bool showShadersWindow = false;
 
 void gui::render(ID3D12GraphicsCommandList* cmdList)
 {
