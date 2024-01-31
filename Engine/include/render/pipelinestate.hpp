@@ -8,6 +8,8 @@
 #include <d3d12.h>
 
 class pipelinestate;
+class commandqueue;
+class rootsignature;
 
 namespace render
 {
@@ -27,9 +29,16 @@ class pipelinestate
 {
 private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineStateObject;
+
+	rootsignature* rootsig = nullptr;
+
 public:
-	bool init(uint VS, uint PS, uint root, std::vector<DXGI_FORMAT> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth);
+	bool init(uint VS, uint PS, std::vector<DXGI_FORMAT> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth);
 	bool initCS(uint CS, uint root);
+
+	void bindPSO(commandqueue* cmdQueue);
+
+	void close();
 
 	ID3D12PipelineState* getPSO() const;
 };

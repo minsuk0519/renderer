@@ -12,23 +12,12 @@ class rootsignature;
 
 namespace render
 {
-	enum ROOT_INDEX
-	{
-		ROOT_PBR = 0,
-		ROOT_END,
-	};
-
 	struct root_init_param
 	{
 		D3D12_DESCRIPTOR_RANGE_TYPE type;
 		D3D12_SHADER_VISIBILITY vis;
 		uint num = 1;
 	};
-
-	bool initRootSignatures();
-	void cleanUpRootSignature();
-
-	rootsignature* getRootSignature(const ROOT_INDEX index);
 };
 
 class rootsignature

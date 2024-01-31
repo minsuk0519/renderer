@@ -1,0 +1,9 @@
+[
+	{
+		"vertexIndex":0,
+		"pixelIndex":1,
+		"psoIndex":0,
+		"cs":false,
+		"depth":true,
+	}
+]

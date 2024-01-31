@@ -5,6 +5,7 @@
 #include <glaze/glaze.hpp>
 
 #include "defines.hpp"
+#include "logger.hpp"
 
 struct configJson
 {
@@ -21,16 +22,27 @@ struct shaderJson
 	uint shaderIndex;
 };
 
+struct psoJson
+{
+	uint vertexIndex;
+	uint pixelIndex;
+	uint psoIndex;
+	bool cs;
+	bool depth;
+};
+
 enum JSON_FILE_NAME
 {
 	CONFIG_FILE = 0,
 	SHADER_FILE,
+	PSO_FILE,
 	MAX_FILE,
 };
 
 const std::string JSON_FILE_PATHS[MAX_FILE] = {
 	"data/config.json",
 	"data/shader.json",
+	"data/pso.json",
 };
 
 template <typename Buffer>

@@ -49,7 +49,6 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	TC_INIT(buf::loadResources());
 	TC_INIT(render::initDescHeap());
 	TC_INIT(createFrameResources());
-	TC_INIT(render::initRootSignatures());
 	TC_INIT(render::initPSO());
 	TC_INIT(msh::loadResources());
 
@@ -64,7 +63,6 @@ void renderer::close()
 
 	gui::close();
 	render::cleanUpPSO();
-	render::cleanUpRootSignature();
 	render::cleanUpDescHeap();
 	buf::cleanUp();
 	render::closeCmdQueue();
@@ -199,7 +197,7 @@ void renderer::draw(float dt)
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
 	cmdAllocator->Reset();
-	cmdList->Reset(cmdAllocator.Get(), render::getpipelinestate(render::PSO_PBR)->getPSO());
+	render::getpipelinestate(render::PSO_PBR)->bindPSO(render::getCmdQueue(render::QUEUE_GRAPHIC));
 
 	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(frameBuffer.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
@@ -251,9 +249,6 @@ void renderer::draw(float dt)
 		camObj.update(dt);
 
 		D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
-
-		render::getRootSignature(render::ROOT_PBR)->setRootSignature(cmdList);
-		render::getRootSignature(render::ROOT_PBR)->registerDescHeap(cmdList);
 
 		camObj.preDraw(cmdList, rtv);
 		camObj.draw(0, cmdList);

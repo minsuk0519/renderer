@@ -17,51 +17,6 @@ namespace render
 	{
 		D3D12_RANGE_TYPE_CONSTANT = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER + 1
 	};
-
-	std::array<rootsignature*, ROOT_END> rootsignatures;
-
-	bool initRootSignatures()
-	{
-		//TODO : find the automatic system
-		{
-			rootsignature* rootsig = new rootsignature;
-
-			rootsig->init({
-				//projection
-				{D3D12_DESCRIPTOR_RANGE_TYPE_CBV, D3D12_SHADER_VISIBILITY_ALL},
-				//object
-				{D3D12_DESCRIPTOR_RANGE_TYPE_CBV, D3D12_SHADER_VISIBILITY_ALL},
-				}, {});
-			rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
-
-			rootsignatures[ROOT_PBR] = rootsig;
-		}
-
-		{
-			rootsignature* rootsig = new rootsignature;
-
-			rootsig->initFromShader({ shaders::PBR_VS, shaders::PBR_PS });
-			rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
-
-			rootsignatures[ROOT_PBR] = rootsig;
-		}
-
-		return true;
-	}
-
-	void cleanUpRootSignature()
-	{
-		for (uint i = 0; i < ROOT_END; ++i)
-		{
-			delete rootsignatures[i];
-		}
-	}
-
-	rootsignature* getRootSignature(const ROOT_INDEX index)
-	{
-		return rootsignatures[index];
-	}
-
 }
 
 bool rootsignature::initFromShader(std::vector<uint> shaderIDs)

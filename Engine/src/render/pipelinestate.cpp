@@ -2,6 +2,9 @@
 #include <render/rootsignature.hpp>
 #include <render/shader.hpp>
 #include <render/renderer.hpp>
+#include <render/commandqueue.hpp>
+#include <render/descriptorheap.hpp>
+#include <system/jsonhelper.hpp>
 
 #include <array>
 
@@ -13,12 +16,18 @@ namespace render
 	
 	bool initPSO()
 	{
+		std::vector<psoJson> psoJsons;
+
+		readJsonBuffer(psoJsons, JSON_FILE_NAME::PSO_FILE);
+
+		for (auto psoData : psoJsons)
 		{
 			pipelinestate* newObject = new pipelinestate();
 
-			newObject->init(shaders::PBR_VS, shaders::PBR_PS, render::ROOT_PBR, { DXGI_FORMAT_R8G8B8A8_UNORM }, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, true);
+			if (!psoData.cs) newObject->init(psoData.vertexIndex, psoData.pixelIndex, { DXGI_FORMAT_R8G8B8A8_UNORM }, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, psoData.depth);
+			//else newObject->initCS(psoData.vertexIndex);
 
-			pipelineStateObjects[PSO_PBR] = newObject;
+			pipelineStateObjects[psoData.psoIndex] = newObject;
 		}
 
 		return true;
@@ -28,6 +37,7 @@ namespace render
 	{
 		for (uint i = 0; i < PSO_END; ++i)
 		{
+			pipelineStateObjects[i]->close();
 			delete pipelineStateObjects[i];
 		}
 	}
@@ -38,18 +48,21 @@ namespace render
 	}
 }
 
-#include <render/descriptorheap.hpp>
-
-bool pipelinestate::init(uint VS, uint PS, uint root, std::vector<DXGI_FORMAT> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth)
+bool pipelinestate::init(uint VS, uint PS, std::vector<DXGI_FORMAT> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth)
 {
 	shader* vs = shaders::getShader(shaders::SHADER_INDEX(VS));
 	shader* ps = shaders::getShader(shaders::SHADER_INDEX(PS));
+
+	rootsig = new rootsignature();
+
+	rootsig->initFromShader({ VS, PS });
+	rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
 	
 	// Describe and create the graphics pipeline state object (PSO).
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 	psoDesc.InputLayout.NumElements = static_cast<uint>(vs->inputs.size());
 	psoDesc.InputLayout.pInputElementDescs = vs->inputs.data();
-	psoDesc.pRootSignature = render::getRootSignature(render::ROOT_INDEX(root))->getrootSignature();
+	psoDesc.pRootSignature = rootsig->getrootSignature();// render::getRootSignature(render::ROOT_INDEX(root))->getrootSignature();
 	psoDesc.VS = vs->getByteCode();
 	psoDesc.PS = ps->getByteCode();
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -93,7 +106,7 @@ bool pipelinestate::initCS(uint CS, uint root)
 		CD3DX12_PIPELINE_STATE_STREAM_CS CS;
 	} pipelineStateStream;
 
-	pipelineStateStream.pRootSignature = render::getRootSignature(render::ROOT_INDEX(root))->getrootSignature();
+	//pipelineStateStream.pRootSignature = render::getRootSignature(render::ROOT_INDEX(root))->getrootSignature();
 	pipelineStateStream.CS = cs->getByteCode();
 
 	D3D12_PIPELINE_STATE_STREAM_DESC psoDesc = { sizeof(PipelineStateStream), &pipelineStateStream };
@@ -101,6 +114,23 @@ bool pipelinestate::initCS(uint CS, uint root)
 	e_GlobRenderer.device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
 
 	return true;
+}
+
+void pipelinestate::bindPSO(commandqueue* cmdQueue)
+{
+	auto cmdAllocator = cmdQueue->getAllocator();
+
+	auto cmdList = cmdQueue->getCmdList();
+
+	cmdList->Reset(cmdAllocator.Get(), pipelineStateObject.Get());
+
+	rootsig->setRootSignature(cmdList);
+	rootsig->registerDescHeap(cmdList);
+}
+
+void pipelinestate::close()
+{
+	delete rootsig;
 }
 
 ID3D12PipelineState* pipelinestate::getPSO() const
