@@ -34,15 +34,8 @@ private:
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain;
 
-	uint frameIndex = 0;
-
-	bool eject = false;
-
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdSignature;
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdprepassSignature;
-
-	descriptor swapchainDesc[FRAME_COUNT];
-	imagebuffer* swapchainBuffer[FRAME_COUNT];
 };
 
 extern renderer e_GlobRenderer;

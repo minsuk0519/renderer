@@ -6,6 +6,7 @@
 #include <render/transform.hpp>
 #include <render/camera.hpp>
 #include <render/mesh.hpp>
+#include <render/framebuffer.hpp>
 
 #include <system/logger.hpp>
 #include <system/window.hpp>
@@ -13,9 +14,12 @@
 
 #include <d3dx12.h>
 
-DirectX::XMFLOAT4 backgroundColor = DirectX::XMFLOAT4(0.8f, 0.9f, 0.9f, 1.0f);
-
+//TODO
 uint vsync = 0;
+
+uint frameIndex = 0;
+
+framebuffer* swapchainFB[FRAME_COUNT];
 
 renderer e_GlobRenderer;
 
@@ -169,11 +173,9 @@ bool renderer::createFrameResources()
 
 	for (int i = 0; i < FRAME_COUNT; ++i)
 	{
-		swapchainBuffer[i] = buf::createImageBuffer(width, height, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+		swapchainFB[i] = new framebuffer();
 
-		swapChain->GetBuffer(i, IID_PPV_ARGS(&swapchainBuffer[i]->resource));
-
-		swapchainDesc[i] = render::getHeap(render::DESCRIPTORHEAP_RENDERTARGET)->requestdescriptor(buf::BUFFER_RT_TYPE, swapchainBuffer[i]);
+		swapchainFB[i]->createFB(width, height, i, swapChain);
 	}
 
 	return true;
@@ -184,73 +186,30 @@ void renderer::preDraw(float dt)
 
 }
 
-constantbuffer* projectionBuffer = nullptr;
-descriptor desc;
-float FAR_PLANE = 100.0f;
+bool projectionBufferinit = false;
 camera camObj;
 
 void renderer::draw(float dt)
 {
-	auto frameBuffer = swapchainBuffer[frameIndex]->resource;
 	auto cmdAllocator = render::getCmdQueue(render::QUEUE_GRAPHIC)->getAllocator();
-
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
 	cmdAllocator->Reset();
 	render::getpipelinestate(render::PSO_PBR)->bindPSO(render::getCmdQueue(render::QUEUE_GRAPHIC));
 
-	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(frameBuffer.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	swapchainFB[frameIndex]->openFB(cmdList);
 
-	cmdList->ResourceBarrier(1, &barrier);
-
+	if(!projectionBufferinit)
 	{
-		D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
-		D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(render::getHeap(render::DESCRIPTORHEAP_DEPTH)->getCPUPos(0));
+		projectionBufferinit = true;
 
-		cmdList->ClearRenderTargetView(rtv, &backgroundColor.x, 0, nullptr);
-		cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-		//draw may be called on here
-		cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-	}
-
-	if(projectionBuffer == nullptr)
-	{
-		projectionBuffer = buf::createConstantBuffer(sizeof(float) * (4 * 4 * 2 + 4));
-
-		desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, projectionBuffer));
-
-		auto transformPtr = new transform();
-
-		transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,1.0f });
-
-		DirectX::XMVECTOR rotation = transformPtr->getQuaternion();
-
-		DirectX::XMVECTOR up = transformPtr->getUP();
-		DirectX::XMVECTOR right = transformPtr->getRIGHT();
-
-		DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);
-
-		DirectX::XMVECTOR pos = transformPtr->getPosition();
-
-		DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, up);
-
-		DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), e_globWindow.width() / (float)(e_globWindow.height()), 0.1f, FAR_PLANE);
-
-		DirectX::XMMATRIX proj[2] = { projection, view };
-
-		memcpy(projectionBuffer->info.cbvDataBegin, proj, sizeof(float) * 4 * 4 * 2);
-		memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 * 2, &pos, sizeof(float) * 3);
-		memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 * 2 + sizeof(float) * 3, &FAR_PLANE, sizeof(float));
 		camObj.init();
 	}
 
 	{
 		camObj.update(dt);
 
-		D3D12_CPU_DESCRIPTOR_HANDLE rtv = swapchainDesc[frameIndex].getCPUHandle();
-
-		camObj.preDraw(cmdList, rtv);
+		camObj.preDraw(cmdList);
 		camObj.draw(0, cmdList);
 
 		auto mesh = msh::getMesh(msh::MESH_BUNNY)->getData();
@@ -268,8 +227,7 @@ void renderer::draw(float dt)
 
 	gui::render(cmdList.Get());
 
-	barrier = CD3DX12_RESOURCE_BARRIER::Transition(frameBuffer.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-	cmdList->ResourceBarrier(1, &barrier);
+	swapchainFB[frameIndex]->closeFB(cmdList);
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 

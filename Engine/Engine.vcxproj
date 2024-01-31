@@ -90,6 +90,7 @@
     <ClInclude Include="include\render\camera.hpp" />
     <ClInclude Include="include\render\commandqueue.hpp" />
     <ClInclude Include="include\render\descriptorheap.hpp" />
+    <ClInclude Include="include\render\framebuffer.hpp" />
     <ClInclude Include="include\render\mesh.hpp" />
     <ClInclude Include="include\render\pipelinestate.hpp" />
     <ClInclude Include="include\render\renderer.hpp" />
@@ -104,6 +105,8 @@
     <ClInclude Include="include\system\logger.hpp" />
     <ClInclude Include="include\system\logger_internal.hpp" />
     <ClInclude Include="include\system\window.hpp" />
+    <ClInclude Include="include\world\object.hpp" />
+    <ClInclude Include="include\world\world.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
@@ -111,6 +114,7 @@
     <ClCompile Include="src\render\camera.cpp" />
     <ClCompile Include="src\render\commandqueue.cpp" />
     <ClCompile Include="src\render\descriptorheap.cpp" />
+    <ClCompile Include="src\render\framebuffer.cpp" />
     <ClCompile Include="src\render\mesh.cpp" />
     <ClCompile Include="src\render\pipelinestate.cpp" />
     <ClCompile Include="src\render\renderer.cpp" />
@@ -122,6 +126,8 @@
     <ClCompile Include="src\system\jsonhelper.cpp" />
     <ClCompile Include="src\system\logger_internal.cpp" />
     <ClCompile Include="src\system\window.cpp" />
+    <ClCompile Include="src\world\object.cpp" />
+    <ClCompile Include="src\world\world.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

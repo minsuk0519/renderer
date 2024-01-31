@@ -62,7 +62,7 @@ bool pipelinestate::init(uint VS, uint PS, std::vector<DXGI_FORMAT> formats, D3D
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 	psoDesc.InputLayout.NumElements = static_cast<uint>(vs->inputs.size());
 	psoDesc.InputLayout.pInputElementDescs = vs->inputs.data();
-	psoDesc.pRootSignature = rootsig->getrootSignature();// render::getRootSignature(render::ROOT_INDEX(root))->getrootSignature();
+	psoDesc.pRootSignature = rootsig->getrootSignature();
 	psoDesc.VS = vs->getByteCode();
 	psoDesc.PS = ps->getByteCode();
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
