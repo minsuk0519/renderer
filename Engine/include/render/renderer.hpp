@@ -38,4 +38,4 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdprepassSignature;
 };
 
-extern renderer e_GlobRenderer;
+extern renderer e_globRenderer;

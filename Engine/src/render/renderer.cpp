@@ -7,6 +7,7 @@
 #include <render/camera.hpp>
 #include <render/mesh.hpp>
 #include <render/framebuffer.hpp>
+#include <world/world.hpp>
 
 #include <system/logger.hpp>
 #include <system/window.hpp>
@@ -21,7 +22,7 @@ uint frameIndex = 0;
 
 framebuffer* swapchainFB[FRAME_COUNT];
 
-renderer e_GlobRenderer;
+renderer e_globRenderer;
 
 bool initGui()
 {
@@ -33,13 +34,13 @@ bool initGui()
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-		if (e_GlobRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&guiHeap)) != S_OK)
+		if (e_globRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&guiHeap)) != S_OK)
 		{
 			return false;
 		}
 	}
 
-	gui::init(e_globWindow.getWindow(), e_GlobRenderer.device.Get(), guiHeap.Get());
+	gui::init(e_globWindow.getWindow(), e_globRenderer.device.Get(), guiHeap.Get());
 }
 
 bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter)
@@ -186,9 +187,6 @@ void renderer::preDraw(float dt)
 
 }
 
-bool projectionBufferinit = false;
-camera camObj;
-
 void renderer::draw(float dt)
 {
 	auto cmdAllocator = render::getCmdQueue(render::QUEUE_GRAPHIC)->getAllocator();
@@ -199,31 +197,7 @@ void renderer::draw(float dt)
 
 	swapchainFB[frameIndex]->openFB(cmdList);
 
-	if(!projectionBufferinit)
-	{
-		projectionBufferinit = true;
-
-		camObj.init();
-	}
-
-	{
-		camObj.update(dt);
-
-		camObj.preDraw(cmdList);
-		camObj.draw(0, cmdList);
-
-		auto mesh = msh::getMesh(msh::MESH_BUNNY)->getData();
-
-		cmdList->IASetVertexBuffers(0, 1, &mesh->vbs->view);
-
-		if(mesh->norm) cmdList->IASetVertexBuffers(1, 1, &mesh->norm->view);
-
-		cmdList->IASetIndexBuffer(&mesh->idx->view);
-
-		//cmdList->DrawIndexedInstanced(36, 1, 0, 0, 0);
-		//cmdList->DrawIndexedInstanced(2880, 1, 0, 0, 0);
-		cmdList->DrawIndexedInstanced(208353, 1, 0, 0, 0);
-	}
+	e_globWorld.drawWorld(cmdList);
 
 	gui::render(cmdList.Get());
 

@@ -91,7 +91,7 @@ bool pipelinestate::init(uint VS, uint PS, std::vector<DXGI_FORMAT> formats, D3D
 		psoDesc.DepthStencilState.StencilEnable = FALSE;
 	}
 	psoDesc.SampleDesc.Count = 1;
-	e_GlobRenderer.device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	e_globRenderer.device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
 
  	return true;
 }
@@ -111,7 +111,7 @@ bool pipelinestate::initCS(uint CS, uint root)
 
 	D3D12_PIPELINE_STATE_STREAM_DESC psoDesc = { sizeof(PipelineStateStream), &pipelineStateStream };
 
-	e_GlobRenderer.device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	e_globRenderer.device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
 
 	return true;
 }

@@ -4,6 +4,8 @@
 
 #include <vector>
 #include <string>
+#include <d3dx12.h>
+#include <wrl.h>
 
 class camera;
 class object;
@@ -16,30 +18,14 @@ namespace game
 	world* getWorld();
 }
 
-enum ENVTEXTUREINDEX
-{
-	ENVTEXTURE_BRIDGE,
-	ENVTEXTURE_SIERRA,
-	ENVTEXTURE_APT,
-	ENVTEXTURE_ARCHES,
-	ENVTEXTURE_ROOFTOP,
-	ENVTEXTURE_FACTORY,
-	ENVTEXTURE_MONVALLEY,
-	ENVTEXTURE_NATURELAB,
-	ENVTEXTURE_NEWPORT,
-	ENVTEXTURE_SUNRISE,
-	ENVTEXTURE_MONUMENTVALLEY,
-	ENVTEXTURE_SUMMIPOOL,
-	ENVTEXTURE_BEACH,
-	ENVTEXTURE_END,
-};
-
 class world
 {
 public:
 	bool init();
 	void update(float dt);
 	void close();
+
+	void drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 
 	void setupScene();
 
@@ -73,3 +59,5 @@ private:
 
 	void addObject(object* obj);
 };
+
+extern world e_globWorld;

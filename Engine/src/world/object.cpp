@@ -40,7 +40,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 
 void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool debugDraw)
 {
-	cmdList->SetGraphicsRootDescriptorTable(1, desc.getHandle());
+	//cmdList->SetGraphicsRootDescriptorTable(1, desc.getHandle());
 
 	if (debugDraw)
 	{

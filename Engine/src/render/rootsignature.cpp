@@ -99,7 +99,7 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs)
 		return false;
 	}
 
-	e_GlobRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 
 	return true;
 }
@@ -178,7 +178,7 @@ bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::
 		return false;
 	}
 
-	e_GlobRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 
 	return true;
 }

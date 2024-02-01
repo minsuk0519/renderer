@@ -1,6 +1,9 @@
 #include <world/world.hpp>
 #include <world/object.hpp>
 #include <render/camera.hpp>
+#include <render/pipelinestate.hpp>
+
+world e_globWorld;
 
 namespace game
 {
@@ -59,9 +62,9 @@ bool world::init()
 	setMainCamera(camPtr);
 	cameras.push_back(camPtr);
 
-	camera* debugCamPtr = new camera();
-	debugCamPtr->init();
-	cameras.push_back(debugCamPtr);
+	//camera* debugCamPtr = new camera();
+	//debugCamPtr->init();
+	//cameras.push_back(debugCamPtr);
 
 	objects = new object[MAX_OBJECTS];
 
@@ -119,15 +122,29 @@ void world::close()
 	}
 }
 
+void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+{
+	for (auto cam : cameras)
+	{
+		cam->preDraw(cmdList);
+	}
+
+	for (uint i = 0; i < objectNum; ++i)
+	{
+		objects[i].draw(cmdList, false);
+	}
+}
+
 void world::setupScene()
 {
-	//{
-	//	objects[objectNum].init(msh::MESH_SPHERE, pso::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.0f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+	//TODO
+	{
+		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.0f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
-	//	++objectNum;
-	//}
+		++objectNum;
+	}
 
 	//{
 	//	objects[objectNum].init(msh::MESH_BUNNY, pso::PSO_PBR, true);
