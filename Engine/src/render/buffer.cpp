@@ -361,6 +361,8 @@ namespace buf
         D3D12_RESOURCE_STATES resourceStates = D3D12_RESOURCE_STATE_COMMON;
         if (depth) resourceStates = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 
+
+
         //TODO depth_write will be changed
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             resourceStates, clear, IID_PPV_ARGS(&buf->resource));

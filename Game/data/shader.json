@@ -11,5 +11,17 @@
 		"target":"ps_6_5",
 		"shaderType":1,
 		"shaderIndex":1
+	},{
+		"shaderFile":"data/shader/source/gbuffer.vs",
+		"entryPoint":"VSMain",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":2
+	},{
+		"shaderFile":"data/shader/source/gbuffer.ps",
+		"entryPoint":"PSMain",
+		"target":"ps_6_5",
+		"shaderType":1,
+		"shaderIndex":3
 	}
 ]

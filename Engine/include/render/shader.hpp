@@ -19,17 +19,10 @@ namespace shaders
 		SHADER_PS,
 	};
 
-	enum SHADER_INDEX
-	{
-		PBR_VS = 0,
-		PBR_PS,
-		SHADER_END,
-	};
-
 	bool loadResources();
 	void cleanup();
 
-	shader* getShader(const SHADER_INDEX index);
+	shader* getShader(const uint index);
 
 	struct hlslBuf
 	{

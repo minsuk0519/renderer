@@ -1,20 +1,35 @@
 #pragma once
 #include <render/descriptorheap.hpp>
 
+#include <vector>
+
 #include <dxgi1_6.h>
+#include <DirectXMath.h>
 
 class imagebuffer;
+
+struct framebufferObject
+{
+	imagebuffer* imageBuffer;
+	descriptor desc;
+
+	DirectX::XMFLOAT4 clearColor = DirectX::XMFLOAT4(0.8f, 0.9f, 0.9f, 1.0f);
+};
 
 class framebuffer
 {
 private:
-	descriptor desc;
-	imagebuffer* imageBuffer;
+	std::vector<framebufferObject*> FBOs;
+
+	bool isDepth = false;
+	float clearDepth = 1.0f;
 
 public:
-
-	bool createFB(uint width, uint height, uint frameNum, Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain);
+	bool createAddFBO(uint width, uint height, DXGI_FORMAT format, DirectX::XMFLOAT4 clearColor = DirectX::XMFLOAT4(0.8f, 0.9f, 0.9f, 1.0f));
+	void addFBOfromBuf(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, DirectX::XMFLOAT4 clearColor = DirectX::XMFLOAT4(0.8f, 0.9f, 0.9f, 1.0f));
 
 	void openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 	void closeFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+
+	void setDepthClear(float depth);
 };

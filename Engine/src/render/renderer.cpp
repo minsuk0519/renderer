@@ -20,8 +20,6 @@ uint vsync = 0;
 
 uint frameIndex = 0;
 
-framebuffer* swapchainFB[FRAME_COUNT];
-
 renderer e_globRenderer;
 
 bool initGui()
@@ -169,15 +167,26 @@ bool renderer::createSwapChain()
 
 bool renderer::createFrameResources()
 {
-	uint width = e_globWindow.width();
-	uint height = e_globWindow.height();
-
 	for (int i = 0; i < FRAME_COUNT; ++i)
 	{
+		Microsoft::WRL::ComPtr<ID3D12Resource> resource;
+
+		swapChain->GetBuffer(i, IID_PPV_ARGS(&resource));
+
 		swapchainFB[i] = new framebuffer();
 
-		swapchainFB[i]->createFB(width, height, i, swapChain);
+		swapchainFB[i]->addFBOfromBuf(resource);
+
+		//will be changed
+		swapchainFB[i]->setDepthClear(1.0f);
 	}
+
+	gbufferFB = new framebuffer();
+	//position
+	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT);
+	//normal + tex
+	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT);
+	gbufferFB->setDepthClear(1.0f);
 
 	return true;
 }
@@ -189,6 +198,24 @@ void renderer::preDraw(float dt)
 
 void renderer::draw(float dt)
 {
+	{
+		auto cmdAllocator = render::getCmdQueue(render::QUEUE_GRAPHIC)->getAllocator();
+		auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
+
+		cmdAllocator->Reset();
+		render::getpipelinestate(render::PSO_GBUFFER)->bindPSO(render::getCmdQueue(render::QUEUE_GRAPHIC));
+
+		gbufferFB->openFB(cmdList);
+
+		e_globWorld.drawWorld(cmdList);
+
+		gbufferFB->closeFB(cmdList);
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+	}
+
 	auto cmdAllocator = render::getCmdQueue(render::QUEUE_GRAPHIC)->getAllocator();
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 

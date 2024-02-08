@@ -24,7 +24,7 @@ namespace render
 		{
 			pipelinestate* newObject = new pipelinestate();
 
-			if (!psoData.cs) newObject->init(psoData.vertexIndex, psoData.pixelIndex, { DXGI_FORMAT_R8G8B8A8_UNORM }, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, psoData.depth);
+			if (!psoData.cs) newObject->init(psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, psoData.depth);
 			//else newObject->initCS(psoData.vertexIndex);
 
 			pipelineStateObjects[psoData.psoIndex] = newObject;
@@ -48,10 +48,10 @@ namespace render
 	}
 }
 
-bool pipelinestate::init(uint VS, uint PS, std::vector<DXGI_FORMAT> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth)
+bool pipelinestate::init(uint VS, uint PS, std::vector<uint> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth)
 {
-	shader* vs = shaders::getShader(shaders::SHADER_INDEX(VS));
-	shader* ps = shaders::getShader(shaders::SHADER_INDEX(PS));
+	shader* vs = shaders::getShader(VS);
+	shader* ps = shaders::getShader(PS);
 
 	rootsig = new rootsignature();
 
@@ -74,7 +74,7 @@ bool pipelinestate::init(uint VS, uint PS, std::vector<DXGI_FORMAT> formats, D3D
 	psoDesc.NumRenderTargets = static_cast<uint>(formats.size());
 	for (int i = 0; i < formats.size(); ++i)
 	{
-		psoDesc.RTVFormats[i] = formats[i];// DXGI_FORMAT_R8G8B8A8_UNORM;
+		psoDesc.RTVFormats[i] = (DXGI_FORMAT)(formats[i]);
 	}
 
 	if (depth)
@@ -98,7 +98,7 @@ bool pipelinestate::init(uint VS, uint PS, std::vector<DXGI_FORMAT> formats, D3D
 
 bool pipelinestate::initCS(uint CS, uint root)
 {
-	shader* cs = shaders::getShader(shaders::SHADER_INDEX(CS));
+	shader* cs = shaders::getShader(CS);
 
 	struct PipelineStateStream
 	{

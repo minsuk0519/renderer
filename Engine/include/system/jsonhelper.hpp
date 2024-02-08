@@ -27,6 +27,7 @@ struct psoJson
 	uint vertexIndex;
 	uint pixelIndex;
 	uint psoIndex;
+	std::vector<uint> formats;
 	bool cs;
 	bool depth;
 };

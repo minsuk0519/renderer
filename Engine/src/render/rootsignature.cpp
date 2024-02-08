@@ -25,7 +25,7 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs)
 
 	for (auto id : shaderIDs)
 	{
-		shader* shader = shaders::getShader((shaders::SHADER_INDEX)id);
+		shader* shader = shaders::getShader(id);
 
 		for (auto constant : shader->bufData.constantContainer)
 		{

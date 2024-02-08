@@ -11,7 +11,7 @@
 
 namespace shaders
 {
-	std::array<shader*, SHADER_END> shaders;
+	std::vector<shader*> shaders;
 
 	Microsoft::WRL::ComPtr<IDxcUtils> pUtils;
 	Microsoft::WRL::ComPtr<IDxcCompiler3> pCompiler;
@@ -42,7 +42,7 @@ namespace shaders
 			&source,                // Source buffer.
 			pszArgs,                // Array of pointers to arguments.
 			_countof(pszArgs),      // Number of arguments.
-			pIncludeHandler.Get(),        // User-provided interface to handle #include directives (optional).
+			pIncludeHandler.Get(),  // User-provided interface to handle #include directives (optional).
 			IID_PPV_ARGS(&pResults) // Compiler output status, buffer, and errors.
 		);
 
@@ -75,6 +75,8 @@ namespace shaders
 		DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
 		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
 		pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
+
+		shaders.resize(shaderJsons.size());
 		
 		for (auto shaderData : shaderJsons)
 		{
@@ -100,14 +102,16 @@ namespace shaders
 
 	void cleanup()
 	{
-		for (uint i = 0; i < SHADER_END; ++i)
+		for (uint i = 0; i < shaders.size(); ++i)
 		{
 			shaders[i]->close();
 			delete shaders[i];
 		}
+
+		shaders.clear();
 	}
 
-	shader* getShader(const SHADER_INDEX index)
+	shader* getShader(const uint index)
 	{
 		return shaders[index];
 	}
@@ -381,6 +385,8 @@ void shader::decipherHLSL()
 		find = sourceString.find("------------------------------ ---------- ------- ----------- ------- -------------- ------", find);
 		find = sourceString.find("; ", find) + 1;
 
+		bool skipConstant = false;
+
 		while (true)
 		{
 			auto find2 = sourceString.find("\n", find) + 1;
@@ -389,6 +395,12 @@ void shader::decipherHLSL()
 
 			if (line.find(";\n") != std::string::npos)
 			{
+				break;
+			}
+
+			if (line.find("ViewId state:") != std::string::npos)
+			{
+				skipConstant = true;
 				break;
 			}
 
@@ -423,101 +435,105 @@ void shader::decipherHLSL()
 			}
 		}
 
-		find = sourceString.find("\n%dx.alignment.legacy") + 1;
-
-		uint cbufferNum = 0;
-		while (true)
+		if (!skipConstant)
 		{
-			auto find2 = sourceString.find("\n", find) + 1;
-			std::string line = sourceString.substr(find, find2 - find);
-			find = find2;
 
-			if (line.size() == 1)
+			find = sourceString.find("\n%dx.alignment.legacy") + 1;
+
+			uint cbufferNum = 0;
+			while (true)
 			{
-				break;
-			}
+				auto find2 = sourceString.find("\n", find) + 1;
+				std::string line = sourceString.substr(find, find2 - find);
+				find = find2;
 
-			find2 = 0;
-
-			{
-				auto find3 = line.find("%dx.alignment.legacy") + 21;
-				find2 = line.find(" ");
-
-				std::string Name = line.substr(find3, find2 - find3);
-
-				if (Name.find("struct") != std::string::npos)
+				if (line.size() == 1)
 				{
-					continue;
+					break;
 				}
 
-				bufData.constantContainer[cbufferNum].name = Name;
+				find2 = 0;
 
-				uint size = 0;
-
-				find2 = line.find("type { ") + 7;
-				while (true)
 				{
-					line = line.substr(find2);
-					find3 = line.find_first_of(", }");
-					std::string constantName = line.substr(0, find3);
+					auto find3 = line.find("%dx.alignment.legacy") + 21;
+					find2 = line.find(" ");
 
-					if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
+					std::string Name = line.substr(find3, find2 - find3);
+
+					if (Name.find("struct") != std::string::npos)
 					{
-						size += 4;
-						find2 = line.find_first_not_of(", }", find3);
 						continue;
 					}
 
-					if (constantName.size() < 3)
+					bufData.constantContainer[cbufferNum].name = Name;
+
+					uint size = 0;
+
+					find2 = line.find("type { ") + 7;
+					while (true)
 					{
-						break;
-					}
+						line = line.substr(find2);
+						find3 = line.find_first_of(", }");
+						std::string constantName = line.substr(0, find3);
 
-					//get size from struct
-					{
-						auto constantSizePos = sourceString.find(constantName + " = type { ") + constantName.size() + 11;
-						std::string constantSizeString = sourceString.substr(constantSizePos);
-
-						uint stringIndex = 0;
-
-						uint cumulate = 1;
-
-						while (true)
+						if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
 						{
-							char c = constantSizeString[stringIndex];
-
-							if (c == '}') break;
-							else if (c == 'f')
-							{
-								size += cumulate * 4;
-								cumulate = 1;
-								stringIndex += 5;
-							}
-							else if (c == 'i')
-							{
-								size += cumulate * 4;
-								cumulate = 1;
-								stringIndex += 3;
-							}
-							uint num = 0;
-							while (c >= '0' && c <= '9')
-							{
-								uint i = static_cast<uint>(c - '0');
-								num = num * 10 + i;
-								++stringIndex;
-								c = constantSizeString[stringIndex];
-							}
-							if (num != 0) cumulate *= num;
-
-							++stringIndex;
+							size += 4;
+							find2 = line.find_first_not_of(", }", find3);
+							continue;
 						}
-					}
 
-					find2 = line.find_first_not_of(", }", find3);
+						if (constantName.size() < 3)
+						{
+							break;
+						}
+
+						//get size from struct
+						{
+							auto constantSizePos = sourceString.find(constantName + " = type { ") + constantName.size() + 11;
+							std::string constantSizeString = sourceString.substr(constantSizePos);
+
+							uint stringIndex = 0;
+
+							uint cumulate = 1;
+
+							while (true)
+							{
+								char c = constantSizeString[stringIndex];
+
+								if (c == '}') break;
+								else if (c == 'f')
+								{
+									size += cumulate * 4;
+									cumulate = 1;
+									stringIndex += 5;
+								}
+								else if (c == 'i')
+								{
+									size += cumulate * 4;
+									cumulate = 1;
+									stringIndex += 3;
+								}
+								uint num = 0;
+								while (c >= '0' && c <= '9')
+								{
+									uint i = static_cast<uint>(c - '0');
+									num = num * 10 + i;
+									++stringIndex;
+									c = constantSizeString[stringIndex];
+								}
+								if (num != 0) cumulate *= num;
+
+								++stringIndex;
+							}
+						}
+
+						find2 = line.find_first_not_of(", }", find3);
+					}
+					bufData.constantContainer[cbufferNum].data = size;
 				}
-				bufData.constantContainer[cbufferNum].data = size;
+				++cbufferNum;
 			}
-			++cbufferNum;
 		}
 	}
 

@@ -10,6 +10,8 @@
 
 #include <DirectXMath.h>
 
+class framebuffer;
+
 constexpr uint FRAME_COUNT = 2;
 
 class renderer
@@ -36,6 +38,11 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdSignature;
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdprepassSignature;
+
+private:
+	framebuffer* swapchainFB[FRAME_COUNT];
+	framebuffer* gbufferFB;
+
 };
 
 extern renderer e_globRenderer;
