@@ -36,7 +36,10 @@ namespace shaders
 	{
 		std::vector<hlslBuf> inputContainer;
 		std::vector<hlslBuf> outputContainer;
+
 		std::vector<hlslBuf> constantContainer;
+		std::vector<uint> textureContainer;
+		std::vector<uint> samplerContainer;
 	};
 
 	void guiSetting();

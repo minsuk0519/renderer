@@ -408,7 +408,6 @@ void shader::decipherHLSL()
 
 			if (line.find("ViewId state:") != std::string::npos)
 			{
-				skipConstant = true;
 				break;
 			}
 
@@ -432,9 +431,25 @@ void shader::decipherHLSL()
 
 				if (variableIndex == 4)
 				{
-					std::string cBufferLoc = str.substr(2);
-					hlslbuf.loc = std::stoi(cBufferLoc);
-					bufData.constantContainer.push_back(hlslbuf);
+					std::string cBufferLoc;
+
+					if (str.find("cb") != std::string::npos)
+					{
+						cBufferLoc = str.substr(2);
+						hlslbuf.loc = std::stoi(cBufferLoc);
+						bufData.constantContainer.push_back(hlslbuf);
+					}
+					else if(str.find("s") != std::string::npos)
+					{
+						cBufferLoc = str.substr(1);
+						bufData.samplerContainer.push_back(std::stoi(cBufferLoc));
+					}
+					else
+					{
+						cBufferLoc = str.substr(1);
+						bufData.textureContainer.push_back(std::stoi(cBufferLoc));
+					}
+
 					break;
 				}
 				find2 = find3;
@@ -443,9 +458,8 @@ void shader::decipherHLSL()
 			}
 		}
 
-		if (!skipConstant)
+		if (bufData.constantContainer.size() != 0)
 		{
-
 			find = sourceString.find("\n%dx.alignment.legacy") + 1;
 
 			uint cbufferNum = 0;
@@ -461,85 +475,90 @@ void shader::decipherHLSL()
 				}
 
 				find2 = 0;
+				
+				auto find3 = line.find("%dx.alignment.legacy") + 21;
 
+				find2 = line.find(" ");
+
+				std::string Name = line.substr(find3, find2 - find3);
+
+				if (Name.find("struct") != std::string::npos)
 				{
-					auto find3 = line.find("%dx.alignment.legacy") + 21;
-					find2 = line.find(" ");
+					continue;
+				}
 
-					std::string Name = line.substr(find3, find2 - find3);
+				if (Name.empty())
+				{
+					break;
+				}
 
-					if (Name.find("struct") != std::string::npos)
+				bufData.constantContainer[cbufferNum].name = Name;
+
+				uint size = 0;
+
+				find2 = line.find("type { ") + 7;
+				while (true)
+				{
+					line = line.substr(find2);
+					find3 = line.find_first_of(", }");
+					std::string constantName = line.substr(0, find3);
+
+					if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
 					{
+						size += 4;
+						find2 = line.find_first_not_of(", }", find3);
 						continue;
 					}
 
-					bufData.constantContainer[cbufferNum].name = Name;
-
-					uint size = 0;
-
-					find2 = line.find("type { ") + 7;
-					while (true)
+					if (constantName.size() < 3)
 					{
-						line = line.substr(find2);
-						find3 = line.find_first_of(", }");
-						std::string constantName = line.substr(0, find3);
-
-						if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
-						{
-							size += 4;
-							find2 = line.find_first_not_of(", }", find3);
-							continue;
-						}
-
-						if (constantName.size() < 3)
-						{
-							break;
-						}
-
-						//get size from struct
-						{
-							auto constantSizePos = sourceString.find(constantName + " = type { ") + constantName.size() + 11;
-							std::string constantSizeString = sourceString.substr(constantSizePos);
-
-							uint stringIndex = 0;
-
-							uint cumulate = 1;
-
-							while (true)
-							{
-								char c = constantSizeString[stringIndex];
-
-								if (c == '}') break;
-								else if (c == 'f')
-								{
-									size += cumulate * 4;
-									cumulate = 1;
-									stringIndex += 5;
-								}
-								else if (c == 'i')
-								{
-									size += cumulate * 4;
-									cumulate = 1;
-									stringIndex += 3;
-								}
-								uint num = 0;
-								while (c >= '0' && c <= '9')
-								{
-									uint i = static_cast<uint>(c - '0');
-									num = num * 10 + i;
-									++stringIndex;
-									c = constantSizeString[stringIndex];
-								}
-								if (num != 0) cumulate *= num;
-
-								++stringIndex;
-							}
-						}
-
-						find2 = line.find_first_not_of(", }", find3);
+						break;
 					}
-					bufData.constantContainer[cbufferNum].data = size;
+
+					//get size from struct
+					{
+						auto constantSizePos = sourceString.find(constantName + " = type { ") + constantName.size() + 11;
+						std::string constantSizeString = sourceString.substr(constantSizePos);
+
+						uint stringIndex = 0;
+
+						uint cumulate = 1;
+
+						while (true)
+						{
+							char c = constantSizeString[stringIndex];
+
+							if (c == '}') break;
+							else if (c == 'f')
+							{
+								size += cumulate * 4;
+								cumulate = 1;
+								stringIndex += 5;
+							}
+							else if (c == 'i')
+							{
+								size += cumulate * 4;
+								cumulate = 1;
+								stringIndex += 3;
+							}
+							uint num = 0;
+							while (c >= '0' && c <= '9')
+							{
+								uint i = static_cast<uint>(c - '0');
+								num = num * 10 + i;
+								++stringIndex;
+								c = constantSizeString[stringIndex];
+							}
+							if (num != 0) cumulate *= num;
+
+							++stringIndex;
+						}
+					}
+
+					find2 = line.find_first_not_of(", }", find3);
 				}
+				bufData.constantContainer[cbufferNum].data = size;
+				
 				++cbufferNum;
 			}
 		}

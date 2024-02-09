@@ -21,49 +21,67 @@ namespace render
 
 bool rootsignature::initFromShader(std::vector<uint> shaderIDs)
 {
-	std::map<std::string, std::pair<uint, uint>> constantMaps;
+	std::array<std::map<uint, uint>, render::D3D12_RANGE_TYPE_CONSTANT> typeMaps;
 
 	for (auto id : shaderIDs)
 	{
-		shader* shader = shaders::getShader(id);
+		shader* pShader = shaders::getShader(id);
 
-		for (auto constant : shader->bufData.constantContainer)
+		for (auto constant : pShader->bufData.constantContainer)
 		{
-			constantMaps[constant.name].first |= (1 << shader->getType());
-			constantMaps[constant.name].second = constant.loc;
+			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_CBV][constant.loc] |= (1 << pShader->getType());
+		}
+
+		//for (auto sampler : pShader->bufData.samplerContainer)
+		//{
+		//	typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER][sampler] |= (1 << pShader->getType());
+		//}
+
+		for (auto texture : pShader->bufData.textureContainer)
+		{
+			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture] |= (1 << pShader->getType());
 		}
 	}
 
 	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters;
+	std::vector<CD3DX12_DESCRIPTOR_RANGE> ranges;
 
-	rootParameters.resize(constantMaps.size());
+	uint rootParametersSize = 0;
+
+	for (uint i = 0; i < render::D3D12_RANGE_TYPE_CONSTANT; ++i)
+	{
+		rootParametersSize += typeMaps[i].size();
+	}
+
+	rootParameters.resize(rootParametersSize);
+	ranges.resize(rootParametersSize);
 
 	uint index = 0;
 
-	for (auto constantData : constantMaps)
+	for (uint i = 0; i < render::D3D12_RANGE_TYPE_CONSTANT; ++i)
 	{
-		D3D12_SHADER_VISIBILITY vis;
-
-		if (constantData.second.first == 1)
+		for (auto typeData : typeMaps[i])
 		{
-			vis = D3D12_SHADER_VISIBILITY_VERTEX;
-		}
-		else if (constantData.second.first == 2)
-		{
-			vis = D3D12_SHADER_VISIBILITY_PIXEL;
-		}
-		else
-		{
-			vis = D3D12_SHADER_VISIBILITY_ALL;
-		}
+			D3D12_SHADER_VISIBILITY vis;
 
-		CD3DX12_DESCRIPTOR_RANGE range;
-		range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, constantData.second.second, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
-		//++index[type];
-		rootParameters[index].InitAsDescriptorTable(1, &range, vis);
+			if (typeData.second == 1)
+			{
+				vis = D3D12_SHADER_VISIBILITY_VERTEX;
+			}
+			else if (typeData.second == 2)
+			{
+				vis = D3D12_SHADER_VISIBILITY_PIXEL;
+			}
+			else
+			{
+				vis = D3D12_SHADER_VISIBILITY_ALL;
+			}
 
-		//rootParameters[index].InitAsConstantBufferView(constantData.second.second, 0, vis);
-		++index;
+			ranges[index].Init((D3D12_DESCRIPTOR_RANGE_TYPE)i, 1, typeData.first, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
+			rootParameters[index].InitAsDescriptorTable(1, &ranges[index], vis);
+
+			++index;
+		}
 	}
 
 	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
