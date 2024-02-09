@@ -224,7 +224,7 @@ void renderer::draw(float dt)
 
 	swapchainFB[frameIndex]->openFB(cmdList);
 
-	e_globWorld.drawWorld(cmdList);
+	//
 
 	gui::render(cmdList.Get());
 

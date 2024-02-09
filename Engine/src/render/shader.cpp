@@ -6,6 +6,8 @@
 #include <d3d12shader.h>
 #include <d3dx12.h>
 
+#include <unordered_set>
+
 #include <array>
 #include <filesystem>
 
@@ -16,10 +18,10 @@ namespace shaders
 	Microsoft::WRL::ComPtr<IDxcUtils> pUtils;
 	Microsoft::WRL::ComPtr<IDxcCompiler3> pCompiler;
 	Microsoft::WRL::ComPtr<IDxcIncludeHandler> pIncludeHandler;
+	Microsoft::WRL::ComPtr<IDxcBlobEncoding> pSource;
 
 	void loadShaderSource(DxcBuffer& source, LPCWSTR filePath)
 	{
-		Microsoft::WRL::ComPtr<IDxcBlobEncoding> pSource = nullptr;
 		pUtils->LoadFile(filePath, nullptr, &pSource);
 		source.Ptr = pSource->GetBufferPointer();
 		source.Size = pSource->GetBufferSize();
@@ -38,7 +40,7 @@ namespace shaders
 			L"-Qstrip_reflect",          // Strip reflection into a separate blob. 
 		};
 
-		pCompiler->Compile(
+		HRESULT compileStatus = pCompiler->Compile(
 			&source,                // Source buffer.
 			pszArgs,                // Array of pointers to arguments.
 			_countof(pszArgs),      // Number of arguments.
@@ -46,14 +48,20 @@ namespace shaders
 			IID_PPV_ARGS(&pResults) // Compiler output status, buffer, and errors.
 		);
 
+		std::string fileStr = std::string(filePath.begin(), filePath.end());
+		if (compileStatus != S_OK)
+		{
+			std::string warning = std::format("Failed to compile shader : {} : {}", fileStr.c_str(), compileStatus);
+			TC_LOG_ERROR(warning.c_str());
+		}
+
 		Microsoft::WRL::ComPtr<IDxcBlobUtf8> pErrors = nullptr;
 		pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
 
-		std::string fileStr = std::string(filePath.begin(), filePath.end());
 		if (pErrors != nullptr && pErrors->GetStringLength() != 0)
 		{
 			std::string warning = std::format("Warning on compile shader : {} : \n{}", fileStr.c_str(), pErrors->GetStringPointer());
-			TC_LOG_ERROR(warning.c_str());
+			TC_LOG_WARNING(warning.c_str());
 		}
 
 		HRESULT hrStatus;
