@@ -12,7 +12,7 @@ namespace msh
 	{
         //create triangle vertex
         {
-            mesh* newData = new mesh(MESH_TRIANGLE);
+            mesh* newData = new mesh(MESH_SCENE_TRIANGLE);
 
             float triangleVertices[] =
             {
@@ -23,7 +23,7 @@ namespace msh
 
             newData->getData()->vbs = buf::createVertexBuffer(triangleVertices, sizeof(triangleVertices), sizeof(float) * 2);
 
-            meshes[MESH_TRIANGLE] = newData;
+            meshes[MESH_SCENE_TRIANGLE] = newData;
         }
 
         //create cube vertex

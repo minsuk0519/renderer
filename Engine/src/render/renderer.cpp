@@ -183,9 +183,9 @@ bool renderer::createFrameResources()
 
 	gbufferFB = new framebuffer();
 	//position
-	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT);
+	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//normal + tex
-	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT);
+	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferFB->setDepthClear(1.0f);
 
 	return true;
@@ -232,11 +232,11 @@ void renderer::draw(float dt)
 	
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_TRIANGLE)->getData()->vbs->view);
+	cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
 
 	gbufferFB->setgraphicsDescHandle(cmdList, 0, 0);
-	//gbufferFB->setgraphicsDescHandle(cmdList, 1, 1);
-	//cmdList->SetGraphicsRootDescriptorTable(2, e_globWorld.getMainCam()->desc.getHandle());
+	gbufferFB->setgraphicsDescHandle(cmdList, 1, 1);
+	cmdList->SetGraphicsRootDescriptorTable(2, e_globWorld.getMainCam()->desc.getHandle());
 
 	cmdList->DrawInstanced(3, 1, 0, 0);
 
