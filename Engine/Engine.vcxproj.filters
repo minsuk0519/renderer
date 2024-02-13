@@ -53,6 +53,18 @@
     <ClInclude Include="include\system\jsonhelper.hpp">
       <Filter>system</Filter>
     </ClInclude>
+    <ClInclude Include="include\render\mesh.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\framebuffer.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\world\object.hpp">
+      <Filter>world</Filter>
+    </ClInclude>
+    <ClInclude Include="include\world\world.hpp">
+      <Filter>world</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
@@ -98,6 +110,18 @@
     <ClCompile Include="src\system\jsonhelper.cpp">
       <Filter>system</Filter>
     </ClCompile>
+    <ClCompile Include="src\render\mesh.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\framebuffer.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\world\world.cpp">
+      <Filter>world</Filter>
+    </ClCompile>
+    <ClCompile Include="src\world\object.cpp">
+      <Filter>world</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="system">
@@ -105,6 +129,9 @@
     </Filter>
     <Filter Include="render">
       <UniqueIdentifier>{d4578b99-f5a6-4ad0-9a0d-a94e2f2631ec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="world">
+      <UniqueIdentifier>{14b40249-b615-4d9c-b8be-38f30e3f6d67}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

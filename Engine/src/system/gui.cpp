@@ -1,10 +1,10 @@
 #include <system\gui.hpp>
-
-#include <imgui\imgui.h>
-#include <imgui\imgui_impl_dx12.h>
-#include <imgui\imgui_impl_win32.h>
+#include <render/shader.hpp>
 
 #include <dxgi1_6.h>
+
+#include <filesystem>
+#include <fstream>
 
 namespace gui
 {
@@ -46,19 +46,33 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
     return true;
 }
 
+static bool showWindow;
+static bool showShadersWindow = false;
+
 void gui::render(ID3D12GraphicsCommandList* cmdList)
 {
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::Begin("Window");
+    ImGui::Begin("Window", &showWindow, ImGuiWindowFlags_MenuBar);
+
+    if (ImGui::BeginMenuBar())
+    {
+        if (ImGui::BeginMenu("Tools"))
+        {
+            ImGui::MenuItem("Main menu bar", NULL, &showShadersWindow);
+            
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMenuBar();
+    }
 
     ImGui::BeginTabBar("Category");
 
-    if (ImGui::BeginTabItem("Render"))
+    if (ImGui::BeginTabItem("Shader"))
     {
-        //render::guiSetting();
 
         ImGui::EndTabItem();
     }
@@ -66,6 +80,15 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     ImGui::EndTabBar();
 
     ImGui::End();
+
+    if (showShadersWindow)
+    {
+        ImGui::Begin("Shader", &showShadersWindow);
+
+        shaders::guiSetting();
+
+        ImGui::End();
+    }
 
     ImGui::Render();
 

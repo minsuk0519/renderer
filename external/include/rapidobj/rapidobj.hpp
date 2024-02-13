@@ -5585,8 +5585,7 @@ inline auto ParseFace(
             text.remove_prefix(num_parsed);
 
             offset_flags->push_back(static_cast<OffsetFlags>(ApplyOffset::None));
-            if (value > 0) {
-                --value;
+            if (value >= 0) {
             } else if (value < 0) {
                 value += static_cast<int>(position_count);
                 offset_flags->back() |= static_cast<OffsetFlags>(ApplyOffset::Position);
@@ -5621,8 +5620,7 @@ inline auto ParseFace(
                 auto num_parsed = static_cast<size_t>(ptr - text.data());
                 text.remove_prefix(num_parsed);
 
-                if (value > 0) {
-                    --value;
+                if (value >= 0) {
                 } else if (value < 0) {
                     value += static_cast<int>(texcoord_count);
                     offset_flags->back() |= static_cast<OffsetFlags>(ApplyOffset::Texcoord);
@@ -5657,8 +5655,7 @@ inline auto ParseFace(
             auto num_parsed = static_cast<size_t>(ptr - text.data());
             text.remove_prefix(num_parsed);
 
-            if (value > 0) {
-                --value;
+            if (value >= 0) {
             } else if (value < 0) {
                 value += static_cast<int>(normal_count);
                 offset_flags->back() |= static_cast<OffsetFlags>(ApplyOffset::Normal);
@@ -6637,6 +6634,7 @@ inline auto ParsePosition(std::string_view line, Chunk* chunk)
     if (count < 3) {
         return rapidobj_errc::ParseError;
     }
+
     ++chunk->positions.count;
     auto [count2, remainder2] = ParseXReals(remainder, 3, &chunk->colors.buffer);
     if (count2 == 0) {
@@ -6949,7 +6947,7 @@ inline void ProcessBlocksImpl(
                     return;
                 }
                 line = text.substr(0, pos);
-                if (EndsWith(line, '\r')) {
+                while (EndsWith(line, '\r')) {
                     line.remove_suffix(1);
                 }
                 text.remove_prefix(pos + 1);

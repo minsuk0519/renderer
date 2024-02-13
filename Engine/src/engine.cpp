@@ -6,6 +6,7 @@
 #include "system\input.hpp"
 #include "render\renderer.hpp"
 #include "system\jsonhelper.hpp"
+#include "world\world.hpp"
 
 #include <filesystem>
 #include <shlobj.h>
@@ -14,7 +15,7 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 
-configJson config{};
+configJson configFile{};
 
 engine e_globEngine;
 
@@ -101,11 +102,13 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
         }
     }
 
-    readJsonBuffer(config, "data/config.json");
+    readJsonBuffer(configFile, JSON_FILE_NAME::CONFIG_FILE);
 
-    TC_INIT(e_globWindow.init(hInstance, nCmdShow, config.width, config.height));
+    TC_INIT(e_globWindow.init(hInstance, nCmdShow, configFile.width, configFile.height));
 
-    TC_INIT(e_GlobRenderer.init(factory, adapter));
+    TC_INIT(e_globRenderer.init(factory, adapter));
+
+    TC_INIT(e_globWorld.init());
 
 	return true;
 }
@@ -149,15 +152,17 @@ void engine::run()
 
         float dt = static_cast<float>(deltaTime.count() * 1e-5);
 
-        e_GlobRenderer.preDraw(dt);
+        e_globWorld.update(dt);
 
-        e_GlobRenderer.draw(dt);
+        e_globRenderer.preDraw(dt);
+
+        e_globRenderer.draw(dt);
     }
 }
 
 void engine::close()
 {
-    writeJsonBuffer(config, "data/config.json");
+    writeJsonBuffer(configFile, JSON_FILE_NAME::CONFIG_FILE);
 
     TC_LOG("shutting down engine!");
 }

@@ -1,7 +1,6 @@
 #include <string>
 
 #include <system\window.hpp>
-
 #include <system\logger.hpp>
 #include <system\input.hpp>
 #include <system\gui.hpp>

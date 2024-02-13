@@ -71,7 +71,7 @@ bool commandqueue::init(const D3D12_COMMAND_LIST_TYPE commandType)
 	desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	desc.NodeMask = 0;
 
-	TC_CONDITIONB(e_GlobRenderer.device->CreateCommandQueue(&desc, IID_PPV_ARGS(&commandQueue)) == S_OK, "Failed to create command queue");
+	TC_CONDITIONB(e_globRenderer.device->CreateCommandQueue(&desc, IID_PPV_ARGS(&commandQueue)) == S_OK, "Failed to create command queue");
 	createFence();
 
 	createCommandList(true);
@@ -100,14 +100,14 @@ void commandqueue::execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12Graphi
 
 bool commandqueue::createCommandAllocator()
 {
-	TC_CONDITIONB(e_GlobRenderer.device->CreateCommandAllocator(type, IID_PPV_ARGS(&commandAllocator)) == S_OK, "Failed to create CommandAllocator");
+	TC_CONDITIONB(e_globRenderer.device->CreateCommandAllocator(type, IID_PPV_ARGS(&commandAllocator)) == S_OK, "Failed to create CommandAllocator");
 	
 	return true;
 }
 
 bool commandqueue::createFence()
 {
-	TC_CONDITIONB(e_GlobRenderer.device->CreateFence(fence.fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence.fence)) == S_OK, "Failed to create fence");
+	TC_CONDITIONB(e_globRenderer.device->CreateFence(fence.fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence.fence)) == S_OK, "Failed to create fence");
 
 	HANDLE result = CreateEvent(NULL, FALSE, FALSE, NULL);
 	TC_CONDITION(result != NULL, "Failed to create event");
@@ -133,7 +133,7 @@ void commandqueue::flush()
 
 Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandqueue::createCommandList(bool close)
 {
-	TC_CONDITION(e_GlobRenderer.device->CreateCommandList(0, type, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList)) == S_OK, "Failed to create CommandList");
+	TC_CONDITION(e_globRenderer.device->CreateCommandList(0, type, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList)) == S_OK, "Failed to create CommandList");
 
 	if (close) TC_CONDITION(commandList->Close() == S_OK, "Failed to close CommandList");
 

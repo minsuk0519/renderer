@@ -24,7 +24,6 @@ namespace render
 			descriptorHeaps[DESCRIPTORHEAP_RENDERTARGET] = newHeap;
 		}
 
-		//projection descriptor heap
 		{
 			descriptorheap* newHeap = new descriptorheap();
 			newHeap->init(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, MAX_DESCRIPTOR_SIZE, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
@@ -33,12 +32,11 @@ namespace render
 			descriptorHeaps[DESCRIPTORHEAP_BUFFER] = newHeap;
 		}
 
-		//object descriptor heap
 		{
 			descriptorheap* newHeap = new descriptorheap();
 			newHeap->init(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, MAX_DESCRIPTOR_SIZE, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 
-			e_GlobRenderer.device->CreateDepthStencilView(buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->resource.Get(), &buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->view, D3D12_CPU_DESCRIPTOR_HANDLE(newHeap->getCPUPos(0)));
+			e_globRenderer.device->CreateDepthStencilView(buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->resource.Get(), &buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->view, D3D12_CPU_DESCRIPTOR_HANDLE(newHeap->getCPUPos(0)));
 
 			descriptorHeaps[DESCRIPTORHEAP_DEPTH] = newHeap;
 		}
@@ -68,7 +66,7 @@ namespace render
 		samplerDesc.MaxAnisotropy = 1;
 		samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
 
-		e_GlobRenderer.device->CreateSampler(&samplerDesc, D3D12_CPU_DESCRIPTOR_HANDLE(descriptorHeaps[heapIndex]->getCPUPos(offset)));
+		e_globRenderer.device->CreateSampler(&samplerDesc, D3D12_CPU_DESCRIPTOR_HANDLE(descriptorHeaps[heapIndex]->getCPUPos(offset)));
 	}
 }
 
@@ -82,9 +80,9 @@ bool descriptorheap::init(D3D12_DESCRIPTOR_HEAP_TYPE type, uint count, D3D12_DES
 	desc.Type = type;
 	desc.Flags = flags;
 
-	TC_CONDITIONB(e_GlobRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&heap)) == S_OK, "Failed to create DescriptorHeap");
+	TC_CONDITIONB(e_globRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&heap)) == S_OK, "Failed to create DescriptorHeap");
 
-	incrementalSize = e_GlobRenderer.device->GetDescriptorHandleIncrementSize(type);
+	incrementalSize = e_globRenderer.device->GetDescriptorHandleIncrementSize(type);
 
 	return true;
 }
@@ -147,26 +145,26 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 	case buf::BUFFER_CONSTANT_TYPE:
 	{
 		constantbuffer* constantBuffer = dynamic_cast<constantbuffer*>(buf);
-		e_GlobRenderer.device->CreateConstantBufferView(&constantBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateConstantBufferView(&constantBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_DEPTH_TYPE:
 	{
 		depthbuffer* depthBuffer = dynamic_cast<depthbuffer*>(buf);
-		e_GlobRenderer.device->CreateDepthStencilView(depthBuffer->resource.Get(), &depthBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateDepthStencilView(depthBuffer->resource.Get(), &depthBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_IMAGE_TYPE:
 	{
 		imagebuffer* imageBuffer = dynamic_cast<imagebuffer*>(buf);
-		e_GlobRenderer.device->CreateShaderResourceView(imageBuffer->resource.Get(), &imageBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateShaderResourceView(imageBuffer->resource.Get(), &imageBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_UAV_TYPE:
 	{
 		uavbuffer* uavBuffer = dynamic_cast<uavbuffer*>(buf);
 
-		e_GlobRenderer.device->CreateUnorderedAccessView(uavBuffer->resource.Get(), nullptr, &uavBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateUnorderedAccessView(uavBuffer->resource.Get(), nullptr, &uavBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_RT_TYPE:
@@ -178,7 +176,7 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 		//force render target to texture2d
 		view.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
-		e_GlobRenderer.device->CreateRenderTargetView(imageBuffer->resource.Get(), &view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateRenderTargetView(imageBuffer->resource.Get(), &view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	default:

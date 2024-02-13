@@ -2,10 +2,12 @@
 #include <system\defines.hpp>
 #include <system/logger.hpp>
 #include <render/renderer.hpp>
+#include <render/shader.hpp>
 
 #include <string>
 #include <iterator>
 #include <array>
+#include <map>
 
 #include <d3dx12.h>
 
@@ -15,42 +17,109 @@ namespace render
 	{
 		D3D12_RANGE_TYPE_CONSTANT = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER + 1
 	};
+}
 
-	std::array<rootsignature*, ROOT_END> rootsignatures;
+bool rootsignature::initFromShader(std::vector<uint> shaderIDs)
+{
+	std::array<std::map<uint, uint>, render::D3D12_RANGE_TYPE_CONSTANT> typeMaps;
 
-	bool initRootSignatures()
+	for (auto id : shaderIDs)
 	{
-		//TODO : find the automatic system
+		shader* pShader = shaders::getShader(id);
+
+		for (auto constant : pShader->bufData.constantContainer)
 		{
-			rootsignature* rootsig = new rootsignature;
-
-			rootsig->init({
-				//projection
-				{D3D12_DESCRIPTOR_RANGE_TYPE_CBV, D3D12_SHADER_VISIBILITY_ALL},
-				//object
-				{D3D12_DESCRIPTOR_RANGE_TYPE_CBV, D3D12_SHADER_VISIBILITY_ALL},
-				}, {});
-			rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
-
-			rootsignatures[ROOT_PBR] = rootsig;
+			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_CBV][constant.loc] |= (1 << pShader->getType());
 		}
 
-		return true;
-	}
+		//for (auto sampler : pShader->bufData.samplerContainer)
+		//{
+		//	typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER][sampler] |= (1 << pShader->getType());
+		//}
 
-	void cleanUpRootSignature()
-	{
-		for (uint i = 0; i < ROOT_END; ++i)
+		for (auto texture : pShader->bufData.textureContainer)
 		{
-			delete rootsignatures[i];
+			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture] |= (1 << pShader->getType());
 		}
 	}
 
-	rootsignature* getRootSignature(const ROOT_INDEX index)
+	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters;
+	std::vector<CD3DX12_DESCRIPTOR_RANGE> ranges;
+
+	uint rootParametersSize = 0;
+
+	for (uint i = 0; i < render::D3D12_RANGE_TYPE_CONSTANT; ++i)
 	{
-		return rootsignatures[index];
+		rootParametersSize += typeMaps[i].size();
 	}
 
+	rootParameters.resize(rootParametersSize);
+	ranges.resize(rootParametersSize);
+
+	uint index = 0;
+
+	for (uint i = 0; i < render::D3D12_RANGE_TYPE_CONSTANT; ++i)
+	{
+		for (auto typeData : typeMaps[i])
+		{
+			D3D12_SHADER_VISIBILITY vis;
+
+			if (typeData.second == 1)
+			{
+				vis = D3D12_SHADER_VISIBILITY_VERTEX;
+			}
+			else if (typeData.second == 2)
+			{
+				vis = D3D12_SHADER_VISIBILITY_PIXEL;
+			}
+			else
+			{
+				vis = D3D12_SHADER_VISIBILITY_ALL;
+			}
+
+			ranges[index].Init((D3D12_DESCRIPTOR_RANGE_TYPE)i, 1, typeData.first, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
+			rootParameters[index].InitAsDescriptorTable(1, &ranges[index], vis);
+
+			++index;
+		}
+	}
+
+	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
+	CD3DX12_STATIC_SAMPLER_DESC samplerDesc = CD3DX12_STATIC_SAMPLER_DESC(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+	rootSignatureDesc.Init(static_cast<UINT>(rootParameters.size()), rootParameters.data(), 1, &samplerDesc, rootSignatureFlags);
+
+	Microsoft::WRL::ComPtr<ID3DBlob> signature;
+	Microsoft::WRL::ComPtr<ID3DBlob> error;
+
+	D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+
+	std::string errorMsg;
+	if (error != nullptr)
+	{
+		auto* p = reinterpret_cast<unsigned char*>(error->GetBufferPointer());
+		auto  n = error->GetBufferSize();
+		std::vector<unsigned char> buff;
+
+		buff.reserve(n);
+		std::copy(p, p + n, std::back_inserter(buff));
+
+		for (auto c : buff) errorMsg += c;
+
+		TC_LOG_ERROR("Cannot serialize root signature!");
+
+		return false;
+	}
+
+	e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+
+	return true;
 }
 
 bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::vector<uint> constantNums, bool CS)
@@ -127,7 +196,7 @@ bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::
 		return false;
 	}
 
-	e_GlobRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 
 	return true;
 }

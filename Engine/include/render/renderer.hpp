@@ -10,6 +10,8 @@
 
 #include <DirectXMath.h>
 
+class framebuffer;
+
 constexpr uint FRAME_COUNT = 2;
 
 class renderer
@@ -34,15 +36,13 @@ private:
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain;
 
-	uint frameIndex = 0;
-
-	bool eject = false;
-
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdSignature;
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdprepassSignature;
 
-	descriptor swapchainDesc[FRAME_COUNT];
-	imagebuffer* swapchainBuffer[FRAME_COUNT];
+private:
+	framebuffer* swapchainFB[FRAME_COUNT];
+	framebuffer* gbufferFB;
+
 };
 
-extern renderer e_GlobRenderer;
+extern renderer e_globRenderer;

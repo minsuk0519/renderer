@@ -1,12 +1,13 @@
 #pragma once
 
+#include <system\defines.hpp>
+
 #include <string>
+#include <vector>
 
 #include <wrl.h>
-
 #include <d3d12.h>
-
-#include <vector>
+#include <dxcapi.h>
 
 class shader;
 
@@ -18,38 +19,50 @@ namespace shaders
 		SHADER_PS,
 	};
 
-	enum SHADER_INDEX
-	{
-		PBR_VS = 0,
-		PBR_PS,
-		SHADER_END,
-	};
-
 	bool loadResources();
 	void cleanup();
 
-	shader* getShader(const SHADER_INDEX index);
+	shader* getShader(const uint index);
+
+	struct hlslBuf
+	{
+		std::string name;
+		//size of data or number of channel
+		uint data;
+		uint loc;
+	};
+
+	struct hlslData
+	{
+		std::vector<hlslBuf> inputContainer;
+		std::vector<hlslBuf> outputContainer;
+
+		std::vector<hlslBuf> constantContainer;
+		std::vector<uint> textureContainer;
+		std::vector<uint> samplerContainer;
+	};
+
+	void guiSetting();
 };
 
 class shader
 {
 public:
-	struct inputDesc
-	{
-		LPCSTR name;
-		DXGI_FORMAT format;
-	};
-
 	void load(std::wstring filename);
 	void close();
 
-	//only for the vertex shader
-	void setInput(std::vector<inputDesc> input);
+	void setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result, shaders::SHADER_TYPE shaderType);
+
+	void decipherHLSL();
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputs;
 	D3D12_SHADER_BYTECODE getByteCode() const;
-private:
-	Microsoft::WRL::ComPtr<ID3DBlob> shaderSource;
-	shaders::SHADER_TYPE type;
 
+	shaders::SHADER_TYPE getType() const;
+
+	shaders::hlslData bufData;
+
+private:
+	Microsoft::WRL::ComPtr<IDxcBlob> shaderSource;
+	shaders::SHADER_TYPE type;
 };
