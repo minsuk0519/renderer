@@ -178,6 +178,122 @@ namespace img
     }
 }
 
+struct point
+{
+    float x;
+    float y;
+    float z;
+
+    point(float xValue, float yValue, float zValue) : x(xValue), y(yValue), z(zValue) {}
+    point() : x(0.0f), y(0.0f), z(0.0f) {}
+
+    point operator-(const point& target) const
+    {
+        point result;
+
+        result.x = x - target.x;
+        result.y = y - target.y;
+        result.z = z - target.z;
+
+        return result;
+    }
+
+    point& operator-=(const point& target)
+    {
+        x -= target.x;
+        y -= target.y;
+        z -= target.z;
+
+        return *this;
+    }
+
+    point& operator+=(const point& target)
+    {
+        x += target.x;
+        y += target.y;
+        z += target.z;
+
+        return *this;
+    }
+
+    point operator=(const point& target)
+    {
+        point result;
+
+        result.x = target.x;
+        result.y = target.y;
+        result.z = target.z;
+
+        return result;
+    }
+
+    point cross(const point& target) const
+    {
+        point result;
+
+        result.x = y * target.z - z * target.y;
+        result.y = z * target.x - x * target.z;
+        result.z = x * target.y - y * target.x;
+
+        return result;
+    }
+
+    point getAvg(uint num) const
+    {
+        point result;
+
+        float f_num = static_cast<float>(num);
+
+        result.x = x / f_num;
+        result.y = y / f_num;
+        result.z = z / f_num;
+
+        return result;
+    }
+
+    std::string to_string() const
+    {
+        std::string result = "";
+
+        result += std::to_string(x) + " ";
+        result += std::to_string(y) + " ";
+        result += std::to_string(z);
+
+        return result;
+    }
+
+    point getVec(point target) const
+    {
+        double xDiff = x - target.x;
+        double yDiff = y - target.y;
+        double zDiff = z - target.z;
+
+        double dLengthSquare = xDiff * xDiff + yDiff * yDiff + zDiff * zDiff;
+
+        double dLength = std::sqrt(dLengthSquare);
+
+        if (dLength == 0.0f)
+        {
+            auto a = 1;
+        }
+
+        double xUnit = xDiff / dLength;
+        double yUnit = yDiff / dLength;
+        double zUnit = zDiff / dLength;
+
+        point result;
+
+        result.x = xUnit;
+        result.y = yUnit;
+        result.z = zUnit;
+
+        return result;
+    }
+};
+
+#include <windows.h>
+
+
 namespace buf
 {
     //will be replaced in future
@@ -229,6 +345,117 @@ namespace buf
             {
                 indices.push_back(index.position_index);
             }
+        }
+
+        if (result.attributes.normals.size() == 0)
+        {
+            std::vector<std::vector<point>> faceNormals;
+            std::vector<point> normals;
+
+            uint verticesSize = result.attributes.positions.size();
+            faceNormals.resize(verticesSize);
+            normals.resize(verticesSize);
+
+            for (const auto& shape : result.shapes)
+            {
+                uint indexSize = shape.mesh.indices.size();
+
+                assert(indexSize % 3 == 0);
+
+                for (uint i = 0; i < indexSize; i += 3)
+                {
+                    uint index0 = shape.mesh.indices[i + 0].position_index;
+                    uint index1 = shape.mesh.indices[i + 1].position_index;
+                    uint index2 = shape.mesh.indices[i + 2].position_index;
+
+                    point p0 = {
+                        result.attributes.positions[index0 * 3 + 0],
+                        result.attributes.positions[index0 * 3 + 1],
+                        result.attributes.positions[index0 * 3 + 2]
+                    };
+
+                    point p1 = {
+                        result.attributes.positions[index1 * 3 + 0],
+                        result.attributes.positions[index1 * 3 + 1],
+                        result.attributes.positions[index1 * 3 + 2]
+                    };
+
+                    point p2 = {
+                        result.attributes.positions[index2 * 3 + 0],
+                        result.attributes.positions[index2 * 3 + 1],
+                        result.attributes.positions[index2 * 3 + 2]
+                    };
+
+                    point e0 = p1.getVec(p0);
+                    point e1 = p2.getVec(p0);
+
+                    point normal = e0.cross(e1);
+
+                    faceNormals[index0].push_back(normal);
+                    faceNormals[index1].push_back(normal);
+                    faceNormals[index2].push_back(normal);
+                }
+            }
+
+            for (uint i = 0; i < verticesSize; ++i)
+            {
+                uint faceNormSize = faceNormals[i].size();
+                point sum = point(0.0f, 0.0f, 0.0f);
+                for (uint j = 0; j < faceNormSize; ++j)
+                {
+                    sum += faceNormals[i][j];
+                }
+
+                point avg = sum.getAvg(faceNormSize);
+
+                normals[i].x = avg.x;
+                normals[i].y = avg.y;
+                normals[i].z = avg.z;
+            }
+
+            HANDLE hFile = CreateFileA(
+                fileName.c_str(),
+                FILE_APPEND_DATA | FILE_GENERIC_READ,
+                0,
+                nullptr,
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL,
+                nullptr);
+
+            std::error_code errorCode;
+
+            if (hFile == INVALID_HANDLE_VALUE) 
+            {
+                errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+                return;
+            }
+
+            auto size = LARGE_INTEGER{};
+            if (!GetFileSizeEx(hFile, &size)) 
+            {
+                errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+                CloseHandle(hFile);
+                return;
+            }
+
+            std::string dataBuffer = "";
+
+            for (auto norm : normals)
+            {
+                dataBuffer += "vn " + norm.to_string() + "\n";
+            }
+
+            DWORD dwBytesToWrite = (DWORD)(dataBuffer.size());
+            DWORD dwBytesWritten = 0;
+
+            BOOL bErrorFlag = WriteFile(
+                hFile,
+                dataBuffer.data(),
+                dwBytesToWrite,
+                &dwBytesWritten,
+                NULL);
+
+            CloseHandle(hFile);
         }
 
         meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);

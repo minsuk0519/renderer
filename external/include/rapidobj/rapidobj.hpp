@@ -207,6 +207,7 @@ struct Attributes final {
     Array<float> texcoords; // 'vt' (uv)
     Array<float> normals;   // 'vn' (xyz)
     Array<float> colors;    //  vertex color extension (see http://paulbourke.net/dataformats/obj/colour.html)
+    float extent[6] = { FLT_MAX, -FLT_MAX, FLT_MAX, -FLT_MAX, FLT_MAX, -FLT_MAX }; // minX maxX minY maxY minZ maxZ
 };
 
 struct Index final {
@@ -4516,6 +4517,7 @@ struct Chunk final {
     Materials materials;
     Smoothing smoothing;
     Error     error;
+    float extent[6] = { FLT_MAX, -FLT_MAX, FLT_MAX, -FLT_MAX, FLT_MAX, -FLT_MAX }; // minX maxX minY maxY minZ maxZ
 };
 
 inline size_t SizeInBytes(const Chunk& chunk) noexcept
@@ -6628,6 +6630,16 @@ inline Result Merge(const std::vector<Chunk>& chunks, std::shared_ptr<SharedCont
         return Result{ Attributes{}, Shapes{}, Materials{}, Error{ error } };
     }
 
+    for (const Chunk& chunk : chunks)
+    {
+        attributes.extent[0] = std::fminf(attributes.extent[0], chunk.extent[0]);
+        attributes.extent[1] = std::fmaxf(attributes.extent[1], chunk.extent[1]);
+        attributes.extent[2] = std::fminf(attributes.extent[2], chunk.extent[2]);
+        attributes.extent[3] = std::fmaxf(attributes.extent[3], chunk.extent[3]);
+        attributes.extent[4] = std::fminf(attributes.extent[4], chunk.extent[4]);
+        attributes.extent[5] = std::fmaxf(attributes.extent[5], chunk.extent[5]);
+    }
+
     return Result{ std::move(attributes), std::move(shapes), std::move(parsed_materials.materials), Error{} };
 }
 
@@ -6637,6 +6649,18 @@ inline auto ParsePosition(std::string_view line, Chunk* chunk)
     if (count < 3) {
         return rapidobj_errc::ParseError;
     }
+
+    float x = chunk->positions.buffer.data()[chunk->positions.count * 3 + 0];
+    float y = chunk->positions.buffer.data()[chunk->positions.count * 3 + 1];
+    float z = chunk->positions.buffer.data()[chunk->positions.count * 3 + 2];
+
+    chunk->extent[0] = std::fminf(chunk->extent[0], x);
+    chunk->extent[1] = std::fmaxf(chunk->extent[1], x);
+    chunk->extent[2] = std::fminf(chunk->extent[2], y);
+    chunk->extent[3] = std::fmaxf(chunk->extent[3], y);
+    chunk->extent[4] = std::fminf(chunk->extent[4], z);
+    chunk->extent[5] = std::fmaxf(chunk->extent[5], z);
+
     ++chunk->positions.count;
     auto [count2, remainder2] = ParseXReals(remainder, 3, &chunk->colors.buffer);
     if (count2 == 0) {
