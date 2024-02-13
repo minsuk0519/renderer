@@ -3136,7 +3136,7 @@ constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
 
 int main(int argc, char** argv)
 {
-    std::string fileName = argv[1];
+    std::string fileName = "bun_zipper.ply";// argv[1];
 
     HANDLE hFile = CreateFileA(
         fileName.c_str(),
@@ -3376,7 +3376,9 @@ int main(int argc, char** argv)
 
             if (i != changedVertexSize)
             {
-                vertexBuffer[changedVertexSize] = vertexBuffer[i];
+                vertexBuffer[changedVertexSize].x = vertexBuffer[i].x;
+                vertexBuffer[changedVertexSize].y = vertexBuffer[i].y;
+                vertexBuffer[changedVertexSize].z = vertexBuffer[i].z;
             }
 
             ++changedVertexSize;
@@ -3466,6 +3468,10 @@ int main(int argc, char** argv)
         point p1 = vertexBuffer[indices.i1];
         point p2 = vertexBuffer[indices.i2];
 
+        assert(indices.i0 < vertexSize);
+        assert(indices.i1 < vertexSize);
+        assert(indices.i2 < vertexSize);
+
         point e0 = p1.getVec(p0);
         point e1 = p2.getVec(p0);
 
@@ -3490,6 +3496,8 @@ int main(int argc, char** argv)
         normalBuffer[i].x = avg.x;
         normalBuffer[i].y = avg.y;
         normalBuffer[i].z = avg.z;
+
+        //assert((avg.x* avg.x + avg.y * avg.y + avg.z * avg.z - 1.0) < 0.00001);
     }
 
     {
@@ -3527,14 +3535,14 @@ int main(int argc, char** argv)
         dataBuffer += "#" + std::to_string(vertexSize) + " vertices\n";
         dataBuffer += "#" + std::to_string(indexSize) + " faces\n\n";
 
-        for (auto vertices : vertexBuffer)
+        for (uint i = 0; i < vertexSize; ++i)
         {
-            dataBuffer += "v " + vertices.to_string() + "\n";
+            dataBuffer += "v " + vertexBuffer[i].to_string() + "\n";
         }
 
-        for (auto norm : normalBuffer)
+        for (uint i = 0; i < vertexSize; ++i)
         {
-            dataBuffer += "vn " + norm.to_string() + "\n";
+            dataBuffer += "vn " + normalBuffer[i].to_string() + "\n";
         }
 
         for (auto face : indexBuffer)
