@@ -2,7 +2,8 @@
 
 struct PSInput
 {
-    float4 texCoord : SV_POSITION;
+    float4 position 	: SV_POSITION;
+    float2 texCoord 	: TEXTURE_COORD;
 };
 
 Texture2D positionGbuffer : register(t0);
@@ -12,26 +13,8 @@ SamplerState samp : register(s0);
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
-    float3 position = positionGbuffer.Sample(samp, input.texCoord.xy).xyz;
-	float3 normal = normalize(normalTexGbuffer.Sample(samp, input.texCoord.xy).xyz);
-    
-	float3 viewDir = normalize(proj.camPos - position);
+	float2 uv = input.texCoord.xy + float2(1.0f, 1.0f);
+    float3 position = positionGbuffer.Sample(samp, uv / 2.0f).xyz;
 	
-	float ambientStrength = 0.1;
-    float3 ambient = ambientStrength * float3(1,1,1);
-  	
-    // diffuse 
-    float3 lightDir = float3(0,-1.0f,0);
-    float diff = max(dot(normal, lightDir), 0.0);
-    float3 diffuse = diff;
-    
-    // specular
-    float specularStrength = 0.5;
-    float3 reflectDir = reflect(-lightDir, normal);  
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    float3 specular = specularStrength * spec;  
-        
-    float3 result = (ambient + diffuse + specular);
-	
-    return float4(result, 1.0f);
+    return float4(position, 1.0f);
 }

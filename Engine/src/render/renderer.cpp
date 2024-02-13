@@ -224,7 +224,21 @@ void renderer::draw(float dt)
 
 	swapchainFB[frameIndex]->openFB(cmdList);
 
-	//
+	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
+	CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
+	
+	cmdList->RSSetViewports(1, &viewport);
+	cmdList->RSSetScissorRects(1, &scissorRect);
+	
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_TRIANGLE)->getData()->vbs->view);
+
+	gbufferFB->setgraphicsDescHandle(cmdList, 0, 0);
+	//gbufferFB->setgraphicsDescHandle(cmdList, 1, 1);
+	//cmdList->SetGraphicsRootDescriptorTable(2, e_globWorld.getMainCam()->desc.getHandle());
+
+	cmdList->DrawInstanced(3, 1, 0, 0);
 
 	gui::render(cmdList.Get());
 

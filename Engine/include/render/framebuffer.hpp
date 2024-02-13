@@ -12,6 +12,7 @@ struct framebufferObject
 {
 	imagebuffer* imageBuffer;
 	descriptor desc;
+	descriptor textureDesc;
 
 	DirectX::XMFLOAT4 clearColor = DirectX::XMFLOAT4(0.8f, 0.9f, 0.9f, 1.0f);
 };
@@ -32,4 +33,6 @@ public:
 	void closeFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 
 	void setDepthClear(float depth);
+
+	void setgraphicsDescHandle(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint pos, uint FBOIndex);
 };

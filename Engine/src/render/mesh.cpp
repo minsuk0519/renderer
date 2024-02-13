@@ -16,12 +16,12 @@ namespace msh
 
             float triangleVertices[] =
             {
-                0.0, 0.5, 0.0f,
-                0.5, -0.5, 0.0f,
-                0.0, -0.5, 0.0f,
+                -1.0, 3.0,
+                3.0, -1.0,
+                -1.0, -1.0,
             };
 
-            newData->getData()->vbs = buf::createVertexBuffer(triangleVertices, sizeof(triangleVertices), sizeof(float) * 3);
+            newData->getData()->vbs = buf::createVertexBuffer(triangleVertices, sizeof(triangleVertices), sizeof(float) * 2);
 
             meshes[MESH_TRIANGLE] = newData;
         }

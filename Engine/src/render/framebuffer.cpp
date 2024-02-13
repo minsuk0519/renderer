@@ -9,6 +9,7 @@ bool framebuffer::createAddFBO(uint width, uint height, DXGI_FORMAT format, Dire
 	FBO->imageBuffer = buf::createImageBuffer(width, height, 1, format, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
 
 	FBO->desc = render::getHeap(render::DESCRIPTORHEAP_RENDERTARGET)->requestdescriptor(buf::BUFFER_RT_TYPE, FBO->imageBuffer);
+	FBO->textureDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, FBO->imageBuffer);
 
 	FBO->clearColor = clearColor;
 
@@ -31,6 +32,7 @@ void framebuffer::addFBOfromBuf(Microsoft::WRL::ComPtr<ID3D12Resource>& resource
 	FBO->imageBuffer->view.Texture2D.MipLevels = 1;
 
 	FBO->desc = render::getHeap(render::DESCRIPTORHEAP_RENDERTARGET)->requestdescriptor(buf::BUFFER_RT_TYPE, FBO->imageBuffer);
+	FBO->textureDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, FBO->imageBuffer);
 
 	FBO->clearColor = clearColor;
 
@@ -92,4 +94,11 @@ void framebuffer::setDepthClear(float depth)
 {
 	clearDepth = depth;
 	isDepth = true;
+}
+
+void framebuffer::setgraphicsDescHandle(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint pos, uint FBOIndex)
+{
+	assert(FBOIndex < FBOs.size());
+
+	cmdList->SetGraphicsRootDescriptorTable(pos, FBOs[FBOIndex]->textureDesc.getHandle());
 }
