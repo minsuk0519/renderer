@@ -424,14 +424,14 @@ namespace buf
 
             std::error_code errorCode;
 
-            if (hFile == INVALID_HANDLE_VALUE) 
+            if (hFile == INVALID_HANDLE_VALUE)
             {
                 errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
                 return;
             }
 
             auto size = LARGE_INTEGER{};
-            if (!GetFileSizeEx(hFile, &size)) 
+            if (!GetFileSizeEx(hFile, &size))
             {
                 errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
                 CloseHandle(hFile);
@@ -456,6 +456,19 @@ namespace buf
                 NULL);
 
             CloseHandle(hFile);
+        }
+
+        if(result.attributes.extent)
+        {
+
+
+        }
+
+        std::vector<point> AAA;
+
+        for (uint i = 0; i < result.attributes.positions.size(); i += 3)
+        {
+            AAA.push_back(point(result.attributes.positions[i + 0], result.attributes.positions[i + 1], result.attributes.positions[i + 2]));
         }
 
         meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);

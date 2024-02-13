@@ -156,11 +156,11 @@ namespace msh
         }
 
         {
-            mesh* newData = new mesh(MESH_SPHERE);
-
-            buf::loadFiletoMesh("data/asset/model/sphere.obj", newData->getData());
-
-            meshes[MESH_SPHERE] = newData;
+            //mesh* newData = new mesh(MESH_SPHERE);
+            //
+            //buf::loadFiletoMesh("data/asset/model/sphere.obj", newData->getData());
+            //
+            //meshes[MESH_SPHERE] = newData;
         }
 
 		{
