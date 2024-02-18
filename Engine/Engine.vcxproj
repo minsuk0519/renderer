@@ -96,6 +96,7 @@
     <ClInclude Include="include\render\renderer.hpp" />
     <ClInclude Include="include\render\rootsignature.hpp" />
     <ClInclude Include="include\render\shader.hpp" />
+    <ClInclude Include="include\render\shader_defines.hpp" />
     <ClInclude Include="include\render\transform.hpp" />
     <ClInclude Include="include\system\config.hpp" />
     <ClInclude Include="include\system\defines.hpp" />

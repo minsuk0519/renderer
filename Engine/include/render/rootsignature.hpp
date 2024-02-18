@@ -5,6 +5,7 @@
 #include <d3d12.h>
 
 #include <vector>
+#include <map>
 
 #include <render\descriptorheap.hpp>
 
@@ -30,7 +31,7 @@ private:
 	bool compute = false;
 public:
 	bool init(std::vector<render::root_init_param> descriptors, std::vector<uint> constantNums, bool CS = false);
-	bool initFromShader(std::vector<uint> shaderIDs);
+	bool initFromShader(std::vector<uint> shaderIDs, std::map<uint, uint>& hlslPos);
 	void setDescriptorHeap(std::vector<render::descriptorHeapIndex> descHeapsIdx);
 
 	void setRootSignature(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);

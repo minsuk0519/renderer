@@ -38,11 +38,13 @@ namespace shaders
 		std::vector<hlslBuf> outputContainer;
 
 		std::vector<hlslBuf> constantContainer;
-		std::vector<uint> textureContainer;
-		std::vector<uint> samplerContainer;
+		std::vector<hlslBuf> textureContainer;
+		std::vector<hlslBuf> samplerContainer;
 	};
 
 	void guiSetting();
+
+	uint getShaderLocFromName(std::string name);
 };
 
 class shader

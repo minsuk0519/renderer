@@ -55,7 +55,7 @@ bool pipelinestate::init(uint VS, uint PS, std::vector<uint> formats, D3D12_PRIM
 
 	rootsig = new rootsignature();
 
-	rootsig->initFromShader({ VS, PS });
+	rootsig->initFromShader({ VS, PS }, hlslLoc);
 	rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
 	
 	// Describe and create the graphics pipeline state object (PSO).
@@ -126,6 +126,19 @@ void pipelinestate::bindPSO(commandqueue* cmdQueue)
 
 	rootsig->setRootSignature(cmdList);
 	rootsig->registerDescHeap(cmdList);
+}
+
+void pipelinestate::sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
+{
+	if (hlslLoc.find(loc) != hlslLoc.end())
+	{
+		cmdList->SetGraphicsRootDescriptorTable(hlslLoc.at(loc), descLoc);
+	}
+	else
+	{
+		std::string warnMsg = std::format("You send {}, but there is no hlsl location", loc);
+		TC_LOG_WARNING(warnMsg.c_str());
+	}
 }
 
 void pipelinestate::close()

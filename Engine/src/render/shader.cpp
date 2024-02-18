@@ -2,6 +2,7 @@
 #include <system/logger.hpp>
 #include <system/jsonhelper.hpp>
 #include <system/gui.hpp>
+#include <render/shader_defines.hpp>
 
 #include <d3d12shader.h>
 #include <d3dx12.h>
@@ -233,6 +234,36 @@ namespace shaders
 
 		ImGui::EndChild();
 	}
+	uint getShaderLocFromName(std::string name)
+	{
+		uint num = 0;
+		if (name[0] == 'c' && name[1] == 'b')
+		{
+			num = std::stoi(name.substr(2));
+			num = GET_HLSL_LOC_CBV(num);
+		}
+		else if (name[0] == 't')
+		{
+			num = std::stoi(name.substr(1));
+			num = GET_HLSL_LOC_CBV(num);
+		}
+		else if (name[0] == 's')
+		{
+			num = std::stoi(name.substr(1));
+			num = GET_HLSL_LOC_CBV(num);
+		}
+		else if (name[0] == 'u')
+		{
+			num = std::stoi(name.substr(1));
+			num = GET_HLSL_LOC_UAV(num);
+		}
+		else
+		{
+			assert(0);
+		}
+
+		return num;
+	}
 }
 
 void shader::load(std::wstring filename)
@@ -429,9 +460,30 @@ void shader::decipherHLSL()
 				auto find3 = line.find_first_of(' ', find2);
 				std::string str = line.substr(find2, find3 - find2);
 
+				//if (variableIndex == 3)
+				//{
+				//	std::string cBufferLoc;
+
+				//	if (str.find("CB") != std::string::npos)
+				//	{
+				//		cBufferLoc = str.substr(2);
+				//	}
+				//	else if(str.find("S") != std::string::npos)
+				//	{
+				//		cBufferLoc = str.substr(1);
+				//	}
+				//	else
+				//	{
+				//		cBufferLoc = str.substr(1);
+				//	}
+				//	hlslbuf.loc = std::stoi(cBufferLoc);
+				//}
+
 				if (variableIndex == 4)
 				{
 					std::string cBufferLoc;
+
+					hlslbuf.name = str;
 
 					if (str.find("cb") != std::string::npos)
 					{
@@ -439,19 +491,22 @@ void shader::decipherHLSL()
 						hlslbuf.loc = std::stoi(cBufferLoc);
 						bufData.constantContainer.push_back(hlslbuf);
 					}
-					else if(str.find("s") != std::string::npos)
+					else if (str.find("s") != std::string::npos)
 					{
 						cBufferLoc = str.substr(1);
-						bufData.samplerContainer.push_back(std::stoi(cBufferLoc));
+						hlslbuf.loc = std::stoi(cBufferLoc);
+						bufData.samplerContainer.push_back(hlslbuf);
 					}
 					else
 					{
 						cBufferLoc = str.substr(1);
-						bufData.textureContainer.push_back(std::stoi(cBufferLoc));
+						hlslbuf.loc = std::stoi(cBufferLoc);
+						bufData.textureContainer.push_back(hlslbuf);
 					}
 
 					break;
 				}
+
 				find2 = find3;
 
 				++variableIndex;
@@ -492,7 +547,7 @@ void shader::decipherHLSL()
 					break;
 				}
 
-				bufData.constantContainer[cbufferNum].name = Name;
+				//bufData.constantContainer[cbufferNum].name = Name;
 
 				uint size = 0;
 

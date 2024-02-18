@@ -3,6 +3,7 @@
 #include <system\defines.hpp>
 
 #include <vector>
+#include <map>
 #include <wrl.h>
 
 #include <d3d12.h>
@@ -33,11 +34,14 @@ private:
 
 	rootsignature* rootsig = nullptr;
 
+	std::map<uint, uint> hlslLoc;
+
 public:
 	bool init(uint VS, uint PS, std::vector<uint> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth);
 	bool initCS(uint CS, uint root);
 
 	void bindPSO(commandqueue* cmdQueue);
+	void sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
 
 	void close();
 

@@ -34,5 +34,5 @@ public:
 
 	void setDepthClear(float depth);
 
-	void setgraphicsDescHandle(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint pos, uint FBOIndex);
+	D3D12_GPU_DESCRIPTOR_HANDLE getDescHandle(uint FBOIndex);
 };

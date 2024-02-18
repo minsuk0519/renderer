@@ -16,8 +16,6 @@ namespace render
 
 	std::array<commandqueue*, QUEUE_MAX> cmdQueues;
 
-	std::array<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>, QUEUE_MAX> a;
-
 	commandqueue* getCmdQueue(const QUEUE_INDEX index)
 	{
 		return cmdQueues[index];

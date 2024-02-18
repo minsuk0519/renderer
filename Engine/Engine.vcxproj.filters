@@ -65,6 +65,9 @@
     <ClInclude Include="include\world\world.hpp">
       <Filter>world</Filter>
     </ClInclude>
+    <ClInclude Include="include\render\shader_defines.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />

@@ -8,6 +8,7 @@
 #include <render/mesh.hpp>
 #include <render/framebuffer.hpp>
 #include <world/world.hpp>
+#include <render/shader_defines.hpp>
 
 #include <system/logger.hpp>
 #include <system/window.hpp>
@@ -176,9 +177,6 @@ bool renderer::createFrameResources()
 		swapchainFB[i] = new framebuffer();
 
 		swapchainFB[i]->addFBOfromBuf(resource);
-
-		//will be changed
-		swapchainFB[i]->setDepthClear(1.0f);
 	}
 
 	gbufferFB = new framebuffer();
@@ -224,19 +222,21 @@ void renderer::draw(float dt)
 
 	swapchainFB[frameIndex]->openFB(cmdList);
 
-	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
-	CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
-	
-	cmdList->RSSetViewports(1, &viewport);
-	cmdList->RSSetScissorRects(1, &scissorRect);
-	
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	{
+		CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
+		CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
 
-	cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
+		cmdList->RSSetViewports(1, &viewport);
+		cmdList->RSSetScissorRects(1, &scissorRect);
 
-	gbufferFB->setgraphicsDescHandle(cmdList, 0, 0);
-	gbufferFB->setgraphicsDescHandle(cmdList, 1, 1);
-	cmdList->SetGraphicsRootDescriptorTable(2, e_globWorld.getMainCam()->desc.getHandle());
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
+
+		render::getpipelinestate(render::PSO_PBR)->sendGraphicsData(cmdList, SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
+		render::getpipelinestate(render::PSO_PBR)->sendGraphicsData(cmdList, SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
+		render::getpipelinestate(render::PSO_PBR)->sendGraphicsData(cmdList, CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
+	}
 
 	cmdList->DrawInstanced(3, 1, 0, 0);
 
