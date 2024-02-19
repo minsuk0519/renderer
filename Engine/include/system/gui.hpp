@@ -1,6 +1,7 @@
 #pragma once
 #include <system\defines.hpp>
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui\imgui.h>
 #include <imgui\imgui_impl_dx12.h>
 #include <imgui\imgui_impl_win32.h>

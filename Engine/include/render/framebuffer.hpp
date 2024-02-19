@@ -35,4 +35,6 @@ public:
 	void setDepthClear(float depth);
 
 	D3D12_GPU_DESCRIPTOR_HANDLE getDescHandle(uint FBOIndex);
+
+	imagebuffer* getImageBuffer(uint FBOIndex) const;
 };

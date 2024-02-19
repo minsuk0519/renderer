@@ -102,3 +102,8 @@ D3D12_GPU_DESCRIPTOR_HANDLE framebuffer::getDescHandle(uint FBOIndex)
 
 	return FBOs[FBOIndex]->textureDesc.getHandle();
 }
+
+imagebuffer* framebuffer::getImageBuffer(uint FBOIndex) const
+{
+	return FBOs[FBOIndex]->imageBuffer;
+}

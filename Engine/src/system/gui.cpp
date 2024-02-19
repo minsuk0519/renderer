@@ -1,5 +1,7 @@
 #include <system\gui.hpp>
 #include <render/shader.hpp>
+#include <render/renderer.hpp>
+#include <render/framebuffer.hpp>
 
 #include <dxgi1_6.h>
 
@@ -20,6 +22,7 @@ namespace gui
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
 };
 
+ImTextureID gbufferID[2];
 
 bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap)
 {
@@ -43,11 +46,30 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
         gui::guiHeap->GetCPUDescriptorHandleForHeapStart(),
         gui::guiHeap->GetGPUDescriptorHandleForHeapStart());
 
+    uint incrementalSize = e_globRenderer.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    framebuffer* fbo = e_globRenderer.getFrameBuffer();
+
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptor = (D3D12_CPU_DESCRIPTOR_HANDLE)(gui::guiHeap->GetCPUDescriptorHandleForHeapStart().ptr + incrementalSize);
+        gbufferID[0] = (ImTextureID)(gui::guiHeap->GetGPUDescriptorHandleForHeapStart().ptr + incrementalSize);
+        imagebuffer* imgBuf = fbo->getImageBuffer(0);
+        e_globRenderer.device->CreateShaderResourceView(imgBuf->resource.Get(), &imgBuf->view, cpuDescriptor);
+    }
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptor = (D3D12_CPU_DESCRIPTOR_HANDLE)(gui::guiHeap->GetCPUDescriptorHandleForHeapStart().ptr + incrementalSize * 2);
+        gbufferID[1] = (ImTextureID)(gui::guiHeap->GetGPUDescriptorHandleForHeapStart().ptr + incrementalSize * 2);
+        imagebuffer* imgBuf = fbo->getImageBuffer(1);
+        e_globRenderer.device->CreateShaderResourceView(imgBuf->resource.Get(), &imgBuf->view, cpuDescriptor);
+    }
+
     return true;
 }
 
 static bool showWindow;
 static bool showShadersWindow = false;
+static bool showDebugWindow = false;
+
+#include <imgui/imgui_internal.h>
 
 void gui::render(ID3D12GraphicsCommandList* cmdList)
 {
@@ -61,7 +83,8 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     {
         if (ImGui::BeginMenu("Tools"))
         {
-            ImGui::MenuItem("Main menu bar", NULL, &showShadersWindow);
+            ImGui::MenuItem("ShaderViewer", NULL, &showShadersWindow);
+            ImGui::MenuItem("DebugWindow", NULL, &showDebugWindow);
             
             ImGui::EndMenu();
         }
@@ -86,6 +109,18 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
         ImGui::Begin("Shader", &showShadersWindow);
 
         shaders::guiSetting();
+
+        ImGui::End();
+    }
+
+    if (showDebugWindow)
+    {
+        ImGui::Begin("Debug", &showDebugWindow);
+
+        ImGui::Text("GbufferPosTex");
+        ImGui::Image(gbufferID[0], ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        ImGui::Text("GbufferNormTex");
+        ImGui::Image(gbufferID[1], ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
 
         ImGui::End();
     }

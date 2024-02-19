@@ -29,7 +29,7 @@ bool initGui()
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
 	{
 		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-		desc.NumDescriptors = 1;
+		desc.NumDescriptors = 64;
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -187,6 +187,11 @@ bool renderer::createFrameResources()
 	gbufferFB->setDepthClear(1.0f);
 
 	return true;
+}
+
+framebuffer* renderer::getFrameBuffer() const
+{
+	return gbufferFB;
 }
 
 void renderer::preDraw(float dt)
