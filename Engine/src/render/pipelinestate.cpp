@@ -116,18 +116,6 @@ bool pipelinestate::initCS(uint CS, uint root)
 	return true;
 }
 
-void pipelinestate::bindPSO(commandqueue* cmdQueue)
-{
-	auto cmdAllocator = cmdQueue->getAllocator();
-
-	auto cmdList = cmdQueue->getCmdList();
-
-	cmdList->Reset(cmdAllocator.Get(), pipelineStateObject.Get());
-
-	rootsig->setRootSignature(cmdList);
-	rootsig->registerDescHeap(cmdList);
-}
-
 void pipelinestate::sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
 {
 	if (hlslLoc.find(loc) != hlslLoc.end())
@@ -149,4 +137,9 @@ void pipelinestate::close()
 ID3D12PipelineState* pipelinestate::getPSO() const
 {
 	return pipelineStateObject.Get();
+}
+
+rootsignature* pipelinestate::getRootSig() const
+{
+	return rootsig;
 }

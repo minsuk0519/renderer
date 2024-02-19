@@ -1,6 +1,7 @@
 #include <render/commandqueue.hpp>
 #include <system/logger.hpp>
 #include <render/renderer.hpp>
+#include <render/rootsignature.hpp>
 
 #include <array>
 
@@ -142,3 +143,21 @@ Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandqueue::createCommandLis
 void commandqueue::signalFence()
 {
 }
+
+void commandqueue::bindPSO(render::PSO_INDEX psoIndex)
+{
+	currentPSO = render::getpipelinestate(psoIndex);
+
+	commandList->Reset(commandAllocator.Get(), currentPSO->getPSO());
+
+	rootsignature* rootsig = currentPSO->getRootSig();
+
+	rootsig->setRootSignature(commandList);
+	rootsig->registerDescHeap(commandList);
+}
+
+void commandqueue::sendGraphicsData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
+{
+	currentPSO->sendGraphicsData(commandList, pos, descLoc);
+}
+

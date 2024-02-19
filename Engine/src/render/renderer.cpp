@@ -196,47 +196,37 @@ void renderer::preDraw(float dt)
 
 void renderer::draw(float dt)
 {
-	{
-		auto cmdAllocator = render::getCmdQueue(render::QUEUE_GRAPHIC)->getAllocator();
-		auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
-
-		cmdAllocator->Reset();
-		render::getpipelinestate(render::PSO_GBUFFER)->bindPSO(render::getCmdQueue(render::QUEUE_GRAPHIC));
-
-		gbufferFB->openFB(cmdList);
-
-		e_globWorld.drawWorld(cmdList);
-
-		gbufferFB->closeFB(cmdList);
-
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
-
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
-	}
-
-	auto cmdAllocator = render::getCmdQueue(render::QUEUE_GRAPHIC)->getAllocator();
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
-	cmdAllocator->Reset();
-	render::getpipelinestate(render::PSO_PBR)->bindPSO(render::getCmdQueue(render::QUEUE_GRAPHIC));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFER);
+
+	gbufferFB->openFB(cmdList);
+
+	e_globWorld.drawWorld(cmdList);
+
+	gbufferFB->closeFB(cmdList);
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_PBR);
 
 	swapchainFB[frameIndex]->openFB(cmdList);
 
-	{
-		CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
-		CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
+	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
+	CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
 
-		cmdList->RSSetViewports(1, &viewport);
-		cmdList->RSSetScissorRects(1, &scissorRect);
+	cmdList->RSSetViewports(1, &viewport);
+	cmdList->RSSetScissorRects(1, &scissorRect);
 
-		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
+	cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
 
-		render::getpipelinestate(render::PSO_PBR)->sendGraphicsData(cmdList, SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
-		render::getpipelinestate(render::PSO_PBR)->sendGraphicsData(cmdList, SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
-		render::getpipelinestate(render::PSO_PBR)->sendGraphicsData(cmdList, CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
-	}
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
 
 	cmdList->DrawInstanced(3, 1, 0, 0);
 

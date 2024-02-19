@@ -245,12 +245,12 @@ namespace shaders
 		else if (name[0] == 't')
 		{
 			num = std::stoi(name.substr(1));
-			num = GET_HLSL_LOC_CBV(num);
+			num = GET_HLSL_LOC_SRV(num);
 		}
 		else if (name[0] == 's')
 		{
 			num = std::stoi(name.substr(1));
-			num = GET_HLSL_LOC_CBV(num);
+			num = GET_HLSL_LOC_SAMP(num);
 		}
 		else if (name[0] == 'u')
 		{

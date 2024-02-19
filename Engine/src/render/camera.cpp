@@ -5,6 +5,8 @@
 #include <render\pipelinestate.hpp>
 #include <system/window.hpp>
 #include <system/input.hpp>
+#include <render/commandqueue.hpp>
+#include <render/shader_defines.hpp>
 
 #include <DirectXMath.h>
 
@@ -66,7 +68,7 @@ void camera::draw(uint psoIndex, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandLis
 {
 	//if(psoIndex == pso::PSO_DEBUG) 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 
-	cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
+	//cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
 
 	////TODO
 	//world* world = game::getWorld();
@@ -98,7 +100,7 @@ void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
 
-	cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(CBV_PROJECTION, desc.getHandle());
 }
 
 void camera::changeViewport(const cam::VIEWPORT_TYPE type)

@@ -6,9 +6,9 @@
 #define GET_HLSL_LOC_CBV( x ) ( (x << 2) | 3)
 
 //t0 position
-#define SRV_GBUFFER0_TEX	GET_HLSL_LOC_UAV(0)
+#define SRV_GBUFFER0_TEX	GET_HLSL_LOC_SRV(0)
 //t1 normal
-#define SRV_GBUFFER1_TEX	GET_HLSL_LOC_UAV(1)
+#define SRV_GBUFFER1_TEX	GET_HLSL_LOC_SRV(1)
 //b0 projection
 #define CBV_PROJECTION		GET_HLSL_LOC_CBV(0)
 //b1 object
