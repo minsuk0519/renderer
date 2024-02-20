@@ -48,12 +48,12 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 
 	TC_CONDITIONB(createDevice(factory, adapter) == true, "Failed to create device");
 	TC_INIT(shaders::loadResources());
+	TC_INIT(render::initPSO());
 	TC_INIT(render::allocateCmdQueue());
 	TC_CONDITIONB(createSwapChain() == true, "Failed to create swapchain");
 	TC_INIT(buf::loadResources());
 	TC_INIT(render::initDescHeap());
 	TC_INIT(createFrameResources());
-	TC_INIT(render::initPSO());
 	TC_INIT(msh::loadResources());
 
 	TC_INIT(initGui());

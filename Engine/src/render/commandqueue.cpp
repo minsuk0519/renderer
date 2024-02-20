@@ -4,6 +4,7 @@
 #include <render/rootsignature.hpp>
 
 #include <array>
+#include <string>
 
 namespace render
 {
@@ -89,7 +90,13 @@ void commandqueue::execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12Graphi
 
 	for (Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmd : cmdLists)
 	{
-		cmd->Close();
+		HRESULT hr = cmd->Close();
+
+		if (FAILED(hr))
+		{
+			std::string errorMsg = std::format("Failed to close cmd!");
+			TC_LOG_ERROR(errorMsg.c_str());
+		}
 
 		lists.push_back(cmd.Get());
 	}
@@ -122,7 +129,7 @@ void commandqueue::flush()
 
 	TC_CONDITION(commandQueue->Signal(fence.fence.Get(), fence.fenceValue) == S_OK, "Failed to signal fence");
 
-	//if (fence.fence->GetCompletedValue() < fence.fenceValue)
+	if (fence.fence->GetCompletedValue() < fence.fenceValue)
 	{
 		fence.fence->SetEventOnCompletion(fence.fenceValue, fenceEvent);
 
@@ -148,6 +155,7 @@ void commandqueue::bindPSO(render::PSO_INDEX psoIndex)
 {
 	currentPSO = render::getpipelinestate(psoIndex);
 
+	commandAllocator->Reset();
 	commandList->Reset(commandAllocator.Get(), currentPSO->getPSO());
 
 	rootsignature* rootsig = currentPSO->getRootSig();
