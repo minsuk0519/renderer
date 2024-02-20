@@ -96,6 +96,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
 
     if (ImGui::BeginTabItem("Shader"))
     {
+        shaders::guiShaderSetting();
 
         ImGui::EndTabItem();
     }
@@ -108,7 +109,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     {
         ImGui::Begin("Shader", &showShadersWindow);
 
-        shaders::guiSetting();
+        shaders::guiShaderSourceSetting();
 
         ImGui::End();
     }

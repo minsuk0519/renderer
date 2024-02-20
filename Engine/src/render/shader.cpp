@@ -100,7 +100,7 @@ namespace shaders
 
 			shader* newShader = new shader();
 
-			newShader->setshaderSource(pResults, (shaders::SHADER_TYPE)shaderData.shaderType);
+			newShader->setshaderSource(pResults, (shaders::SHADER_TYPE)shaderData.shaderType, shaderData.entryPoint);
 			newShader->decipherHLSL();
 
 			shaders[shaderData.shaderIndex] = newShader;
@@ -184,7 +184,7 @@ namespace shaders
 		}
 	}
 
-	void guiSetting()
+	void guiShaderSourceSetting()
 	{
 		uint32_t count = 0;
 		for (const auto& entry : std::filesystem::recursive_directory_iterator(config::shaderBasePath)) count++;
@@ -234,6 +234,73 @@ namespace shaders
 
 		ImGui::EndChild();
 	}
+
+	void guiShaderSetting()
+	{
+		uint shaderIndex = 0;
+		uint shaderNum = shaders.size();
+
+		for (shaderIndex = 0; shaderIndex < shaderNum; ++shaderIndex)
+		{
+			shader* sh = shaders[shaderIndex];
+
+			if (ImGui::TreeNode(sh->getName().c_str()))
+			{
+				if (!sh->bufData.constantContainer.empty())
+				{
+					ImGui::BulletText("Constant");
+					for (auto constant : sh->bufData.constantContainer)
+					{
+						ImGui::Text(("Name : " + constant.name).c_str());
+						ImGui::Text("size : %d, loc : %d", constant.data, constant.loc);
+					}
+				}
+
+				if (!sh->bufData.inputContainer.empty())
+				{
+					ImGui::BulletText("Input");
+					for (auto input : sh->bufData.inputContainer)
+					{
+						ImGui::Text(("Name : " + input.name).c_str());
+						ImGui::Text("size : float%d, loc : %d", input.data, input.loc);
+					}
+				}
+
+				if (!sh->bufData.outputContainer.empty())
+				{
+					ImGui::BulletText("Output");
+					for (auto output : sh->bufData.outputContainer)
+					{
+						ImGui::Text(("Name : " + output.name).c_str());
+						ImGui::Text("size : float%d, loc : %d", output.data, output.loc);
+					}
+				}
+
+				if (!sh->bufData.samplerContainer.empty())
+				{
+					ImGui::BulletText("Sampler");
+					for (auto sampler : sh->bufData.samplerContainer)
+					{
+						ImGui::Text(("Name : " + sampler.name).c_str());
+						ImGui::Text("loc : %d", sampler.loc);
+					}
+				}
+
+				if (!sh->bufData.textureContainer.empty())
+				{
+					ImGui::BulletText("Texture");
+					for (auto texture : sh->bufData.textureContainer)
+					{
+						ImGui::Text(("Name : " + texture.name).c_str());
+						ImGui::Text("loc : %d", texture.loc);
+					}
+				}
+
+				ImGui::TreePop();
+			}
+		}
+	}
+
 	uint getShaderLocFromName(std::string name)
 	{
 		uint num = 0;
@@ -284,12 +351,13 @@ void shader::close()
 	shaderSource->Release();
 }
 
-void shader::setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result, shaders::SHADER_TYPE shaderType)
+void shader::setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result, shaders::SHADER_TYPE shaderType, std::string shaderName)
 {
 	Microsoft::WRL::ComPtr<IDxcBlobUtf16> pShaderName = nullptr;
 	result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderSource), &pShaderName);
 
 	type = shaderType;
+	name = shaderName;
 }
 
 void shader::decipherHLSL()
@@ -656,4 +724,9 @@ D3D12_SHADER_BYTECODE shader::getByteCode() const
 shaders::SHADER_TYPE shader::getType() const
 {
 	return type;
+}
+
+std::string shader::getName() const
+{
+	return name;
 }

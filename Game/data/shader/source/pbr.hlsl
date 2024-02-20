@@ -11,7 +11,17 @@ Texture2D normalTexGbuffer : register(t1);
 
 SamplerState samp : register(s0);
 
-float4 PSMain(PSInput input) : SV_TARGET
+PSInput pbr_vs(float2 position : POSITION)
+{
+    PSInput result;
+
+    result.position = float4(position, 0.0f, 1.0f);
+    result.texCoord = float2(position.x, -position.y);
+
+    return result;
+}
+
+float4 pbr_ps(PSInput input) : SV_TARGET
 {
 	float2 uv = (input.texCoord.xy + float2(1.0f, 1.0f)) * 0.5f;    
 	float3 position = positionGbuffer.Sample(samp, uv).xyz;
