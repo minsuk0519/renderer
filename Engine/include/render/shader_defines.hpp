@@ -13,3 +13,14 @@
 #define CBV_PROJECTION		GET_HLSL_LOC_CBV(0)
 //b1 object
 #define SRV_OBJECT			GET_HLSL_LOC_CBV(1)
+
+//define PSO indcies
+namespace render
+{
+	enum PSO_INDEX
+	{
+		PSO_PBR,
+		PSO_GBUFFER,
+		PSO_END,
+	};
+}

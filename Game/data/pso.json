@@ -1,17 +1,19 @@
 [
 	{
+		"psoIndex":0,
+		"psoName":"PBR",
 		"vertexIndex":0,
 		"pixelIndex":1,
-		"psoIndex":0,
 		"formats":[
 			28
 		],
 		"cs":false,
 		"depth":false
 	},{
+		"psoIndex":1,
+		"psoName":"Gbuffer",
 		"vertexIndex":2,
 		"pixelIndex":3,
-		"psoIndex":1,
 		"formats":[
 			2,
 			2

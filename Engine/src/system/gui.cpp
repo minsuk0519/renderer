@@ -2,6 +2,7 @@
 #include <render/shader.hpp>
 #include <render/renderer.hpp>
 #include <render/framebuffer.hpp>
+#include <render/pipelinestate.hpp>
 
 #include <dxgi1_6.h>
 
@@ -97,6 +98,13 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     if (ImGui::BeginTabItem("Shader"))
     {
         shaders::guiShaderSetting();
+
+        ImGui::EndTabItem();
+    }
+
+    if (ImGui::BeginTabItem("PSO"))
+    {
+        render::guiPSOSetting();
 
         ImGui::EndTabItem();
     }
