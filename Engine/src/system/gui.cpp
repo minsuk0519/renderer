@@ -26,7 +26,7 @@ namespace gui
 
 ImTextureID gbufferID[2];
 
-bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap)
+bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap, const descriptor& fontDesc)
 {
     gui::guiHeap = allocatedGuiHeap;
 
@@ -45,24 +45,8 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX12_Init(device, GUI_FRAMES_NUM,
         DXGI_FORMAT_R8G8B8A8_UNORM, gui::guiHeap.Get(),
-        gui::guiHeap->GetCPUDescriptorHandleForHeapStart(),
-        gui::guiHeap->GetGPUDescriptorHandleForHeapStart());
-
-    uint incrementalSize = e_globRenderer.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    framebuffer* fbo = e_globRenderer.getFrameBuffer();
-
-    {
-        D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptor = (D3D12_CPU_DESCRIPTOR_HANDLE)(gui::guiHeap->GetCPUDescriptorHandleForHeapStart().ptr + incrementalSize);
-        gbufferID[0] = (ImTextureID)(gui::guiHeap->GetGPUDescriptorHandleForHeapStart().ptr + incrementalSize);
-        imagebuffer* imgBuf = fbo->getImageBuffer(0);
-        e_globRenderer.device->CreateShaderResourceView(imgBuf->resource.Get(), &imgBuf->view, cpuDescriptor);
-    }
-    {
-        D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptor = (D3D12_CPU_DESCRIPTOR_HANDLE)(gui::guiHeap->GetCPUDescriptorHandleForHeapStart().ptr + incrementalSize * 2);
-        gbufferID[1] = (ImTextureID)(gui::guiHeap->GetGPUDescriptorHandleForHeapStart().ptr + incrementalSize * 2);
-        imagebuffer* imgBuf = fbo->getImageBuffer(1);
-        e_globRenderer.device->CreateShaderResourceView(imgBuf->resource.Get(), &imgBuf->view, cpuDescriptor);
-    }
+        fontDesc.getCPUHandle(),
+        fontDesc.getHandle());
 
     return true;
 }
@@ -114,6 +98,9 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     {
         msh::guiMeshSetting();
 
+        framebuffer* fbo = e_globRenderer.getDebugFrameBuffer();
+        ImGui::Image((ImTextureID)(fbo->getDescHandle(0).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+
         ImGui::EndTabItem();
     }
 
@@ -141,9 +128,10 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
         ImGui::Begin("Debug", &showDebugWindow);
 
         ImGui::Text("GbufferPosTex");
-        ImGui::Image(gbufferID[0], ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        framebuffer* fbo = e_globRenderer.getFrameBuffer();
+        ImGui::Image((ImTextureID)(fbo->getDescHandle(0).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
         ImGui::Text("GbufferNormTex");
-        ImGui::Image(gbufferID[1], ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        ImGui::Image((ImTextureID)(fbo->getDescHandle(1).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
 
         ImGui::End();
     }

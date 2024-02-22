@@ -26,20 +26,27 @@ renderer e_globRenderer;
 bool initGui()
 {
 	//setting up gui
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
-	{
-		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-		desc.NumDescriptors = 64;
-		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	//Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
+	//{
+	//	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	//	desc.NumDescriptors = 64;
+	//	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	//	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-		if (e_globRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&guiHeap)) != S_OK)
-		{
-			return false;
-		}
-	}
+	//	if (e_globRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&guiHeap)) != S_OK)
+	//	{
+	//		return false;
+	//	}
+	//}
 
-	gui::init(e_globWindow.getWindow(), e_globRenderer.device.Get(), guiHeap.Get());
+	//gui::init(e_globWindow.getWindow(), e_globRenderer.device.Get(), guiHeap.Get());
+
+	descriptorheap* descriptorHeap = render::getHeap(render::DESCRIPTORHEAP_BUFFER);
+	//buffer type does not matter
+	descriptor fontDesc = descriptorHeap->requestdescriptor(buf::BUFFER_IMAGE_TYPE, nullptr);
+	gui::init(e_globWindow.getWindow(), e_globRenderer.device.Get(), descriptorHeap->getHeap(), fontDesc);
+
+	return true;
 }
 
 bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter)
@@ -186,12 +193,21 @@ bool renderer::createFrameResources()
 	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferFB->setDepthClear(1.0f);
 
+	debugFB = new framebuffer();
+	debugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	debugFB->setDepthClear(1.0f);
+
 	return true;
 }
 
 framebuffer* renderer::getFrameBuffer() const
 {
 	return gbufferFB;
+}
+
+framebuffer* renderer::getDebugFrameBuffer() const
+{
+	return debugFB;
 }
 
 void renderer::preDraw(float dt)
@@ -202,6 +218,33 @@ void renderer::preDraw(float dt)
 void renderer::draw(float dt)
 {
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
+
+	{
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_WIREFRAME);
+
+		debugFB->openFB(cmdList);
+
+		CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
+		CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
+
+		cmdList->RSSetViewports(1, &viewport);
+		cmdList->RSSetScissorRects(1, &scissorRect);
+
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_BUNNY)->getData()->vbs->view);
+		cmdList->IASetIndexBuffer(&msh::getMesh(msh::MESH_BUNNY)->getData()->idx->view);
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
+
+		cmdList->DrawIndexedInstanced(msh::getMesh(msh::MESH_BUNNY)->getData()->idx->view.SizeInBytes / sizeof(uint), 1, 0, 0, 0);
+
+		debugFB->closeFB(cmdList);
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+	}
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFER);
 

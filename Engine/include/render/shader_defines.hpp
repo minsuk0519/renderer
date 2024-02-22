@@ -21,6 +21,7 @@ namespace render
 	{
 		PSO_PBR,
 		PSO_GBUFFER,
+		PSO_WIREFRAME,
 		PSO_END,
 	};
 }

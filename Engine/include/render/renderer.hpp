@@ -43,8 +43,11 @@ private:
 	framebuffer* swapchainFB[FRAME_COUNT];
 	framebuffer* gbufferFB;
 
+	framebuffer* debugFB;
+
 public:
 	framebuffer* getFrameBuffer() const;
+	framebuffer* getDebugFrameBuffer() const;
 };
 
 extern renderer e_globRenderer;

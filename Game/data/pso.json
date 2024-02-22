@@ -8,7 +8,8 @@
 			28
 		],
 		"cs":false,
-		"depth":false
+		"depth":false,
+		"wireframe":false
 	},{
 		"psoIndex":1,
 		"psoName":"Gbuffer",
@@ -19,6 +20,18 @@
 			2
 		],
 		"cs":false,
-		"depth":true
+		"depth":true,
+		"wireframe":false
+	},{
+		"psoIndex":2,
+		"psoName":"WireframeDebug",
+		"vertexIndex":4,
+		"pixelIndex":5,
+		"formats":[
+			61
+		],
+		"cs":false,
+		"depth":true,
+		"wireframe":true
 	}
 ]

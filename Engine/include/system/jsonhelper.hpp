@@ -31,6 +31,7 @@ struct psoJson
 	std::vector<uint> formats;
 	bool cs;
 	bool depth;
+	bool wireframe;
 };
 
 enum JSON_FILE_NAME

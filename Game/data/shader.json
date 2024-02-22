@@ -23,5 +23,17 @@
 		"target":"ps_6_5",
 		"shaderType":1,
 		"shaderIndex":3
+	},{
+		"shaderFile":"data/shader/source/wireframe.hlsl",
+		"entryPoint":"wireframe_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":4
+	},{
+		"shaderFile":"data/shader/source/wireframe.hlsl",
+		"entryPoint":"wireframe_ps",
+		"target":"ps_6_5",
+		"shaderType":1,
+		"shaderIndex":5
 	}
 ]

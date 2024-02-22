@@ -25,7 +25,7 @@ namespace render
 		{
 			pipelinestate* newObject = new pipelinestate();
 
-			if (!psoData.cs) newObject->init(psoData.psoName, psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, psoData.depth);
+			if (!psoData.cs) newObject->init(psoData.psoName, psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, psoData.wireframe, psoData.depth);
 			//else newObject->initCS(psoData.vertexIndex);
 			
 			pipelineStateObjects[psoData.psoIndex] = newObject;
@@ -59,14 +59,14 @@ namespace render
 	}
 }
 
-bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool depth)
+bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool wireframe, bool depth)
 {
 	shader* vs = shaders::getShader(VS);
-	shader* ps = shaders::getShader(PS);
+	shader* ps = shaders::getShader(PS); //wireframe ? nullptr : shaders::getShader(PS);
 
 	rootsig = new rootsignature();
 
-	rootsig->initFromShader({ VS, PS }, hlslLoc);
+	rootsig->initFromShader({VS, PS}, hlslLoc);
 	rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
 
 	data.vertexIndex = VS;
@@ -86,6 +86,7 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	//disable the cullmode
 	psoDesc.RasterizerState.CullMode = cull;
+	psoDesc.RasterizerState.FillMode = wireframe ? D3D12_FILL_MODE_WIREFRAME : D3D12_FILL_MODE_SOLID;
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.SampleMask = UINT_MAX;
 	psoDesc.PrimitiveTopologyType = primitiveType;
