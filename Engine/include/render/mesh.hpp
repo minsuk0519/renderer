@@ -11,26 +11,18 @@ namespace msh
 {
 	enum MESH_INDEX
 	{
-		MESH_CUBE,
+		MESH_CUBE = 0,
 		MESH_SPHERE,
 		MESH_BUNNY,
-		MESH_DRAGON,
-		MESH_ARMADILLO,
-		MESH_HAPPY,
-		MESH_CANNOTLOAD,
-		MESH_CUBE_NONORM = MESH_CANNOTLOAD,
-		MESH_SCENE_TRIANGLE,
-		MESH_TERRAIN,
 		MESH_END,
+		MESH_SCENE_TRIANGLE = MESH_END,
+		MESH_SIZE,
 	};
 
 	static constexpr const char* MESHNAME[] = {
 		"Cube",
 		"Sphere",
 		"Bunny",
-		"Dragon",
-		"Armadillo",
-		"Buddha",
 	};
 
 	bool loadResources();
@@ -48,6 +40,8 @@ namespace msh
 		EDGE_ZMIN,
 		EDGE_MAX,
 	};
+
+	void guiMeshSetting();
 }
 
 struct meshData

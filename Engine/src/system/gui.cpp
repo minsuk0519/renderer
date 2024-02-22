@@ -3,6 +3,7 @@
 #include <render/renderer.hpp>
 #include <render/framebuffer.hpp>
 #include <render/pipelinestate.hpp>
+#include <render/mesh.hpp>
 
 #include <dxgi1_6.h>
 
@@ -105,6 +106,19 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     if (ImGui::BeginTabItem("PSO"))
     {
         render::guiPSOSetting();
+
+        ImGui::EndTabItem();
+    }
+
+    if (ImGui::BeginTabItem("Mesh"))
+    {
+        msh::guiMeshSetting();
+
+        ImGui::EndTabItem();
+    }
+
+    if (ImGui::BeginTabItem("Buffer"))
+    {
 
         ImGui::EndTabItem();
     }
