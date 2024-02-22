@@ -25,3 +25,10 @@ namespace render
 		PSO_END,
 	};
 }
+
+namespace consts
+{
+	constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
+	constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
+	constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 * 2 + 4);
+}

@@ -41,7 +41,7 @@ namespace msh
 		EDGE_MAX,
 	};
 
-	void guiMeshSetting();
+	void guiMeshSetting(bool& meshWindow, uint& meshID);
 }
 
 struct meshData

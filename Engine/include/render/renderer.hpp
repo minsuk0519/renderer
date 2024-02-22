@@ -44,10 +44,15 @@ private:
 	framebuffer* gbufferFB;
 
 	framebuffer* debugFB;
+	bool debugFBRequest = false;
+	uint debugFBMeshID;
+	UINT64 debugProjection;
 
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
+
+	void debugFrameBufferRequest(uint debugMeshID, UINT64 ptr);
 };
 
 extern renderer e_globRenderer;

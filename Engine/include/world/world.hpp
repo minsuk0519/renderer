@@ -55,6 +55,10 @@ private:
 	std::vector<camera*> cameras;
 	camera* mainCamera = nullptr;
 
+	//this camera will not be actually used
+	//is for rendering gui
+	camera* debugCamera = nullptr;
+
 	bool active = false;
 
 	void addObject(object* obj);

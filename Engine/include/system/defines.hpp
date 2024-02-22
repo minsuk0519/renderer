@@ -12,3 +12,6 @@ namespace shader_loc
 		SHADER_DEFINE_MAX,
 	};
 }
+
+#define PI 3.14159265358979f
+#define PI_HALF PI / 2.0f

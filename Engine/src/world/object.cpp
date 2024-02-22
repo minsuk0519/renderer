@@ -4,9 +4,6 @@
 #include <render/camera.hpp>
 #include <render/descriptorheap.hpp>
 
-constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
-constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
-
 namespace obj
 {
 	uint remainID = 0;
@@ -25,7 +22,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 	meshEnumIndex = meshIdx;
 	meshPtr = msh::getMesh(meshIdx);
 
-	cbv = buf::createConstantBuffer(CONST_OBJ_SIZE);
+	cbv = buf::createConstantBuffer(consts::CONST_OBJ_SIZE);
 
 	desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, cbv));
 
@@ -80,7 +77,7 @@ void object::sendMat(unsigned char* cbvdata)
 		unsigned char* dataLoc;
 		
 		if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
-		else dataLoc = cbvdata + CONST_OBJ_SIZE_ALLIGNMENT * id;
+		else dataLoc = cbvdata + consts::CONST_OBJ_SIZE_ALLIGNMENT * id;
 
 		memcpy(dataLoc, matPointer, cbv->info.size);
 		memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);

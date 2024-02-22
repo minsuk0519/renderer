@@ -179,7 +179,7 @@ namespace msh
         return meshes[idx];
     }
 
-    void guiMeshSetting()
+    void guiMeshSetting(bool& openMeshWindow, uint& meshID)
     {
         uint meshSize = MESH_END;
 
@@ -189,7 +189,13 @@ namespace msh
 
             std::string nameText = std::format("Name : {}", MESHNAME[i]);
 
-            ImGui::BulletText(nameText.c_str());
+            ImGui::BulletText(nameText.c_str()); ImGui::SameLine();
+
+            if (ImGui::Button(("View##MESH" + std::to_string(i)).c_str()))
+            {
+                openMeshWindow = true;
+                meshID = i;
+            }
 
             if (vertexbuffer* vb = msh->getData()->vbs; vb != nullptr)
             {
@@ -219,6 +225,8 @@ namespace msh
 
                 ImGui::Text(str.c_str());
             }
+
+
         }
     }
 }

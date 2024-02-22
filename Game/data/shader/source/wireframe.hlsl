@@ -9,7 +9,7 @@ PSInput wireframe_vs(float3 position : POSITION)
 {
     PSInput result;
 
-    float4 worldPos = float4(position * 0.5f, 1.0);
+    float4 worldPos = float4(position, 1.0);
     float4 viewPos = mul(proj.viewMat, worldPos);
     result.position = mul(proj.projectionMat, viewPos);
 

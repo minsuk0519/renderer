@@ -15,6 +15,7 @@
 #include <system/gui.hpp>
 
 #include <d3dx12.h>
+#include <DirectXMath.h>
 
 //TODO
 uint vsync = 0;
@@ -210,16 +211,20 @@ framebuffer* renderer::getDebugFrameBuffer() const
 	return debugFB;
 }
 
-void renderer::preDraw(float dt)
+void renderer::debugFrameBufferRequest(uint debugMeshID, UINT64 ptr)
 {
-
+	debugFBRequest = true;
+	debugFBMeshID = debugMeshID;
+	debugProjection = ptr;
 }
 
-void renderer::draw(float dt)
+void renderer::preDraw(float dt)
 {
-	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
-
+	if (debugFBRequest)
 	{
+		auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
+		mesh* msh = msh::getMesh((msh::MESH_INDEX)debugFBMeshID);
+
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_WIREFRAME);
 
 		debugFB->openFB(cmdList);
@@ -232,19 +237,25 @@ void renderer::draw(float dt)
 
 		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_BUNNY)->getData()->vbs->view);
-		cmdList->IASetIndexBuffer(&msh::getMesh(msh::MESH_BUNNY)->getData()->idx->view);
+		msh->setBuffer(cmdList, false);
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(CBV_PROJECTION, (D3D12_GPU_DESCRIPTOR_HANDLE)debugProjection);
 
-		cmdList->DrawIndexedInstanced(msh::getMesh(msh::MESH_BUNNY)->getData()->idx->view.SizeInBytes / sizeof(uint), 1, 0, 0, 0);
+		msh->draw(cmdList);
 
 		debugFB->closeFB(cmdList);
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+
+		debugFBRequest = false;
 	}
+}
+
+void renderer::draw(float dt)
+{
+	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFER);
 
