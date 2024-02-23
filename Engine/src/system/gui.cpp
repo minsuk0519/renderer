@@ -4,6 +4,7 @@
 #include <render/framebuffer.hpp>
 #include <render/pipelinestate.hpp>
 #include <render/mesh.hpp>
+#include <world/world.hpp>
 
 #include <dxgi1_6.h>
 
@@ -200,8 +201,9 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
         openDebugWindow = false;
     }
 
-    if (ImGui::BeginTabItem("Buffer"))
+    if (ImGui::BeginTabItem("World"))
     {
+        e_globWorld.guiSetting();
 
         ImGui::EndTabItem();
     }

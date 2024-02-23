@@ -3,6 +3,7 @@
 #include <render/pipelinestate.hpp>
 #include <render/camera.hpp>
 #include <render/descriptorheap.hpp>
+#include <system/gui.hpp>
 
 namespace obj
 {
@@ -91,32 +92,28 @@ void object::close()
 
 void object::guiSetting()
 {
-	//if (displayUI)
-	//{
-	//	if (gui::collapsingHeader("Object" + std::to_string(id)))
-	//	{
-	//		gui::color("Albedo##" + std::to_string(id), &albedo.x);
-	//		gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
-	//		gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
+	{
+		gui::color("Albedo##" + std::to_string(id), &albedo.x);
+		gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
+		gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
 
-	//		gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
-	//		gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
+		gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
+		gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
 
-	//		int meshID = meshPtr->getId();
+		int meshID = meshPtr->getId();
 
-	//		if (meshID != -1)
-	//		{
-	//			uint currentMeshId = meshID;
+		if (meshID != -1)
+		{
+			uint currentMeshId = meshID;
 
-	//			uint originalID = currentMeshId;
-	//			
-	//			gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
-	//			
-	//			if (originalID != currentMeshId) meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
-	//		}
+			uint originalID = currentMeshId;
+				
+			gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
+				
+			if (originalID != currentMeshId) meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
+		}
 
-	//	}
-	//}
+	}
 }
 
 void object::disableWire()
