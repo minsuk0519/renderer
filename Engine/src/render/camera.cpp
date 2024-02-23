@@ -15,7 +15,7 @@ constexpr float SPEED = 0.0003f;
 constexpr float NEAR_PLANE = 0.1f;
 constexpr float FAR_PLANE = 100.0f;
 
-constexpr float FOV = 45.0f;
+constexpr float FOV = 90.0f;
 
 constexpr uint MINI_VIEWPORT_WIDTH = 320;
 constexpr uint MINI_VIEWPORT_HEIGHT = 180;
@@ -39,7 +39,7 @@ bool camera::init()
 	scissor.right = static_cast<long>(width);
 	scissor.bottom = static_cast<long>(height);
 
-	transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,1.0f });
+	transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,2.0f });
 
 	projectionBuffer = buf::createConstantBuffer(consts::CONST_PROJ_SIZE);
 

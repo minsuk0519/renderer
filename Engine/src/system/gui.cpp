@@ -144,7 +144,9 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
             ImGui::PushButtonRepeat(true);
             for (int i = 0; i < 9; i++)
             {
+                if (i == 0) if (ImGui::Button("+##ZoomIn")) { meshDebugDrawCamArmLength -= 0.1f; changed = true; }
                 if (i == 1) if (ImGui::ArrowButton("meshView##Up", ImGuiDir_Up)) { y -= 0.1f; changed = true; }
+                if (i == 2) if (ImGui::Button("-##ZoomOut")) { meshDebugDrawCamArmLength += 0.1f; changed = true; }
                 if (i == 3) if (ImGui::ArrowButton("meshView##Left", ImGuiDir_Left)) { x -= 0.1f; changed = true; }
                 if (i == 5) if (ImGui::ArrowButton("meshView##Right", ImGuiDir_Right)) { x += 0.1f; changed = true; }
                 if (i == 7) if (ImGui::ArrowButton("meshView##Down", ImGuiDir_Down)) { y += 0.1f; changed = true; }
@@ -160,6 +162,9 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
                 x = 0;
                 y = PI / 2.0f;
             }
+
+            if (y > PI) y = PI - 0.01f;
+            if (y < 0.0f) y = 0.01f;
 
             if(ImGui::Button("Close##MeshView"))
             {
