@@ -38,7 +38,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 
 void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool debugDraw)
 {
-	//cmdList->SetGraphicsRootDescriptorTable(1, desc.getHandle());
+	cmdList->SetGraphicsRootDescriptorTable(1, desc.getHandle());
 
 	if (debugDraw)
 	{
@@ -57,11 +57,22 @@ void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, boo
 		AABBMesh->setBuffer(cmdList, true);
 		AABBMesh->draw(cmdList);
 	}
-	
 }
 
 void object::update(float dt)
 {
+	{
+		float* matPointer = trans->getMatPointer();
+
+		float a[] = {
+			albedo.x, albedo.y, albedo.z,
+			metal,
+			roughness,
+		};
+
+		memcpy(cbv->info.cbvDataBegin, matPointer, cbv->info.size);
+		memcpy(cbv->info.cbvDataBegin + sizeof(float) * 16, &a, cbv->info.size);
+	}
 }
 
 void object::sendMat(unsigned char* cbvdata)
@@ -92,27 +103,24 @@ void object::close()
 
 void object::guiSetting()
 {
+	gui::color("Albedo##" + std::to_string(id), &albedo.x);
+	gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
+	gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
+
+	gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
+	gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
+
+	int meshID = meshPtr->getId();
+
+	if (meshID != -1)
 	{
-		gui::color("Albedo##" + std::to_string(id), &albedo.x);
-		gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
-		gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
+		uint currentMeshId = meshID;
 
-		gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
-		gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
-
-		int meshID = meshPtr->getId();
-
-		if (meshID != -1)
-		{
-			uint currentMeshId = meshID;
-
-			uint originalID = currentMeshId;
+		uint originalID = currentMeshId;
 				
-			gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
+		gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
 				
-			if (originalID != currentMeshId) meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
-		}
-
+		if (originalID != currentMeshId) meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
 	}
 }
 
