@@ -33,6 +33,7 @@ void ssao_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint th
 	
 	if(length(normal) == 0.0f)
 	{
+		aoBuffer[uv] = 0;
 		return;
 	}
 	

@@ -49,13 +49,14 @@ private:
 	UINT64 debugProjection;
 
 	imagebuffer* ssaoTex;
-	descriptor ssaoDesc;
 
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
 
 	void debugFrameBufferRequest(uint debugMeshID, UINT64 ptr);
+
+	descriptor ssaoDesc;
 };
 
 extern renderer e_globRenderer;
