@@ -9,11 +9,13 @@
 #define SRV_GBUFFER0_TEX	GET_HLSL_LOC_SRV(0)
 //t1 normal
 #define SRV_GBUFFER1_TEX	GET_HLSL_LOC_SRV(1)
+//t2 ssao input
+#define SRV_AO_FINAL		GET_HLSL_LOC_SRV(2)
 //b0 projection
 #define CBV_PROJECTION		GET_HLSL_LOC_CBV(0)
 //b1 object
 #define SRV_OBJECT			GET_HLSL_LOC_CBV(1)
-//u0 ssao
+//u0 ssao output
 #define UAV_SSAO			GET_HLSL_LOC_UAV(0)
 
 //define PSO indcies

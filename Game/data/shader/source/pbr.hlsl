@@ -6,10 +6,12 @@ struct PSInput
     float2 texCoord 	: TEXTURE_COORD;
 };
 
-Texture2D positionGbuffer : register(t0);
-Texture2D normalTexGbuffer : register(t1);
+Texture2D positionGbuffer 	: register(t0);
+Texture2D normalTexGbuffer 	: register(t1);
 
-SamplerState samp : register(s0);
+Texture2D aoTexBuffer 		: register(t2);
+
+SamplerState samp 			: register(s0);
 
 PSInput pbr_vs(float2 position : POSITION)
 {
@@ -26,6 +28,7 @@ float4 pbr_ps(PSInput input) : SV_TARGET
 	float2 uv = (input.texCoord.xy + float2(1.0f, 1.0f)) * 0.5f;    
 	float3 position = positionGbuffer.Sample(samp, uv).xyz;
 	float3 normal = normalTexGbuffer.Sample(samp, uv).xyz;
+	float ao = aoTexBuffer.Sample(samp, uv).x;
 	
 	if(length(normal) == 0.0f)
 	{
@@ -50,7 +53,7 @@ float4 pbr_ps(PSInput input) : SV_TARGET
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     float3 specular = specularStrength * spec;  
         
-    float3 result = (ambient + diffuse + specular);
+    float3 result = ((ambient + diffuse) * ao + specular);
 	
     return float4(result, 1.0f);
 }
