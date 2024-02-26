@@ -21,12 +21,14 @@ namespace render
 
 		readJsonBuffer(psoJsons, JSON_FILE_NAME::PSO_FILE);
 
+		assert(psoJsons.size() == render::PSO_END);
+
 		for (auto psoData : psoJsons)
 		{
 			pipelinestate* newObject = new pipelinestate();
 
 			if (!psoData.cs) newObject->init(psoData.psoName, psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, psoData.wireframe, psoData.depth);
-			//else newObject->initCS(psoData.vertexIndex);
+			else newObject->initCS(psoData.vertexIndex);
 			
 			pipelineStateObjects[psoData.psoIndex] = newObject;
 		}
@@ -61,12 +63,14 @@ namespace render
 
 bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool wireframe, bool depth)
 {
+	isCompute = false;
+
 	shader* vs = shaders::getShader(VS);
 	shader* ps = shaders::getShader(PS); //wireframe ? nullptr : shaders::getShader(PS);
 
 	rootsig = new rootsignature();
 
-	rootsig->initFromShader({VS, PS}, hlslLoc);
+	rootsig->initFromShader({VS, PS}, hlslLoc, false);
 	rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
 
 	data.vertexIndex = VS;
@@ -115,9 +119,16 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
  	return true;
 }
 
-bool pipelinestate::initCS(uint CS, uint root)
+bool pipelinestate::initCS(uint CS)
 {
+	isCompute = true;
+
 	shader* cs = shaders::getShader(CS);
+
+	rootsig = new rootsignature();
+
+	rootsig->initFromShader({ CS }, hlslLoc, true);
+	rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
 
 	struct PipelineStateStream
 	{
@@ -125,7 +136,7 @@ bool pipelinestate::initCS(uint CS, uint root)
 		CD3DX12_PIPELINE_STATE_STREAM_CS CS;
 	} pipelineStateStream;
 
-	//pipelineStateStream.pRootSignature = render::getRootSignature(render::ROOT_INDEX(root))->getrootSignature();
+	pipelineStateStream.pRootSignature = rootsig->getrootSignature();
 	pipelineStateStream.CS = cs->getByteCode();
 
 	D3D12_PIPELINE_STATE_STREAM_DESC psoDesc = { sizeof(PipelineStateStream), &pipelineStateStream };
@@ -139,7 +150,8 @@ void pipelinestate::sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 {
 	if (hlslLoc.find(loc) != hlslLoc.end())
 	{
-		cmdList->SetGraphicsRootDescriptorTable(hlslLoc.at(loc), descLoc);
+		if (isCompute) cmdList->SetComputeRootDescriptorTable(hlslLoc.at(loc), descLoc);
+		else cmdList->SetGraphicsRootDescriptorTable(hlslLoc.at(loc), descLoc);
 	}
 	else
 	{

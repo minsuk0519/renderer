@@ -48,6 +48,9 @@ private:
 	uint debugFBMeshID;
 	UINT64 debugProjection;
 
+	imagebuffer* ssaoTex;
+	descriptor ssaoDesc;
+
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;

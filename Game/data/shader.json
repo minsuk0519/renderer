@@ -35,5 +35,11 @@
 		"target":"ps_6_5",
 		"shaderType":1,
 		"shaderIndex":5
+	},{
+		"shaderFile":"data/shader/source/ssao.hlsl",
+		"entryPoint":"ssao_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":6
 	}
 ]

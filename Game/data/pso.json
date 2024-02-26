@@ -33,5 +33,15 @@
 		"cs":false,
 		"depth":true,
 		"wireframe":true
+	},{
+		"psoIndex":3,
+		"psoName":"SSAO",
+		"vertexIndex":6,
+		"pixelIndex":6,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

@@ -93,7 +93,7 @@ void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(CBV_PROJECTION, desc.getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, desc.getHandle());
 }
 
 void camera::changeViewport(const cam::VIEWPORT_TYPE type)

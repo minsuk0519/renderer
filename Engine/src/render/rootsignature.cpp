@@ -18,8 +18,10 @@ namespace render
 	};
 }
 
-bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, uint>& hlslPos)
+bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, uint>& hlslPos, bool cs)
 {
+	compute = cs;
+
 	std::array<std::map<uint, std::pair<uint, uint>>, render::D3D12_RANGE_TYPE_CONSTANT> typeMaps;
 
 	for (auto id : shaderIDs)
@@ -43,6 +45,18 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 
 			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture.loc].second = hlslLoc;
 		}
+
+		if (cs)
+		{
+			for (auto uav : pShader->bufData.outputContainer)
+			{
+				typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_UAV][uav.loc].first |= (1 << pShader->getType());
+
+				uint hlslLoc = shaders::getShaderLocFromName(uav.name);
+
+				typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_UAV][uav.loc].second = hlslLoc;
+			}
+		}
 	}
 
 	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters;
@@ -65,18 +79,25 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 		for (auto typeData : typeMaps[i])
 		{
 			D3D12_SHADER_VISIBILITY vis;
-
-			if (typeData.second.first == 1)
+			
+			if (cs)
 			{
-				vis = D3D12_SHADER_VISIBILITY_VERTEX;
-			}
-			else if (typeData.second.first == 2)
-			{
-				vis = D3D12_SHADER_VISIBILITY_PIXEL;
+				vis = D3D12_SHADER_VISIBILITY_ALL;
 			}
 			else
 			{
-				vis = D3D12_SHADER_VISIBILITY_ALL;
+				if (typeData.second.first == 1)
+				{
+					vis = D3D12_SHADER_VISIBILITY_VERTEX;
+				}
+				else if (typeData.second.first == 2)
+				{
+					vis = D3D12_SHADER_VISIBILITY_PIXEL;
+				}
+				else
+				{
+					vis = D3D12_SHADER_VISIBILITY_ALL;
+				}
 			}
 
 			ranges[index].Init((D3D12_DESCRIPTOR_RANGE_TYPE)i, 1, typeData.first, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);

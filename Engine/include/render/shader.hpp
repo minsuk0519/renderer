@@ -17,6 +17,7 @@ namespace shaders
 	{
 		SHADER_VS = 0,
 		SHADER_PS,
+		SHADER_CS,
 	};
 
 	bool loadResources();

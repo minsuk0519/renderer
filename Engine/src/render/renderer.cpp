@@ -27,21 +27,6 @@ renderer e_globRenderer;
 bool initGui()
 {
 	//setting up gui
-	//Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
-	//{
-	//	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-	//	desc.NumDescriptors = 64;
-	//	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	//	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-
-	//	if (e_globRenderer.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&guiHeap)) != S_OK)
-	//	{
-	//		return false;
-	//	}
-	//}
-
-	//gui::init(e_globWindow.getWindow(), e_globRenderer.device.Get(), guiHeap.Get());
-
 	descriptorheap* descriptorHeap = render::getHeap(render::DESCRIPTORHEAP_BUFFER);
 	//buffer type does not matter
 	descriptor fontDesc = descriptorHeap->requestdescriptor(buf::BUFFER_IMAGE_TYPE, nullptr);
@@ -65,6 +50,9 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	TC_INIT(msh::loadResources());
 
 	TC_INIT(initGui());
+
+	ssaoTex = buf::createImageBuffer(e_globWindow.width(), e_globWindow.height(), 1, DXGI_FORMAT_R32_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+	ssaoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, ssaoTex);
 
 	return true;
 }
@@ -239,7 +227,7 @@ void renderer::preDraw(float dt)
 
 		msh->setBuffer(cmdList, false);
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(CBV_PROJECTION, (D3D12_GPU_DESCRIPTOR_HANDLE)debugProjection);
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, (D3D12_GPU_DESCRIPTOR_HANDLE)debugProjection);
 
 		msh->draw(cmdList);
 
@@ -269,6 +257,23 @@ void renderer::draw(float dt)
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_SSAO);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoDesc.getHandle());
+
+		computeCmdList->Dispatch(1600 / 8, 900 / 8, 1);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_PBR);
 
 	swapchainFB[frameIndex]->openFB(cmdList);
@@ -283,9 +288,9 @@ void renderer::draw(float dt)
 
 	cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendGraphicsData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
 
 	cmdList->DrawInstanced(3, 1, 0, 0);
 

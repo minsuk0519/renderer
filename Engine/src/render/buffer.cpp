@@ -24,121 +24,6 @@ namespace meshloadhelper
         std::vector<uint> indices;
         std::vector<uint> indicesLine;
     };
-
-    //vertindex processMesh()//, float AABB[msh::EDGE_MAX])
-    //{
-    //    //vertindex data;
-
-    //    //float xMAX = -FLT_MAX;
-    //    //float yMAX = -FLT_MAX;
-    //    //float zMAX = -FLT_MAX;
-
-    //    //float xMIN = FLT_MAX;
-    //    //float yMIN = FLT_MAX;
-    //    //float zMIN = FLT_MAX;
-
-    //    //std::vector<std::pair<uint, uint>> overlappedVerts;
-
-    //    //for (unsigned int i = 0; i < mesh->mNumVertices; i++)
-    //    //{
-    //    //    float x = mesh->mVertices[i].x;
-    //    //    float y = mesh->mVertices[i].y;
-    //    //    float z = mesh->mVertices[i].z;
-
-    //    //    if (xMAX < x) xMAX = x;
-    //    //    if (yMAX < y) yMAX = y;
-    //    //    if (zMAX < z) zMAX = z;
-
-    //    //    if (xMIN > x) xMIN = x;
-    //    //    if (yMIN > y) yMIN = y;
-    //    //    if (zMIN > z) zMIN = z;
-
-    //    //    data.vertices.push_back(x);
-    //    //    data.vertices.push_back(y);
-    //    //    data.vertices.push_back(z);
-
-    //    //    if (mesh->HasNormals())
-    //    //    {
-    //    //        data.normals.push_back(mesh->mNormals[i].x);
-    //    //        data.normals.push_back(mesh->mNormals[i].y);
-    //    //        data.normals.push_back(mesh->mNormals[i].z);
-    //    //    }
-
-    //    //    //if (mesh->HasTextureCoords(i))
-    //    //    //{
-    //    //    //    data.vertices.push_back(mesh->mTextureCoords[i]->x);
-    //    //    //    data.vertices.push_back(mesh->mTextureCoords[i]->y);
-    //    //    //}
-    //    //    //else
-    //    //    //{
-    //    //    //    data.vertices.push_back(0.0f);
-    //    //    //    data.vertices.push_back(0.0f);
-    //    //    //}
-    //    //}
-
-    //    //float xDIM = xMAX - xMIN;
-    //    //float yDIM = yMAX - yMIN;
-    //    //float zDIM = zMAX - zMIN;
-
-    //    //float MAXDIM = (xDIM > yDIM) ? xDIM : yDIM;
-    //    //MAXDIM = (MAXDIM > zDIM) ? MAXDIM : zDIM;
-
-    //    //float xOFFSET = (xMAX + xMIN) / 2.0f;
-    //    //float yOFFSET = (yMAX + yMIN) / 2.0f;
-    //    //float zOFFSET = (zMAX + zMIN) / 2.0f;
-    //    //    
-    //    //for (uint i = 0; i < data.vertices.size(); i += 3)
-    //    //{
-    //    //    data.vertices[i] = (data.vertices[i] - xOFFSET) / (MAXDIM);
-    //    //    data.vertices[i + 1] = (data.vertices[i + 1] - yOFFSET) / (MAXDIM);
-    //    //    data.vertices[i + 2] = (data.vertices[i + 2] - zOFFSET) / (MAXDIM);
-    //    //}
-
-    //    //xMAX = (xMAX - xOFFSET) / (MAXDIM);
-    //    //xMIN = (xMIN - xOFFSET) / (MAXDIM);
-    //    //yMAX = (yMAX - yOFFSET) / (MAXDIM);
-    //    //yMIN = (yMIN - yOFFSET) / (MAXDIM);
-    //    //zMAX = (zMAX - zOFFSET) / (MAXDIM);
-    //    //zMIN = (zMIN - zOFFSET) / (MAXDIM);
-
-    //    ////AABB[msh::EDGE_XMAX] = xMAX;
-    //    ////AABB[msh::EDGE_XMIN] = xMIN;
-    //    ////AABB[msh::EDGE_YMAX] = yMAX;
-    //    ////AABB[msh::EDGE_YMIN] = yMIN;
-    //    ////AABB[msh::EDGE_ZMAX] = zMAX;
-    //    ////AABB[msh::EDGE_ZMIN] = zMIN;
-
-    //    //return data;
-    //}
-
-    //void processNode(aiNode* node, const aiScene* scene, std::vector<vertindex>& data, float AABB[msh::EDGE_MAX])
-    //{
-    //    for (unsigned int i = 0; i < node->mNumMeshes; i++)
-    //    {
-    //        aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-    //        //TODO
-    //        data.push_back(processMesh(mesh, scene, AABB));
-    //    }
-
-    //    for (unsigned int i = 0; i < node->mNumChildren; i++)
-    //    {
-    //        processNode(node->mChildren[i], scene, data, AABB);
-    //    }
-    //}
-
-    //std::vector<vertindex> readassimp(std::string file_path, float AABB[msh::EDGE_MAX])
-    //{
-    //    Assimp::Importer import;
-    //    const aiScene* scene = import.ReadFile(file_path.c_str(), aiProcess_Triangulate | aiProcess_GenSmoothNormals);
-
-    //    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) return {};
-
-    //    std::vector<vertindex> data;
-
-    //    processNode(scene->mRootNode, scene, data, AABB);
-
-    //    return data;
-    //}
 }
 
 namespace img
@@ -303,18 +188,6 @@ namespace buf
  
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
 
-    void loadFile(std::string fileName, const uint vertexIndex, const uint normalIndex, const uint indexIndex)
-    {
-        //float AABB[msh::EDGE_MAX];
-
-        //std::vector<meshloadhelper::vertindex> data = meshloadhelper::readassimp(fileName, AABB);
-
-        ////TODO
-        //bufferContainer[vertexIndex] = createVertexBuffer(data[0].vertices.data(), static_cast<uint>(sizeof(float) * data[0].vertices.size()), sizeof(float) * 3);
-        //bufferContainer[normalIndex] = createVertexBuffer(data[0].normals.data(), static_cast<uint>(sizeof(float) * data[0].normals.size()), sizeof(float) * 3);
-        //bufferContainer[indexIndex] = createIndexBuffer(data[0].indices.data(), static_cast<uint>(sizeof(uint) * data[0].indices.size()));
-    }
-
     void loadFiletoMesh(std::string fileName, meshData* meshdata)
     {
         auto result = rapidobj::ParseFile(fileName);
@@ -363,7 +236,6 @@ namespace buf
         DirectX::ScratchImage mipImage;
 
         DirectX::LoadFromHDRFile(filename.c_str(), &metadata, scratchImage);
-
 
         //we assume there will be only one image from one file
         const DirectX::Image* image = scratchImage.GetImages();

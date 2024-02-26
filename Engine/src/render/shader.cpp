@@ -374,115 +374,126 @@ void shader::decipherHLSL()
 	std::string sourceString;
 	sourceString.assign(reinterpret_cast<const char*>(pText->GetBufferPointer()), pText->GetBufferSize());
 
-	//input signature
+	if (type != shaders::SHADER_CS)
 	{
-		auto find = sourceString.find("Input signature:") + 1;
-		find = sourceString.find("-------------------- ----- ------ -------- -------- ------- ------", find);
-		find = sourceString.find("; ", find) + 1;
-
-		while (true)
+		//input signature
 		{
-			auto find2 = sourceString.find("\n", find) + 1;
-			std::string line = sourceString.substr(find, find2 - find);
-			find = find2;
-
-			if (line.find(";\n") != std::string::npos)
-			{
-				break;
-			}
-
-			shaders::hlslBuf hlslbuf;
-
-			uint variableIndex = 0;
-
-			find2 = 0;
+			auto find = sourceString.find("Input signature:") + 1;
+			find = sourceString.find("-------------------- ----- ------ -------- -------- ------- ------", find);
+			find = sourceString.find("; ", find) + 1;
 
 			while (true)
 			{
-				find2 = line.find_first_not_of("; ", find2);
+				auto find2 = sourceString.find("\n", find) + 1;
+				std::string line = sourceString.substr(find, find2 - find);
+				find = find2;
 
-				if (find2 == std::string::npos)
+				if (line.find(";\n") != std::string::npos)
 				{
 					break;
 				}
 
-				auto find3 = line.find_first_of(' ', find2);
-				std::string str = line.substr(find2, find3 - find2);
+				shaders::hlslBuf hlslbuf;
 
-				if (variableIndex == 0)
-				{
-					hlslbuf.name = str;
-				}
-				if (variableIndex == 2)
-				{
-					hlslbuf.data = str.size();
-				}
-				if (variableIndex == 3)
-				{
-					hlslbuf.loc = std::stoi(str);
-				}
-				find2 = find3;
+				uint variableIndex = 0;
 
-				++variableIndex;
+				find2 = 0;
+
+				while (true)
+				{
+					find2 = line.find_first_not_of("; ", find2);
+
+					if (find2 == std::string::npos)
+					{
+						break;
+					}
+					if (line.find("no parameters") != std::string::npos)
+					{
+						break;
+					}
+
+					auto find3 = line.find_first_of(' ', find2);
+					std::string str = line.substr(find2, find3 - find2);
+
+					if (variableIndex == 0)
+					{
+						hlslbuf.name = str;
+					}
+					if (variableIndex == 2)
+					{
+						hlslbuf.data = str.size();
+					}
+					if (variableIndex == 3)
+					{
+						hlslbuf.loc = std::stoi(str);
+					}
+					find2 = find3;
+
+					++variableIndex;
+				}
+
+				bufData.inputContainer.push_back(hlslbuf);
 			}
-
-			bufData.inputContainer.push_back(hlslbuf);
 		}
-	}
 
-	//output signature
-	{
-		auto find = sourceString.find("Output signature:") + 1;
-		find = sourceString.find("-------------------- ----- ------ -------- -------- ------- ------", find);
-		find = sourceString.find("; ", find) + 1;
-
-		while (true)
+		//output signature
 		{
-			auto find2 = sourceString.find("\n", find) + 1;
-			std::string line = sourceString.substr(find, find2 - find);
-			find = find2;
-
-			if (line.find(";\n") != std::string::npos)
-			{
-				break;
-			}
-
-			shaders::hlslBuf hlslbuf;
-
-			uint variableIndex = 0;
-
-			find2 = 0;
+			auto find = sourceString.find("Output signature:") + 1;
+			find = sourceString.find("-------------------- ----- ------ -------- -------- ------- ------", find);
+			find = sourceString.find("; ", find) + 1;
 
 			while (true)
 			{
-				find2 = line.find_first_not_of("; ", find2);
+				auto find2 = sourceString.find("\n", find) + 1;
+				std::string line = sourceString.substr(find, find2 - find);
+				find = find2;
 
-				if (find2 == std::string::npos)
+				if (line.find(";\n") != std::string::npos)
+				{
+					break;
+				}
+				if (line.find("no parameters") != std::string::npos)
 				{
 					break;
 				}
 
-				auto find3 = line.find_first_of(' ', find2);
-				std::string str = line.substr(find2, find3 - find2);
+				shaders::hlslBuf hlslbuf;
 
-				if (variableIndex == 0)
-				{
-					hlslbuf.name = str;
-				}
-				if (variableIndex == 2)
-				{
-					hlslbuf.data = str.size();
-				}
-				if (variableIndex == 3)
-				{
-					hlslbuf.loc = std::stoi(str);
-				}
-				find2 = find3;
+				uint variableIndex = 0;
 
-				++variableIndex;
+				find2 = 0;
+
+				while (true)
+				{
+					find2 = line.find_first_not_of("; ", find2);
+
+					if (find2 == std::string::npos)
+					{
+						break;
+					}
+
+					auto find3 = line.find_first_of(' ', find2);
+					std::string str = line.substr(find2, find3 - find2);
+
+					if (variableIndex == 0)
+					{
+						hlslbuf.name = str;
+					}
+					if (variableIndex == 2)
+					{
+						hlslbuf.data = str.size();
+					}
+					if (variableIndex == 3)
+					{
+						hlslbuf.loc = std::stoi(str);
+					}
+					find2 = find3;
+
+					++variableIndex;
+				}
+
+				bufData.outputContainer.push_back(hlslbuf);
 			}
-
-			bufData.outputContainer.push_back(hlslbuf);
 		}
 	}
 
@@ -565,11 +576,18 @@ void shader::decipherHLSL()
 						hlslbuf.loc = std::stoi(cBufferLoc);
 						bufData.samplerContainer.push_back(hlslbuf);
 					}
-					else
+					else if(str.find("t") != std::string::npos)
 					{
 						cBufferLoc = str.substr(1);
 						hlslbuf.loc = std::stoi(cBufferLoc);
 						bufData.textureContainer.push_back(hlslbuf);
+					}
+					else
+					{
+						assert(type == shaders::SHADER_CS);
+						cBufferLoc = str.substr(1);
+						hlslbuf.loc = std::stoi(cBufferLoc);
+						bufData.outputContainer.push_back(hlslbuf);
 					}
 
 					break;

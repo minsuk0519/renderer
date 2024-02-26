@@ -67,5 +67,5 @@ public:
 	void signalFence();
 
 	void bindPSO(render::PSO_INDEX psoIndex);
-	void sendGraphicsData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
+	void sendData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
 };

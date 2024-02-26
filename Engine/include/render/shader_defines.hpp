@@ -13,6 +13,8 @@
 #define CBV_PROJECTION		GET_HLSL_LOC_CBV(0)
 //b1 object
 #define SRV_OBJECT			GET_HLSL_LOC_CBV(1)
+//u0 ssao
+#define UAV_SSAO			GET_HLSL_LOC_UAV(0)
 
 //define PSO indcies
 namespace render
@@ -22,6 +24,7 @@ namespace render
 		PSO_PBR,
 		PSO_GBUFFER,
 		PSO_WIREFRAME,
+		PSO_SSAO,
 		PSO_END,
 	};
 }

@@ -164,7 +164,7 @@ void commandqueue::bindPSO(render::PSO_INDEX psoIndex)
 	rootsig->registerDescHeap(commandList);
 }
 
-void commandqueue::sendGraphicsData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
+void commandqueue::sendData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
 {
 	currentPSO->sendGraphicsData(commandList, pos, descLoc);
 }
