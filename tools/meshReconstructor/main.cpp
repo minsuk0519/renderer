@@ -3136,7 +3136,7 @@ constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
 
 int main(int argc, char** argv)
 {
-    std::string fileName = "bun_zipper.ply";// argv[1];
+    std::string fileName = "sphere.ply";// argv[1];
 
     HANDLE hFile = CreateFileA(
         fileName.c_str(),
