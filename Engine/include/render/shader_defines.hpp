@@ -14,9 +14,13 @@
 //b0 projection
 #define CBV_PROJECTION		GET_HLSL_LOC_CBV(0)
 //b1 object
-#define SRV_OBJECT			GET_HLSL_LOC_CBV(1)
+#define CBV_OBJECT			GET_HLSL_LOC_CBV(1)
+//b2 guiDebug
+#define CBV_GUIDEBUG		GET_HLSL_LOC_CBV(2)
 //u0 ssao output
 #define UAV_SSAO			GET_HLSL_LOC_UAV(0)
+
+#define FEATURE_AO (1 << 0)
 
 //define PSO indcies
 namespace render

@@ -51,6 +51,7 @@ public:
 	bool initCS(uint CS);
 
 	void sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
+	void sendConstantData(Microsoft::WRL::ComPtr< ID3D12GraphicsCommandList> cmdList, uint loc, uint dataSize, void* data);
 
 	void close();
 

@@ -160,6 +160,20 @@ void pipelinestate::sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	}
 }
 
+void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, uint dataSize, void* data)
+{
+	if (hlslLoc.find(loc) != hlslLoc.end())
+	{
+		if (isCompute) cmdList->SetComputeRoot32BitConstants(hlslLoc.at(loc), dataSize, data, 0);
+		else cmdList->SetGraphicsRoot32BitConstants(hlslLoc.at(loc), dataSize, data, 0);
+	}
+	else
+	{
+		std::string warnMsg = std::format("You send {}, but there is no hlsl location", loc);
+		TC_LOG_WARNING(warnMsg.c_str());
+	}
+}
+
 void pipelinestate::close()
 {
 	delete rootsig;

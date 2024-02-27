@@ -93,6 +93,13 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
 
     ImGui::BeginTabBar("Category");
 
+    if (ImGui::BeginTabItem("Render"))
+    {
+        e_globRenderer.guiSetting();
+
+        ImGui::EndTabItem();
+    }
+
     if (ImGui::BeginTabItem("Shader"))
     {
         shaders::guiShaderSetting();

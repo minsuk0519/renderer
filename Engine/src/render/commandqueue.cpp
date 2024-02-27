@@ -169,3 +169,8 @@ void commandqueue::sendData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
 	currentPSO->sendGraphicsData(commandList, pos, descLoc);
 }
 
+void commandqueue::sendData(uint pos, uint size, void* data)
+{
+	currentPSO->sendConstantData(commandList, pos, size, data);
+}
+

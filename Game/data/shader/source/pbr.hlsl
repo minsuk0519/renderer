@@ -13,6 +13,14 @@ Texture2D aoTexBuffer 		: register(t2);
 
 SamplerState samp 			: register(s0);
 
+#define FEATURE_AO (1 << 0)
+
+cbuffer cb_debugInfo : register(b2)
+{
+	uint features = FEATURE_AO;
+	uint debugDraw = 0;
+}
+
 PSInput pbr_vs(float2 position : POSITION)
 {
     PSInput result;
@@ -29,6 +37,19 @@ float4 pbr_ps(PSInput input) : SV_TARGET
 	float3 position = positionGbuffer.Sample(samp, uv).xyz;
 	float3 normal = normalTexGbuffer.Sample(samp, uv).xyz;
 	float ao = aoTexBuffer.Sample(samp, uv).x;
+	
+	if(debugDraw == 1)
+	{
+		return float4(position, 1.0f);
+	}
+	else if(debugDraw == 2)
+	{
+		return float4(normal, 1.0f);
+	}
+	else if(debugDraw == 3)
+	{
+		return float4(ao, ao, ao, 1.0f);
+	}
 	
 	if(length(normal) == 0.0f)
 	{
@@ -52,7 +73,12 @@ float4 pbr_ps(PSInput input) : SV_TARGET
     float3 reflectDir = reflect(-lightDir, normal);  
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     float3 specular = specularStrength * spec;  
-        
+       
+	if(features & FEATURE_AO)
+	{
+		ao = 1.0f;
+	}
+	
     float3 result = ((ambient + diffuse) * ao + specular);
 	
     return float4(result, 1.0f);

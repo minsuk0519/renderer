@@ -24,6 +24,19 @@ uint frameIndex = 0;
 
 renderer e_globRenderer;
 
+namespace renderGuiSetting
+{
+	struct guiSetting
+	{
+		uint features;
+		uint debugDraw;
+	};
+
+	guiSetting guiDebug;
+
+	bool ssaoEnabled;
+}
+
 bool initGui()
 {
 	//setting up gui
@@ -206,6 +219,24 @@ void renderer::debugFrameBufferRequest(uint debugMeshID, UINT64 ptr)
 	debugProjection = ptr;
 }
 
+const char* debugDrawVersion[]
+{
+	"None",
+	"Position",
+	"Normal",
+	"SSAO",
+};
+
+void renderer::guiSetting()
+{
+	gui::comboBox("DebugDraw", debugDrawVersion, 4, renderGuiSetting::guiDebug.debugDraw);
+
+	ImGui::Checkbox("SSAO", &renderGuiSetting::ssaoEnabled);
+
+	if(renderGuiSetting::ssaoEnabled) renderGuiSetting::guiDebug.features |= FEATURE_AO;
+	else renderGuiSetting::guiDebug.features &= ~FEATURE_AO;
+}
+
 void renderer::preDraw(float dt)
 {
 	if (debugFBRequest)
@@ -293,6 +324,7 @@ void renderer::draw(float dt)
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_AO_FINAL, ssaoDesc.getHandle());
 
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &renderGuiSetting::guiDebug);
 
 	cmdList->DrawInstanced(3, 1, 0, 0);
 

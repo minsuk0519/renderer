@@ -56,6 +56,8 @@ public:
 
 	void debugFrameBufferRequest(uint debugMeshID, UINT64 ptr);
 
+	void guiSetting();
+
 	descriptor ssaoDesc;
 };
 

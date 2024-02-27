@@ -3,6 +3,7 @@
 #include <system/logger.hpp>
 #include <render/renderer.hpp>
 #include <render/shader.hpp>
+#include <render/shader_defines.hpp>
 
 #include <string>
 #include <iterator>
@@ -14,15 +15,23 @@ namespace render
 {
 	enum RANGE_TYPE
 	{
-		D3D12_RANGE_TYPE_CONSTANT = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER + 1
+		D3D12_RANGE_TYPE_CONSTANT	= D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER + 1,
+		D3D12_RANGE_TYPE_SIZE		= D3D12_RANGE_TYPE_CONSTANT + 1,
 	};
 }
+
+struct dataInfo
+{
+	uint vis;
+	uint hlslLocation;
+	uint size;
+};
 
 bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, uint>& hlslPos, bool cs)
 {
 	compute = cs;
 
-	std::array<std::map<uint, std::pair<uint, uint>>, render::D3D12_RANGE_TYPE_CONSTANT> typeMaps;
+	std::array<std::map<uint, dataInfo>, render::D3D12_RANGE_TYPE_SIZE> typeMaps;
 
 	for (auto id : shaderIDs)
 	{
@@ -30,31 +39,40 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 
 		for (auto constant : pShader->bufData.constantContainer)
 		{
-			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_CBV][constant.loc].first |= (1 << pShader->getType());
+			uint descType;
 
-			uint hlslLoc = shaders::getShaderLocFromName(constant.name);
+			if (constant.name.find("cb_") != std::string::npos)
+			{
+				descType = render::D3D12_RANGE_TYPE_CONSTANT;
+				typeMaps[descType][constant.loc].size = (constant.data / 4);
+			}
+			else descType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 
-			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_CBV][constant.loc].second = hlslLoc;
+			typeMaps[descType][constant.loc].vis |= (1 << pShader->getType());
+
+			uint hlslLoc = GET_HLSL_LOC_CBV(constant.loc);
+
+			typeMaps[descType][constant.loc].hlslLocation = hlslLoc;
 		}
 
 		for (auto texture : pShader->bufData.textureContainer)
 		{
-			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture.loc].first |= (1 << pShader->getType());
+			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture.loc].vis |= (1 << pShader->getType());
 
-			uint hlslLoc = shaders::getShaderLocFromName(texture.name);
+			uint hlslLoc = GET_HLSL_LOC_SRV(texture.loc);
 
-			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture.loc].second = hlslLoc;
+			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture.loc].hlslLocation = hlslLoc;
 		}
 
 		if (cs)
 		{
 			for (auto uav : pShader->bufData.outputContainer)
 			{
-				typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_UAV][uav.loc].first |= (1 << pShader->getType());
+				typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_UAV][uav.loc].vis |= (1 << pShader->getType());
 
-				uint hlslLoc = shaders::getShaderLocFromName(uav.name);
+				uint hlslLoc = GET_HLSL_LOC_UAV(uav.loc);
 
-				typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_UAV][uav.loc].second = hlslLoc;
+				typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_UAV][uav.loc].hlslLocation = hlslLoc;
 			}
 		}
 	}
@@ -64,7 +82,7 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 
 	uint rootParametersSize = 0;
 
-	for (uint i = 0; i < render::D3D12_RANGE_TYPE_CONSTANT; ++i)
+	for (uint i = 0; i < render::D3D12_RANGE_TYPE_SIZE; ++i)
 	{
 		rootParametersSize += typeMaps[i].size();
 	}
@@ -74,7 +92,7 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 
 	uint index = 0;
 
-	for (uint i = 0; i < render::D3D12_RANGE_TYPE_CONSTANT; ++i)
+	for (uint i = 0; i < render::D3D12_RANGE_TYPE_SIZE; ++i)
 	{
 		for (auto typeData : typeMaps[i])
 		{
@@ -86,11 +104,11 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 			}
 			else
 			{
-				if (typeData.second.first == 1)
+				if (typeData.second.vis == 1)
 				{
 					vis = D3D12_SHADER_VISIBILITY_VERTEX;
 				}
-				else if (typeData.second.first == 2)
+				else if (typeData.second.vis == 2)
 				{
 					vis = D3D12_SHADER_VISIBILITY_PIXEL;
 				}
@@ -100,10 +118,17 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 				}
 			}
 
-			ranges[index].Init((D3D12_DESCRIPTOR_RANGE_TYPE)i, 1, typeData.first, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
-			rootParameters[index].InitAsDescriptorTable(1, &ranges[index], vis);
+			if (i == render::D3D12_RANGE_TYPE_CONSTANT)
+			{
+				rootParameters[index].InitAsConstants(typeData.second.size, typeData.first);
+			}
+			else
+			{
+				ranges[index].Init((D3D12_DESCRIPTOR_RANGE_TYPE)i, 1, typeData.first, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
+				rootParameters[index].InitAsDescriptorTable(1, &ranges[index], vis);
+			}
 
-			hlslPos[typeData.second.second] = index;
+			hlslPos[typeData.second.hlslLocation] = index;
 
 			++index;
 		}

@@ -562,8 +562,6 @@ void shader::decipherHLSL()
 				{
 					std::string cBufferLoc;
 
-					hlslbuf.name = str;
-
 					if (str.find("cb") != std::string::npos)
 					{
 						cBufferLoc = str.substr(2);
@@ -599,15 +597,22 @@ void shader::decipherHLSL()
 			}
 		}
 
+		uint cbufferNum = 0;
 		if (bufData.constantContainer.size() != 0)
 		{
 			find = sourceString.find("\n%dx.alignment.legacy") + 1;
 
-			uint cbufferNum = 0;
 			while (true)
 			{
 				auto find2 = sourceString.find("\n", find) + 1;
 				std::string line = sourceString.substr(find, find2 - find);
+
+				if (auto findcb = line.find("%cb_"); findcb != std::string::npos)
+				{
+					find = findcb;
+					break;
+				}
+
 				find = find2;
 
 				if (line.size() == 1)
@@ -633,7 +638,7 @@ void shader::decipherHLSL()
 					break;
 				}
 
-				//bufData.constantContainer[cbufferNum].name = Name;
+				bufData.constantContainer[cbufferNum].name = Name;
 
 				uint size = 0;
 
@@ -702,7 +707,94 @@ void shader::decipherHLSL()
 				
 				++cbufferNum;
 			}
+
+			while (bufData.constantContainer.size() != cbufferNum)
+			{
+				find = sourceString.find("\n%cb_", find) + 1;
+				
+				auto find2 = sourceString.find("\n", find) + 1;
+				std::string line = sourceString.substr(find, find2 - find);
+				find = find2;
+
+				auto find3 = line.find("%cb_");
+
+				find2 = line.find(" ");
+
+				std::string Name = line.substr(1, find2 - 1);
+
+				bufData.constantContainer[cbufferNum].name = Name;
+
+				find2 = line.find("type { ") + 7;
+
+				uint size = 0;
+
+				while (true)
+				{
+					line = line.substr(find2);
+					find3 = line.find_first_of(", }");
+					std::string constantName = line.substr(0, find3);
+
+					if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
+					{
+						size += 4;
+						find2 = line.find_first_not_of(", }", find3);
+						continue;
+					}
+
+					if (constantName.size() < 3)
+					{
+						break;
+					}
+
+					//get size from struct
+					{
+						auto constantSizePos = sourceString.find(constantName + " = type { ") + constantName.size() + 11;
+						std::string constantSizeString = sourceString.substr(constantSizePos);
+
+						uint stringIndex = 0;
+
+						uint cumulate = 1;
+
+						while (true)
+						{
+							char c = constantSizeString[stringIndex];
+
+							if (c == '}') break;
+							else if (c == 'f')
+							{
+								size += cumulate * 4;
+								cumulate = 1;
+								stringIndex += 5;
+							}
+							else if (c == 'i')
+							{
+								size += cumulate * 4;
+								cumulate = 1;
+								stringIndex += 3;
+							}
+							uint num = 0;
+							while (c >= '0' && c <= '9')
+							{
+								uint i = static_cast<uint>(c - '0');
+								num = num * 10 + i;
+								++stringIndex;
+								c = constantSizeString[stringIndex];
+							}
+							if (num != 0) cumulate *= num;
+
+							++stringIndex;
+						}
+					}
+
+					find2 = line.find_first_not_of(", }", find3);
+				}
+
+				bufData.constantContainer[cbufferNum].data = size;
+
+				++cbufferNum;
+			}
 		}
+		assert(bufData.constantContainer.size() == cbufferNum);
 	}
 
 	//set input signature
