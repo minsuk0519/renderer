@@ -96,9 +96,14 @@ void framebuffer::setDepthClear(float depth)
 	isDepth = true;
 }
 
-void framebuffer::setgraphicsDescHandle(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint pos, uint FBOIndex)
+D3D12_GPU_DESCRIPTOR_HANDLE framebuffer::getDescHandle(uint FBOIndex)
 {
 	assert(FBOIndex < FBOs.size());
 
-	cmdList->SetGraphicsRootDescriptorTable(pos, FBOs[FBOIndex]->textureDesc.getHandle());
+	return FBOs[FBOIndex]->textureDesc.getHandle();
+}
+
+imagebuffer* framebuffer::getImageBuffer(uint FBOIndex) const
+{
+	return FBOs[FBOIndex]->imageBuffer;
 }

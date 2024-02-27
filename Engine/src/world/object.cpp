@@ -3,9 +3,7 @@
 #include <render/pipelinestate.hpp>
 #include <render/camera.hpp>
 #include <render/descriptorheap.hpp>
-
-constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
-constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
+#include <system/gui.hpp>
 
 namespace obj
 {
@@ -25,7 +23,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 	meshEnumIndex = meshIdx;
 	meshPtr = msh::getMesh(meshIdx);
 
-	cbv = buf::createConstantBuffer(CONST_OBJ_SIZE);
+	cbv = buf::createConstantBuffer(consts::CONST_OBJ_SIZE);
 
 	desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, cbv));
 
@@ -40,7 +38,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 
 void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool debugDraw)
 {
-	//cmdList->SetGraphicsRootDescriptorTable(1, desc.getHandle());
+	cmdList->SetGraphicsRootDescriptorTable(1, desc.getHandle());
 
 	if (debugDraw)
 	{
@@ -59,11 +57,22 @@ void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, boo
 		AABBMesh->setBuffer(cmdList, true);
 		AABBMesh->draw(cmdList);
 	}
-	
 }
 
 void object::update(float dt)
 {
+	{
+		float* matPointer = trans->getMatPointer();
+
+		float a[] = {
+			albedo.x, albedo.y, albedo.z,
+			metal,
+			roughness,
+		};
+
+		memcpy(cbv->info.cbvDataBegin, matPointer, cbv->info.size);
+		memcpy(cbv->info.cbvDataBegin + sizeof(float) * 16, &a, cbv->info.size);
+	}
 }
 
 void object::sendMat(unsigned char* cbvdata)
@@ -80,7 +89,7 @@ void object::sendMat(unsigned char* cbvdata)
 		unsigned char* dataLoc;
 		
 		if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
-		else dataLoc = cbvdata + CONST_OBJ_SIZE_ALLIGNMENT * id;
+		else dataLoc = cbvdata + consts::CONST_OBJ_SIZE_ALLIGNMENT * id;
 
 		memcpy(dataLoc, matPointer, cbv->info.size);
 		memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
@@ -94,32 +103,25 @@ void object::close()
 
 void object::guiSetting()
 {
-	//if (displayUI)
-	//{
-	//	if (gui::collapsingHeader("Object" + std::to_string(id)))
-	//	{
-	//		gui::color("Albedo##" + std::to_string(id), &albedo.x);
-	//		gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
-	//		gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
+	gui::color("Albedo##" + std::to_string(id), &albedo.x);
+	gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
+	gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
 
-	//		gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
-	//		gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
+	gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
+	gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
 
-	//		int meshID = meshPtr->getId();
+	int meshID = meshPtr->getId();
 
-	//		if (meshID != -1)
-	//		{
-	//			uint currentMeshId = meshID;
+	if (meshID != -1)
+	{
+		uint currentMeshId = meshID;
 
-	//			uint originalID = currentMeshId;
-	//			
-	//			gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
-	//			
-	//			if (originalID != currentMeshId) meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
-	//		}
-
-	//	}
-	//}
+		uint originalID = currentMeshId;
+				
+		gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
+				
+		if (originalID != currentMeshId) meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
+	}
 }
 
 void object::disableWire()

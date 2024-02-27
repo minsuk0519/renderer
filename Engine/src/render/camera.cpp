@@ -5,27 +5,22 @@
 #include <render\pipelinestate.hpp>
 #include <system/window.hpp>
 #include <system/input.hpp>
+#include <render/commandqueue.hpp>
+#include <render/shader_defines.hpp>
 
 #include <DirectXMath.h>
-
-constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
-constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
-constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 * 2 + 4);
 
 constexpr float SPEED = 0.0003f;
 
 constexpr float NEAR_PLANE = 0.1f;
 constexpr float FAR_PLANE = 100.0f;
 
-constexpr float FOV = 45.0f;
+constexpr float FOV = 90.0f;
 
 constexpr uint MINI_VIEWPORT_WIDTH = 320;
 constexpr uint MINI_VIEWPORT_HEIGHT = 180;
 
 DirectX::XMFLOAT4 camBackgroundColor = DirectX::XMFLOAT4(0.8f, 0.9f, 0.9f, 1.0f);
-
-#define PI 3.14159265358979f
-#define PI_HALF PI / 2.0f
 
 bool camera::init()
 {
@@ -44,13 +39,13 @@ bool camera::init()
 	scissor.right = static_cast<long>(width);
 	scissor.bottom = static_cast<long>(height);
 
-	transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,1.0f });
+	transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,2.0f });
 
-	projectionBuffer = buf::createConstantBuffer(CONST_PROJ_SIZE);
+	projectionBuffer = buf::createConstantBuffer(consts::CONST_PROJ_SIZE);
 
 	desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, projectionBuffer));
 
-	objectBuffer = buf::createConstantBuffer(CONST_OBJ_SIZE);
+	objectBuffer = buf::createConstantBuffer(consts::CONST_OBJ_SIZE);
 
 	objectdesc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, objectBuffer));
 	
@@ -66,7 +61,7 @@ void camera::draw(uint psoIndex, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandLis
 {
 	//if(psoIndex == pso::PSO_DEBUG) 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 
-	cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
+	//cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
 
 	////TODO
 	//world* world = game::getWorld();
@@ -98,7 +93,7 @@ void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
 
-	cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, desc.getHandle());
 }
 
 void camera::changeViewport(const cam::VIEWPORT_TYPE type)

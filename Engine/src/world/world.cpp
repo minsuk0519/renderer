@@ -2,6 +2,7 @@
 #include <world/object.hpp>
 #include <render/camera.hpp>
 #include <render/pipelinestate.hpp>
+#include <system/gui.hpp>
 
 world e_globWorld;
 
@@ -48,10 +49,24 @@ void world::setMainCamera(camera* cam)
 
 void world::guiSetting()
 {
+	static uint objectGUIIndex;
+	ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+
 	for (uint i = 0; i < objectNum; ++i)
 	{
-		objects[i].guiSetting();
+		if(ImGui::Button(("objects##" + std::to_string(i)).c_str()))
+		{
+			objectGUIIndex = i;
+		}
 	}
+
+	ImGui::EndChild();
+	ImGui::SameLine();
+	ImGui::BeginChild("object view pane", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
+
+	objects[objectGUIIndex].guiSetting();
+
+	ImGui::EndChild();
 }
 
 

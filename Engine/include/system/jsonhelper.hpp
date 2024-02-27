@@ -24,12 +24,14 @@ struct shaderJson
 
 struct psoJson
 {
+	uint psoIndex;
+	std::string psoName;
 	uint vertexIndex;
 	uint pixelIndex;
-	uint psoIndex;
 	std::vector<uint> formats;
 	bool cs;
 	bool depth;
+	bool wireframe;
 };
 
 enum JSON_FILE_NAME

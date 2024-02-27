@@ -1,4 +1,5 @@
 #include <render\mesh.hpp>
+#include <system\gui.hpp>
 
 #include <array>
 
@@ -6,7 +7,7 @@
 
 namespace msh
 {
-	std::array<mesh*, MESH_END> meshes;
+	std::array<mesh*, MESH_SIZE> meshes;
 
 	bool loadResources()
 	{
@@ -32,35 +33,35 @@ namespace msh
             
             float cubeVertices[] =
             {
-                0.5f,  0.5f,  0.5f,
-                0.5f, -0.5f,  0.5f,
-               -0.5f,  0.5f,  0.5f,
-               -0.5f, -0.5f,  0.5f,
+                1.0f,  1.0f,  1.0f,
+                1.0f, -1.0f,  1.0f,
+               -1.0f,  1.0f,  1.0f,
+               -1.0f, -1.0f,  1.0f,
 
-                0.5f,  0.5f, -0.5f,
-                0.5f, -0.5f, -0.5f,
-               -0.5f,  0.5f, -0.5f,
-               -0.5f, -0.5f, -0.5f,
+                1.0f,  1.0f, -1.0f,
+                1.0f, -1.0f, -1.0f,
+               -1.0f,  1.0f, -1.0f,
+               -1.0f, -1.0f, -1.0f,
 
-                0.5f,  0.5f,  0.5f,
-                0.5f,  0.5f, -0.5f,
-               -0.5f,  0.5f,  0.5f,
-               -0.5f,  0.5f, -0.5f,
+                1.0f,  1.0f,  1.0f,
+                1.0f,  1.0f, -1.0f,
+               -1.0f,  1.0f,  1.0f,
+               -1.0f,  1.0f, -1.0f,
 
-                0.5f, -0.5f,  0.5f,
-                0.5f, -0.5f, -0.5f,
-               -0.5f, -0.5f,  0.5f,
-               -0.5f, -0.5f, -0.5f,
+                1.0f, -1.0f,  1.0f,
+                1.0f, -1.0f, -1.0f,
+               -1.0f, -1.0f,  1.0f,
+               -1.0f, -1.0f, -1.0f,
 
-                0.5f,  0.5f,  0.5f,
-                0.5f,  0.5f, -0.5f,
-                0.5f, -0.5f,  0.5f,
-                0.5f, -0.5f, -0.5f,
+                1.0f,  1.0f,  1.0f,
+                1.0f,  1.0f, -1.0f,
+                1.0f, -1.0f,  1.0f,
+                1.0f, -1.0f, -1.0f,
 
-               -0.5f,  0.5f,  0.5f,
-               -0.5f, -0.5f,  0.5f,
-               -0.5f,  0.5f, -0.5f,
-               -0.5f, -0.5f, -0.5f,
+               -1.0f,  1.0f,  1.0f,
+               -1.0f, -1.0f,  1.0f,
+               -1.0f,  1.0f, -1.0f,
+               -1.0f, -1.0f, -1.0f,
             };
 
             float cubeNorm[] = {
@@ -144,23 +145,12 @@ namespace msh
             meshes[MESH_CUBE] = newData;
         }
 
-        //create cube vertex
         {
-            mesh* newData = new mesh(MESH_CUBE_NONORM);
-
-            newData->getData()->vbs = meshes[MESH_CUBE]->getData()->vbs;
-            newData->getData()->idx = meshes[MESH_CUBE]->getData()->idx;
-            newData->getData()->idxLine = meshes[MESH_CUBE]->getData()->idxLine;
-
-            meshes[MESH_CUBE_NONORM] = newData;
-        }
-
-        {
-            //mesh* newData = new mesh(MESH_SPHERE);
-            //
-            //buf::loadFiletoMesh("data/asset/model/sphere.obj", newData->getData());
-            //
-            //meshes[MESH_SPHERE] = newData;
+            mesh* newData = new mesh(MESH_SPHERE);
+            
+            buf::loadFiletoMesh("data/asset/model/sphere.obj", newData->getData());
+            
+            meshes[MESH_SPHERE] = newData;
         }
 
 		{
@@ -170,40 +160,6 @@ namespace msh
             
 			meshes[MESH_BUNNY] = newData;
 		}
-		
-		{
-			//mesh* newData = new mesh(MESH_DRAGON);
-			
-            //file is too big
-			//buf::loadFiletoMesh("asset/model/dragon_vrip.ply", newData->getData());
-			
-			//meshes[MESH_DRAGON] = newData;
-		}
-
-        {
-            //mesh* newData = new mesh(MESH_ARMADILLO);
-
-            ////file is too big
-            //buf::loadFiletoMesh("asset/model/Armadillo.ply", newData->getData());
-
-            //meshes[MESH_ARMADILLO] = newData;
-        }
-
-
-        {
-            //mesh* newData = new mesh(MESH_HAPPY);
-
-            //file is too big
-            //buf::loadFiletoMesh("asset/model/happy_vrip.ply", newData->getData());
-
-            //meshes[MESH_HAPPY] = newData;
-        }
-
-        {
-            mesh* newData = new mesh(MESH_TERRAIN);
-
-            meshes[MESH_TERRAIN] = newData;
-        }
 
         return true;
 	}
@@ -221,6 +177,57 @@ namespace msh
     mesh* getMesh(const MESH_INDEX idx)
     {
         return meshes[idx];
+    }
+
+    void guiMeshSetting(bool& openMeshWindow, uint& meshID)
+    {
+        uint meshSize = MESH_END;
+
+        for (uint i = 0; i < meshSize; ++i)
+        {
+            mesh* msh = meshes[i];
+
+            std::string nameText = std::format("Name : {}", MESHNAME[i]);
+
+            ImGui::BulletText(nameText.c_str()); ImGui::SameLine();
+
+            if (ImGui::Button(("View##MESH" + std::to_string(i)).c_str()))
+            {
+                openMeshWindow = true;
+                meshID = i;
+            }
+
+            if (vertexbuffer* vb = msh->getData()->vbs; vb != nullptr)
+            {
+                uint channel = vb->view.StrideInBytes / 4;
+                uint size = vb->view.SizeInBytes / (channel * 4);
+
+                std::string str = std::format("Vertex Size : {}, Channel : {}", size, channel);
+
+                ImGui::Text(str.c_str());
+            }
+
+            if (vertexbuffer* norm = msh->getData()->norm; norm != nullptr)
+            {
+                uint channel = norm->view.StrideInBytes / 4;
+                uint size = norm->view.SizeInBytes / (channel * 4);
+
+                std::string str = std::format("Normal Size : {}, Channel : {}", size, channel);
+
+                ImGui::Text(str.c_str());
+            }
+
+            if (indexbuffer* ib = msh->getData()->idx; ib != nullptr)
+            {
+                uint size = ib->view.SizeInBytes / 4;
+
+                std::string str = std::format("Index Size : {}", size);
+
+                ImGui::Text(str.c_str());
+            }
+
+
+        }
     }
 }
 
@@ -245,7 +252,7 @@ void mesh::close()
 
 int mesh::getId() const
 {
-    if (static_cast<uint>(msh::MESH_CANNOTLOAD) <= ID)
+    if (static_cast<uint>(msh::MESH_SIZE) <= ID)
     {
         return -1;
     }

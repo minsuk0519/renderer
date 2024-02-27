@@ -1,8 +1,10 @@
 #include <render/commandqueue.hpp>
 #include <system/logger.hpp>
 #include <render/renderer.hpp>
+#include <render/rootsignature.hpp>
 
 #include <array>
+#include <string>
 
 namespace render
 {
@@ -15,8 +17,6 @@ namespace render
 	TC_ASSERT(static_cast<int>(sizeof(queuetypes) / sizeof(D3D12_COMMAND_LIST_TYPE)) == QUEUE_MAX);
 
 	std::array<commandqueue*, QUEUE_MAX> cmdQueues;
-
-	std::array<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>, QUEUE_MAX> a;
 
 	commandqueue* getCmdQueue(const QUEUE_INDEX index)
 	{
@@ -90,7 +90,13 @@ void commandqueue::execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12Graphi
 
 	for (Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmd : cmdLists)
 	{
-		cmd->Close();
+		HRESULT hr = cmd->Close();
+
+		if (FAILED(hr))
+		{
+			std::string errorMsg = std::format("Failed to close cmd!");
+			TC_LOG_ERROR(errorMsg.c_str());
+		}
 
 		lists.push_back(cmd.Get());
 	}
@@ -123,7 +129,7 @@ void commandqueue::flush()
 
 	TC_CONDITION(commandQueue->Signal(fence.fence.Get(), fence.fenceValue) == S_OK, "Failed to signal fence");
 
-	//if (fence.fence->GetCompletedValue() < fence.fenceValue)
+	if (fence.fence->GetCompletedValue() < fence.fenceValue)
 	{
 		fence.fence->SetEventOnCompletion(fence.fenceValue, fenceEvent);
 
@@ -144,3 +150,27 @@ Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandqueue::createCommandLis
 void commandqueue::signalFence()
 {
 }
+
+void commandqueue::bindPSO(render::PSO_INDEX psoIndex)
+{
+	currentPSO = render::getpipelinestate(psoIndex);
+
+	commandAllocator->Reset();
+	commandList->Reset(commandAllocator.Get(), currentPSO->getPSO());
+
+	rootsignature* rootsig = currentPSO->getRootSig();
+
+	rootsig->setRootSignature(commandList);
+	rootsig->registerDescHeap(commandList);
+}
+
+void commandqueue::sendData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
+{
+	currentPSO->sendGraphicsData(commandList, pos, descLoc);
+}
+
+void commandqueue::sendData(uint pos, uint size, void* data)
+{
+	currentPSO->sendConstantData(commandList, pos, size, data);
+}
+

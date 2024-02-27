@@ -43,6 +43,22 @@ private:
 	framebuffer* swapchainFB[FRAME_COUNT];
 	framebuffer* gbufferFB;
 
+	framebuffer* debugFB;
+	bool debugFBRequest = false;
+	uint debugFBMeshID;
+	UINT64 debugProjection;
+
+	imagebuffer* ssaoTex;
+
+public:
+	framebuffer* getFrameBuffer() const;
+	framebuffer* getDebugFrameBuffer() const;
+
+	void debugFrameBufferRequest(uint debugMeshID, UINT64 ptr);
+
+	void guiSetting();
+
+	descriptor ssaoDesc;
 };
 
 extern renderer e_globRenderer;
