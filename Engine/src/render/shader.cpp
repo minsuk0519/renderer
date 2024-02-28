@@ -622,14 +622,7 @@ void shader::decipherHLSL()
 
 				find2 = 0;
 				
-				auto find3 = line.find("%dx.alignment.legacy");
-
-				if (find3 == std::string::npos)
-				{
-					break;
-				}
-				
-				find3 += 21;
+				auto find3 = line.find("%dx.alignment.legacy") + 21;
 
 				find2 = line.find(" ");
 

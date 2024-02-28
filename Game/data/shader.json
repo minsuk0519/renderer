@@ -41,11 +41,5 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":6
-	},{
-		"shaderFile":"data/shader/source/terrain.hlsl",
-		"entryPoint":"terrain_cs",
-		"target":"cs_6_5",
-		"shaderType":2,
-		"shaderIndex":7
 	}
 ]
