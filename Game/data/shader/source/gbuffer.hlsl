@@ -1,5 +1,7 @@
 #include "include\common.hlsli"
 
+#include "include\packing.hlsli"
+
 struct PSInput
 {
 	float4 position : SV_POSITION;
@@ -21,8 +23,11 @@ PSInput gbuffer_vs(float3 position : POSITION, float3 normal : NORMAL)
     result.worldPos = position;//worldPos.xyz;
     float4 viewPos = mul(proj.viewMat, worldPos);
     result.position = mul(proj.projectionMat, viewPos);
+	
+	uint packedNorm = encodeOct(normal);
+	float3 outnormal = decodeOct(packedNorm);
 
-    result.normal = normal;//normalize(mul((float3x3)(obj.objectMat), normal));
+    result.normal = normalize(mul((float3x3)(obj.objectMat), normal));
 
     return result;
 }

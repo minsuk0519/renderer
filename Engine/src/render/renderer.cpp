@@ -34,7 +34,7 @@ namespace renderGuiSetting
 
 	guiSetting guiDebug;
 
-	bool ssaoEnabled;
+	bool ssaoEnabled = true;
 }
 
 bool initGui()

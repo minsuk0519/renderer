@@ -25,9 +25,6 @@ void ssao_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint th
 
 	uint2 uv = uint2(groupID.x * 8 + gtid.x, groupID.y * 8 + gtid.y);
 	
-	//float3 position = positionGbuffer.Load3(0, uv);
-	//float3 normal = normalTexGbuffer.Load3(0, uv);
-	
 	float3 position = positionGbuffer[uv];
 	float3 normal = normalTexGbuffer[uv];
 	

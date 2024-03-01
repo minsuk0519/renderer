@@ -36,7 +36,7 @@ float4 pbr_ps(PSInput input) : SV_TARGET
 	float2 uv = (input.texCoord.xy + float2(1.0f, 1.0f)) * 0.5f;    
 	float3 position = positionGbuffer.Sample(samp, uv).xyz;
 	float3 normal = normalTexGbuffer.Sample(samp, uv).xyz;
-	float ao = aoTexBuffer.Sample(samp, uv).x;
+	float ao = aoTexBuffer.Sample(samp, uv).x;	
 	
 	if(debugDraw == 1)
 	{
@@ -64,8 +64,8 @@ float4 pbr_ps(PSInput input) : SV_TARGET
     float3 ambient = ambientStrength * float3(1,1,1);
   	
     // diffuse 
-    float3 lightDir = float3(0,-1.0f,0);
-    float diff = max(dot(normal, lightDir), 0.0);
+    float3 lightDir = normalize(float3(-0.5f,-1.0f,-0.2f));
+    float diff = max(dot(normal, -lightDir), 0.0);
     float3 diffuse = diff;
     
     // specular
@@ -74,7 +74,7 @@ float4 pbr_ps(PSInput input) : SV_TARGET
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     float3 specular = specularStrength * spec;  
        
-	if(features & FEATURE_AO)
+	if(!(features & FEATURE_AO))
 	{
 		ao = 1.0f;
 	}
