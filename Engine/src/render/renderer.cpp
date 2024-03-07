@@ -86,7 +86,7 @@ bool renderer::createDevice(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Mic
 {
 	factory = dxFactory;
 
-	TC_CONDITIONB(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)) == S_OK, "Failed to create device");
+	TC_CONDITIONB(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&device)) == S_OK, "Failed to create device");
 
 #if defined(_DEBUG)
 	Microsoft::WRL::ComPtr<ID3D12InfoQueue> pInfoQueue;
@@ -191,8 +191,8 @@ bool renderer::createFrameResources()
 	gbufferFB = new framebuffer();
 	//position
 	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	//normal + tex
-	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	//normal
+	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferFB->setDepthClear(1.0f);
 
 	debugFB = new framebuffer();
@@ -323,8 +323,9 @@ void renderer::draw(float dt)
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_AO_FINAL, ssaoDesc.getHandle());
-
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &renderGuiSetting::guiDebug);
+	uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_SCREEN, 2, screenSize);
 
 	cmdList->DrawInstanced(3, 1, 0, 0);
 

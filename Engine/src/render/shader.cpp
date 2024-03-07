@@ -721,7 +721,7 @@ void shader::decipherHLSL()
 				
 				auto find2 = sourceString.find("\n", find) + 1;
 				std::string line = sourceString.substr(find, find2 - find);
-				find = find2;
+				find = find2 - 1;
 
 				auto find3 = line.find("%cb_");
 

@@ -1,4 +1,5 @@
 #include "include\common.hlsli"
+#include "include\packing.hlsli"
 
 struct PSInput
 {
@@ -6,8 +7,8 @@ struct PSInput
     float2 texCoord 	: TEXTURE_COORD;
 };
 
-Texture2D positionGbuffer 	: register(t0);
-Texture2D normalTexGbuffer 	: register(t1);
+Texture2D positionGbuffer 			: register(t0);
+Texture2D<uint> normalTexGbuffer 	: register(t1);
 
 Texture2D aoTexBuffer 		: register(t2);
 
@@ -15,7 +16,7 @@ SamplerState samp 			: register(s0);
 
 #define FEATURE_AO (1 << 0)
 
-cbuffer cb_debugInfo : register(b2)
+cbuffer cb_debugInfo : register(b3)
 {
 	uint features = FEATURE_AO;
 	uint debugDraw = 0;
@@ -33,11 +34,12 @@ PSInput pbr_vs(float2 position : POSITION)
 
 float4 pbr_ps(PSInput input) : SV_TARGET
 {
-	float2 uv = (input.texCoord.xy + float2(1.0f, 1.0f)) * 0.5f;    
+	float2 uv = (input.texCoord.xy + float2(1.0f, 1.0f)) * 0.5f;
+	uint2 texPos = uint2(uv.x * screenWidth, uv.y * screenHeight);	
 	float3 position = positionGbuffer.Sample(samp, uv).xyz;
-	float3 normal = normalTexGbuffer.Sample(samp, uv).xyz;
-	float ao = aoTexBuffer.Sample(samp, uv).x;	
-	
+	float3 normal = decodeOct((normalTexGbuffer[texPos].x));
+	float ao = aoTexBuffer.Sample(samp, uv).x;
+		
 	if(debugDraw == 1)
 	{
 		return float4(position, 1.0f);

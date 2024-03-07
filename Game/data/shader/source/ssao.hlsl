@@ -1,7 +1,8 @@
 #include "include\common.hlsli"
+#include "include\packing.hlsli"
 
 Texture2D<float3> positionGbuffer : register(t0);
-Texture2D<float3> normalTexGbuffer : register(t1);
+Texture2D<uint> normalTexGbuffer : register(t1);
 
 RWTexture2D<float> aoBuffer : register(u0);
 
@@ -26,7 +27,7 @@ void ssao_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint th
 	uint2 uv = uint2(groupID.x * 8 + gtid.x, groupID.y * 8 + gtid.y);
 	
 	float3 position = positionGbuffer[uv];
-	float3 normal = normalTexGbuffer[uv];
+	float3 normal = decodeOct(normalTexGbuffer[uv]);
 	
 	if(length(normal) == 0.0f)
 	{

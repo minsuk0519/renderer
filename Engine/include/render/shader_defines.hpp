@@ -15,8 +15,10 @@
 #define CBV_PROJECTION		GET_HLSL_LOC_CBV(0)
 //b1 object
 #define CBV_OBJECT			GET_HLSL_LOC_CBV(1)
-//b2 guiDebug
-#define CBV_GUIDEBUG		GET_HLSL_LOC_CBV(2)
+//b2 screen
+#define CBV_SCREEN			GET_HLSL_LOC_CBV(2)
+//b3 guiDebug
+#define CBV_GUIDEBUG		GET_HLSL_LOC_CBV(3)
 //u0 ssao output
 #define UAV_SSAO			GET_HLSL_LOC_UAV(0)
 

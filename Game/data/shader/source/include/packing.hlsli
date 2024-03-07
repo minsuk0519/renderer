@@ -39,7 +39,7 @@ float3 decodeOct(in uint p)
     oct.x = clamp((float(data.x) / float(32767)) - 1.0, -1.0, 1.0);
     oct.y = clamp((float(data.y) / float(32767)) - 1.0, -1.0, 1.0);
 	
-    return octToCart(data);	
+    return octToCart(oct);	
 }
 
 //encode float3 into 32 bits uint
@@ -70,6 +70,7 @@ uint encodeOct(float3 v)
 			trialResult = octToCart(float2(x, y));
 			
 			float trialCloseness = dot(trialResult, normv);
+						
 			if(closeness < trialCloseness) 
 			{
 				closeness = trialCloseness;
