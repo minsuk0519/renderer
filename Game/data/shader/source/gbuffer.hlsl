@@ -20,7 +20,7 @@ PSInput gbuffer_vs(float3 position : POSITION, float3 normal : NORMAL)
     PSInput result;
 
     float4 worldPos = mul(obj.objectMat, float4(position, 1.0));
-    result.worldPos = position;//worldPos.xyz;
+    result.worldPos = worldPos.xyz;
     float4 viewPos = mul(proj.viewMat, worldPos);
     result.position = mul(proj.projectionMat, viewPos);
 
