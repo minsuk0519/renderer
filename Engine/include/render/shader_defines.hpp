@@ -19,8 +19,13 @@
 #define CBV_SCREEN			GET_HLSL_LOC_CBV(2)
 //b3 guiDebug
 #define CBV_GUIDEBUG		GET_HLSL_LOC_CBV(3)
+
+////////////////////SSAO Constants Begin
 //u0 ssao output
 #define UAV_SSAO			GET_HLSL_LOC_UAV(0)
+//b1 ssao constants
+#define CBV_AOCONST			GET_HLSL_LOC_CBV(1)
+////////////////////SSAO Constants Ends
 
 #define FEATURE_AO (1 << 0)
 

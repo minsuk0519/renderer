@@ -26,6 +26,14 @@ renderer e_globRenderer;
 
 namespace renderGuiSetting
 {
+	struct AOConstants
+	{
+		float s = 1.0f;
+		float k = 1.0f;
+		float R = 0.5f;
+		int num = 10;
+	};
+
 	struct guiSetting
 	{
 		uint features;
@@ -33,6 +41,7 @@ namespace renderGuiSetting
 	};
 
 	guiSetting guiDebug;
+	AOConstants aoConstants;
 
 	bool ssaoEnabled = true;
 }
@@ -235,6 +244,17 @@ void renderer::guiSetting()
 
 	if(renderGuiSetting::ssaoEnabled) renderGuiSetting::guiDebug.features |= FEATURE_AO;
 	else renderGuiSetting::guiDebug.features &= ~FEATURE_AO;
+
+	if (renderGuiSetting::ssaoEnabled)
+	{
+		if (ImGui::CollapsingHeader("SSAO"))
+		{
+			ImGui::DragFloat("Scale Value##SSAO", &renderGuiSetting::aoConstants.s, 0.1f, 0.0f, 1.0f);
+			ImGui::DragFloat("Scale Value2##SSAO", &renderGuiSetting::aoConstants.k, 1.0f, 0.0f, 5.0f);
+			ImGui::DragFloat("Radius##SSAO", &renderGuiSetting::aoConstants.R, 0.1f, 0.0f, 5.0f);
+			ImGui::DragInt("Num##SSAO", &renderGuiSetting::aoConstants.num, 1.0f, 1, 100);
+		}
+	}
 }
 
 void renderer::preDraw(float dt)
@@ -297,6 +317,9 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_AOCONST, 4, &renderGuiSetting::aoConstants);
+		uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
 
 		computeCmdList->Dispatch(1600 / 8, 900 / 8, 1);
 
