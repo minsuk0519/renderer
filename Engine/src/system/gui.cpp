@@ -239,7 +239,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
         ImGui::Image((ImTextureID)(fbo->getDescHandle(1).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
         ImGui::Text("SSAOTex");
         ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[0].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
-        ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[1].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[2].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
 
         ImGui::End();
     }
