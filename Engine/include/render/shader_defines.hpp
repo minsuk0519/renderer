@@ -23,6 +23,8 @@
 ////////////////////SSAO Constants Begin
 //u0 ssao output
 #define UAV_SSAO			GET_HLSL_LOC_UAV(0)
+//u1 ssao blur output
+#define UAV_SSAOBLUR		GET_HLSL_LOC_UAV(1)
 //b1 ssao constants
 #define CBV_AOCONST			GET_HLSL_LOC_CBV(1)
 ////////////////////SSAO Constants Ends
@@ -38,6 +40,8 @@ namespace render
 		PSO_GBUFFER,
 		PSO_WIREFRAME,
 		PSO_SSAO,
+		PSO_SSAOBLURX,
+		PSO_SSAOBLURY,
 		PSO_END,
 	};
 }

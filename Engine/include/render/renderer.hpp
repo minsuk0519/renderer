@@ -48,7 +48,7 @@ private:
 	uint debugFBMeshID;
 	UINT64 debugProjection;
 
-	imagebuffer* ssaoTex;
+	imagebuffer* ssaoTex[2];
 
 public:
 	framebuffer* getFrameBuffer() const;
@@ -58,7 +58,7 @@ public:
 
 	void guiSetting();
 
-	descriptor ssaoDesc;
+	descriptor ssaoDesc[2];
 };
 
 extern renderer e_globRenderer;

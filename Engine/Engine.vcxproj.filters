@@ -68,6 +68,9 @@
     <ClInclude Include="include\render\shader_defines.hpp">
       <Filter>render</Filter>
     </ClInclude>
+    <ClInclude Include="include\render\helper.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />

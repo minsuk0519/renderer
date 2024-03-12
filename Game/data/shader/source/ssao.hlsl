@@ -74,3 +74,75 @@ void ssao_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint th
 	
 	aoBuffer[uv] = A;
 }
+
+RWTexture2D<float> aoBlurBuffer : register(u1);
+
+static float weights[6] = { 
+	0.163967222, 
+	0.151360810, 
+	0.119064637, 
+	0.0798114091, 
+	0.0455890037, 
+	0.0221905485
+};
+
+static int w = 5;
+
+void blur_internal(uint2 uv, uint channel)
+{
+	float3 P = positionGbuffer[uv];
+	float3 N = decodeOct(normalTexGbuffer[uv]);
+	
+	float3 diff = P - proj.camPos;
+	float d = length(diff);
+	
+	float s = 0.01;
+	
+	float Wsum = 0.0;
+	float aoSum = 0.0;
+	
+	for(int i = -w; i <= w; ++i)
+	{
+		int2 uvi = uv;
+		uv[channel] += i;
+		
+		if(uvi[channel] >= screenWidth || uvi[channel] < 0)
+		{
+			continue;
+		}
+		
+		float3 Pi = positionGbuffer[uvi];
+		float3 diffi = Pi - proj.camPos;
+		float di = length(diffi);
+		float3 Ni = decodeOct(normalTexGbuffer[uvi]);
+		
+		float R = max(0.0, dot(N, Ni)) * exp(-pow(di - d, 2) / (2 * s)) / sqrt(2 * PI * s);
+		
+		float W = weights[abs(i)] * R;
+		
+		Wsum += W;
+		aoSum += aoBuffer[uvi] * W;
+	}
+	
+	aoSum /= Wsum;
+	//if(Wsum >= 0.0000001) aoSum /= Wsum;
+			
+	aoBlurBuffer[uv] = aoSum;
+}
+
+
+[numthreads(8, 8, 1)]
+void blur_horizontal_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+{
+	uint2 uv = uint2(groupID.x * 8 + gtid.x, groupID.y * 8 + gtid.y);
+
+	blur_internal(uv, 0);
+}
+
+[numthreads(8, 8, 1)]
+void blur_vertical_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+{
+	uint2 uv = uint2(groupID.x * 8 + gtid.x, groupID.y * 8 + gtid.y);
+
+	blur_internal(uv, 1);
+}

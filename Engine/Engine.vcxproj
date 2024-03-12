@@ -91,6 +91,7 @@
     <ClInclude Include="include\render\commandqueue.hpp" />
     <ClInclude Include="include\render\descriptorheap.hpp" />
     <ClInclude Include="include\render\framebuffer.hpp" />
+    <ClInclude Include="include\render\helper.hpp" />
     <ClInclude Include="include\render\mesh.hpp" />
     <ClInclude Include="include\render\pipelinestate.hpp" />
     <ClInclude Include="include\render\renderer.hpp" />

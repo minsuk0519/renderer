@@ -43,5 +43,25 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":4,
+		"psoName":"SSAO_BlurHorizontal",
+		"vertexIndex":7,
+		"pixelIndex":7,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":5,
+		"psoName":"SSAO_BlurVertical",
+		"vertexIndex":8,
+		"pixelIndex":8,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

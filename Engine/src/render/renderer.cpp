@@ -73,8 +73,11 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 
 	TC_INIT(initGui());
 
-	ssaoTex = buf::createImageBuffer(e_globWindow.width(), e_globWindow.height(), 1, DXGI_FORMAT_R32_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-	ssaoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, ssaoTex);
+	for (uint i = 0; i < 2; ++i)
+	{
+		ssaoTex[i] = buf::createImageBuffer(e_globWindow.width(), e_globWindow.height(), 1, DXGI_FORMAT_R32_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+		ssaoDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, ssaoTex[i]);
+	}
 
 	return true;
 }
@@ -316,12 +319,32 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoDesc[0].getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_AOCONST, 4, &renderGuiSetting::aoConstants);
 		uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
 
-		computeCmdList->Dispatch(1600 / 8, 900 / 8, 1);
+		computeCmdList->Dispatch(e_globWindow.width() / 8, e_globWindow.height() / 8, 1);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_SSAOBLURX);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoDesc[0].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAOBLUR, ssaoDesc[1].getHandle());
+		uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+
+		computeCmdList->Dispatch(e_globWindow.width() / 8, e_globWindow.height() / 8, 1);
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
@@ -345,7 +368,7 @@ void renderer::draw(float dt)
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_AO_FINAL, ssaoDesc.getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_AO_FINAL, ssaoDesc[0].getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &renderGuiSetting::guiDebug);
 	uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_SCREEN, 2, screenSize);

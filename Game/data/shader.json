@@ -42,10 +42,22 @@
 		"shaderType":2,
 		"shaderIndex":6
 	},{
+		"shaderFile":"data/shader/source/ssao.hlsl",
+		"entryPoint":"blur_horizontal_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":7
+	},{
+		"shaderFile":"data/shader/source/ssao.hlsl",
+		"entryPoint":"blur_vertical_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":8
+	},{
 		"shaderFile":"data/shader/source/terrain.hlsl",
 		"entryPoint":"terrain_cs",
 		"target":"cs_6_5",
 		"shaderType":2,
-		"shaderIndex":7
+		"shaderIndex":9
 	}
 ]
