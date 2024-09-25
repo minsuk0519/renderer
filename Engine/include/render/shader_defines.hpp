@@ -42,6 +42,8 @@ namespace render
 		PSO_SSAO,
 		PSO_SSAOBLURX,
 		PSO_SSAOBLURY,
+		PSO_GENTERRAIN,
+		PSO_GENNOISE,
 		PSO_END,
 	};
 }

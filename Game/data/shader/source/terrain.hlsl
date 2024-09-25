@@ -13,9 +13,6 @@ static const int THREADS_Y = 8;
 static const int CLUSTER_X = 4;
 static const int CLUSTER_Y = 4;
 
-static const int NOISE_WIDTH = 513;
-static const int NOISE_HEIGHT = 513;
-
 static const int NUMTHREADS = THREADS_X * THREADS_Y;
 
 cbuffer cb_Height : register(b0)
@@ -66,9 +63,4 @@ void terrain_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint
 
 	indexOut[index * 2 + 0] = uint3(index * 4 + 0, index * 4 + 2, index * 4 + 1);
 	indexOut[index * 2 + 1] = uint3(index * 4 + 2, index * 4 + 3, index * 4 + 1);
-
-	//float density = -gtid.y;
-//
-	//density += noiseMap.Load(uint3(gtid.x, gtid.y, 0)).r;//noiseVol.Sample(TrilinearRepeat, ws).x; 
-	
 }

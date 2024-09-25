@@ -63,5 +63,25 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":6,
+		"psoName":"GenTerrain",
+		"vertexIndex":9,
+		"pixelIndex":9,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":7,
+		"psoName":"GenNoise",
+		"vertexIndex":10,
+		"pixelIndex":10,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
 	}
 ]

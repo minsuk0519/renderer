@@ -59,5 +59,11 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":9
+	},{
+		"shaderFile":"data/shader/source/noise.hlsl",
+		"entryPoint":"noise_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":10
 	}
 ]
