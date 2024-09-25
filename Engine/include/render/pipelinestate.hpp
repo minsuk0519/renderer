@@ -48,7 +48,7 @@ private:
 
 public:
 	bool init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool wireframe, bool depth);
-	bool initCS(uint CS);
+	bool initCS(std::string psoName, uint CS);
 
 	void sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
 	void sendConstantData(Microsoft::WRL::ComPtr< ID3D12GraphicsCommandList> cmdList, uint loc, uint dataSize, void* data);
