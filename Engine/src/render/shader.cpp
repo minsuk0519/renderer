@@ -326,7 +326,7 @@ namespace shaders
 		}
 		else
 		{
-			assert(0);
+			TC_BREAK();
 		}
 
 		return num;
@@ -582,7 +582,7 @@ void shader::decipherHLSL()
 					}
 					else
 					{
-						assert(type == shaders::SHADER_CS);
+						TC_ASSERT(type == shaders::SHADER_CS);
 						cBufferLoc = str.substr(1);
 						hlslbuf.loc = std::stoi(cBufferLoc);
 						bufData.outputContainer.push_back(hlslbuf);
@@ -801,7 +801,7 @@ void shader::decipherHLSL()
 				++cbufferNum;
 			}
 		}
-		assert(bufData.constantContainer.size() == cbufferNum);
+		TC_ASSERT(bufData.constantContainer.size() == cbufferNum);
 	}
 
 	//set input signature

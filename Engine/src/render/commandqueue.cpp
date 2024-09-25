@@ -14,7 +14,7 @@ namespace render
 		D3D12_COMMAND_LIST_TYPE_COPY,
 	};
 
-	TC_ASSERT(static_cast<int>(sizeof(queuetypes) / sizeof(D3D12_COMMAND_LIST_TYPE)) == QUEUE_MAX);
+	TC_STATICASSERT(static_cast<int>(sizeof(queuetypes) / sizeof(D3D12_COMMAND_LIST_TYPE)) == QUEUE_MAX);
 
 	std::array<commandqueue*, QUEUE_MAX> cmdQueues;
 

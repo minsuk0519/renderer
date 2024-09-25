@@ -21,7 +21,7 @@ namespace render
 
 		readJsonBuffer(psoJsons, JSON_FILE_NAME::PSO_FILE);
 
-		assert(psoJsons.size() == render::PSO_END);
+		TC_ASSERT(psoJsons.size() == render::PSO_END);
 
 		for (auto psoData : psoJsons)
 		{
@@ -211,7 +211,7 @@ void pipelinestate::guiSetting()
 		uint size;
 		uint channel;
 
-		assert(form > 0);
+		TC_ASSERT(form > 0);
 
 		if (form <= 12) size = ((12 - form) / 4) * 32 + 64;
 		else if (form <= 22) size = 64;
@@ -219,7 +219,7 @@ void pipelinestate::guiSetting()
 		else if (form <= 59) size = 16;
 		else if (form <= 65) size = 8;
 		else if (form <= 66) size = 1;
-		else assert(0);
+		else TC_BREAK();
 
 		if (form <= 4) channel = 4;
 		else if (form <= 8) channel = 3;
@@ -235,7 +235,7 @@ void pipelinestate::guiSetting()
 		else if (form <= 47) channel = 1;
 		else if (form <= 52) channel = 2;
 		else if (form <= 66) channel = 1;
-		else assert(0);
+		else TC_BREAK();
 
 		std::string text = "size : " + std::to_string(size) + ", channel : " + std::to_string(channel);
 
