@@ -51,6 +51,21 @@
 #define CBV_NOISECONST		GET_HLSL_LOC_CBV(0)
 ////////////////////Noise Buffer Ends
 
+////////////////////Unified Buffer Begin
+//u0 uvb buffer output
+#define UAV_UNIFIED_VERTEX_BUFFER	GET_HLSL_LOC_UAV(0)
+//u1 uib buffer output
+#define UAV_UNIFIED_INDDEX_BUFFER	GET_HLSL_LOC_UAV(1)
+//u2 cluster bounding box output
+#define UAV_CLUSTER_BB_BUFFER		GET_HLSL_LOC_UAV(2)
+//t0 vertex buffer input
+#define SRV_VERTEX_BUFFER			GET_HLSL_LOC_SRV(0)
+//t1 index buffer input
+#define SRV_INDEX_BUFFER			GET_HLSL_LOC_SRV(1)
+//b0 noise constants
+#define CBV_UNIFIEDCONSTS			GET_HLSL_LOC_CBV(0)
+////////////////////Unified Buffer Ends
+
 #define FEATURE_AO (1 << 0)
 
 //define PSO indcies
@@ -66,6 +81,7 @@ namespace render
 		PSO_SSAOBLURY,
 		PSO_GENTERRAIN,
 		PSO_GENNOISE,
+		PSO_GENUNIFIED,
 		PSO_END,
 	};
 }

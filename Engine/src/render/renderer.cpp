@@ -95,6 +95,18 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 		terrainDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, terrainTex[i]);
 	}
 
+//TODO : arbitrary size
+	//uvb
+	unifiedBuffer[0] = buf::createUAVBuffer(16777216 * sizeof(float));
+	//uib
+	unifiedBuffer[1] = buf::createUAVBuffer(16777216 * sizeof(float));
+	//global bb
+	unifiedBuffer[2] = buf::createUAVBuffer(65536 * sizeof(float) * 3 * 6);
+	for (uint i = 0; i < 3; ++i)
+	{
+		unifiedDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, unifiedBuffer[i]);
+	}
+
 	return true;
 }
 
@@ -311,7 +323,7 @@ void renderer::preDraw(float dt)
 	}
 }
 
-void renderer::setUp()
+void renderer::setUpTerrain()
 {
 	imagebuffer* noiseTex;
 	descriptor noiseDesc;
@@ -358,6 +370,42 @@ void renderer::setUp()
 	vertexbuffer* n = buf::createVertexBufferFromUAV(terrainTex[1], 12);
 	indexbuffer* i = buf::createIndexBufferFromUAV(terrainTex[2]);
 	msh::setUpTerrain(v, n, i);
+}
+
+struct unifiedConsts
+{
+	uint clusterOffset = 0;
+	uint vertexOffset = 0;
+	uint indexOffset = 0;
+	uint indicesOffset = 0;
+};
+
+void renderer::setUp()
+{
+	setUpTerrain();
+
+	//{
+	//	auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_BB_BUFFER, unifiedDesc[2].getHandle());
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, terrainDesc[0].getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, terrainDesc[2].getHandle());
+
+	//	unifiedConsts unifiedconst;
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+
+	//	computeCmdList->Dispatch(1, 1, 1);
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	//}
 }
 
 void renderer::draw(float dt)
@@ -444,10 +492,10 @@ void renderer::draw(float dt)
 	gui::render(cmdList.Get());
 
 	swapchainFB[frameIndex]->closeFB(cmdList);
-
+	
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
-	TC_CONDITION(swapChain->Present(vsync, DXGI_PRESENT_ALLOW_TEARING) == S_OK, "Failed to present the swapchain");
+	TC_CONDITION(swapChain->Present(vsync, 0) == S_OK, "Failed to present the swapchain");
 
 	//signal the queue graphics fence and wait for it.
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();

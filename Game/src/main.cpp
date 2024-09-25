@@ -17,13 +17,13 @@
 
 #endif
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdArgs, int nCmdShow)
 {
 #ifdef _DEBUG
 	AllocConsole();
 #endif // #ifdef _DEBUG
 
-	TC_INIT(e_globEngine.init(hInstance, nCmdShow));
+	TC_INIT(e_globEngine.init(hInstance, nCmdShow, cmdArgs));
 
 	e_globEngine.run();
 
