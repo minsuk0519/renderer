@@ -14,6 +14,7 @@ namespace msh
 		MESH_CUBE = 0,
 		MESH_SPHERE,
 		MESH_BUNNY,
+		MESH_TERRAIN,
 		MESH_END,
 		MESH_SCENE_TRIANGLE = MESH_END,
 		MESH_SIZE,
@@ -27,6 +28,8 @@ namespace msh
 
 	bool loadResources();
 	void cleanUp();
+
+	void setUpTerrain(vertexbuffer* vertex, vertexbuffer* n, indexbuffer* index);
 
 	mesh* getMesh(const MESH_INDEX idx);
 

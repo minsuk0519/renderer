@@ -178,9 +178,9 @@ void world::setupScene()
 	}
 
 	{
-		objects[objectNum].init(msh::MESH_CUBE, render::PSO_PBR, true);
-		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -0.0f,-1.2f,0.0f });
-		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 1.2f,0.2f,1.2f });
+		objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -0.0f,-2.2f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 20.2f,20.2f,20.2f });
 
 		++objectNum;
 	}

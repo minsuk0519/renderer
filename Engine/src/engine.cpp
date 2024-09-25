@@ -108,9 +108,9 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
 
     TC_INIT(e_globRenderer.init(factory, adapter));
 
-    TC_INIT(e_globWorld.init());
-
     e_globRenderer.setUp();
+
+    TC_INIT(e_globWorld.init());
 
 	return true;
 }

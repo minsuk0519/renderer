@@ -37,7 +37,7 @@ namespace renderGuiSetting
 	struct NoiseConstants
 	{
 		uint octaves = 2;
-		float zConsts = 0.0f;
+		float zConsts = 1.0f;
 	};
 
 	struct guiSetting
@@ -87,9 +87,11 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 		ssaoDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, ssaoTex[i]);
 	}
 
+	terrainTex[0] = buf::createUAVBuffer(512 * 512 * sizeof(float) * 4 * 3);
+	terrainTex[1] = buf::createUAVBuffer(512 * 512 * sizeof(float) * 4 * 3);
+	terrainTex[2] = buf::createUAVBuffer(512 * 512 * sizeof(uint) * 3 * 2);
 	for (uint i = 0; i < 3; ++i)
 	{
-		terrainTex[i] = buf::createUAVBuffer(512 * 512 * sizeof(uint));
 		terrainDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, terrainTex[i]);
 	}
 
@@ -313,8 +315,10 @@ void renderer::setUp()
 {
 	imagebuffer* noiseTex;
 	descriptor noiseDesc;
+	uavbuffer* noiseUAV;
 
-	noiseTex = buf::createImageBuffer(513, 513, 1, DXGI_FORMAT_R32_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+	noiseUAV = buf::createUAVBuffer(513 * 513 * sizeof(float));
+	noiseTex = buf::createImageBufferFromBuffer(noiseUAV, { 0, 513 * 513, sizeof(float), D3D12_BUFFER_SRV_FLAG_NONE });
 	noiseDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, noiseTex);
 
 	{
@@ -349,6 +353,11 @@ void renderer::setUp()
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
+
+	vertexbuffer* v = buf::createVertexBufferFromUAV(terrainTex[0], 12);
+	vertexbuffer* n = buf::createVertexBufferFromUAV(terrainTex[1], 12);
+	indexbuffer* i = buf::createIndexBufferFromUAV(terrainTex[2]);
+	msh::setUpTerrain(v, n, i);
 }
 
 void renderer::draw(float dt)
