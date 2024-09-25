@@ -18,6 +18,7 @@ class renderer
 {
 public:
 	bool init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter);
+	void setUp();
 	void draw(float dt);
 	void close();
 
@@ -50,6 +51,8 @@ private:
 
 	imagebuffer* ssaoTex[3];
 
+	uavbuffer* terrainTex[3];
+
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
@@ -59,6 +62,8 @@ public:
 	void guiSetting();
 
 	descriptor ssaoDesc[3];
+
+	descriptor terrainDesc[3];
 };
 
 extern renderer e_globRenderer;

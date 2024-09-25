@@ -34,6 +34,12 @@ namespace renderGuiSetting
 		int num = 10;
 	};
 
+	struct NoiseConstants
+	{
+		uint octaves = 2;
+		float zConsts = 0.0f;
+	};
+
 	struct guiSetting
 	{
 		uint features;
@@ -42,6 +48,8 @@ namespace renderGuiSetting
 
 	guiSetting guiDebug;
 	AOConstants aoConstants;
+	NoiseConstants noiseConstants;
+	float terrainConstants = 500.0f;
 
 	bool ssaoEnabled = true;
 }
@@ -77,6 +85,12 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	{
 		ssaoTex[i] = buf::createImageBuffer(e_globWindow.width(), e_globWindow.height(), 1, DXGI_FORMAT_R32_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 		ssaoDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, ssaoTex[i]);
+	}
+
+	for (uint i = 0; i < 3; ++i)
+	{
+		terrainTex[i] = buf::createUAVBuffer(512 * 512 * sizeof(uint));
+		terrainDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, terrainTex[i]);
 	}
 
 	return true;
@@ -292,6 +306,48 @@ void renderer::preDraw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
 		debugFBRequest = false;
+	}
+}
+
+void renderer::setUp()
+{
+	imagebuffer* noiseTex;
+	descriptor noiseDesc;
+
+	noiseTex = buf::createImageBuffer(513, 513, 1, DXGI_FORMAT_R32_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+	noiseDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, noiseTex);
+
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENNOISE);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_NOISE, noiseDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_NOISECONST, 2, &renderGuiSetting::noiseConstants);
+
+		computeCmdList->Dispatch(513, 513, 1);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENTERRAIN);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_VERT, terrainDesc[0].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_NORM, terrainDesc[1].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_INDEX, terrainDesc[2].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_TERRAIN_NOISE, noiseDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_TERRAINCONST, 1, &renderGuiSetting::terrainConstants);
+
+		computeCmdList->Dispatch(512 / 8, 512 / 8, 1);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
 }
 
