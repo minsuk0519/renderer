@@ -52,6 +52,7 @@ private:
 	imagebuffer* ssaoTex[3];
 
 	uavbuffer* terrainTex[3];
+	uavbuffer* unifiedBuffer[3];
 
 public:
 	framebuffer* getFrameBuffer() const;
@@ -62,8 +63,10 @@ public:
 	void guiSetting();
 
 	descriptor ssaoDesc[3];
-
 	descriptor terrainDesc[3];
+	descriptor unifiedDesc[3];
+private:
+	void setUpTerrain();
 };
 
 extern renderer e_globRenderer;

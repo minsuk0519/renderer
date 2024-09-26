@@ -384,28 +384,28 @@ void renderer::setUp()
 {
 	setUpTerrain();
 
-	//{
-	//	auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
 
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_BB_BUFFER, unifiedDesc[2].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_BB_BUFFER, unifiedDesc[2].getHandle());
 
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, terrainDesc[0].getHandle());
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, terrainDesc[2].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, terrainDesc[0].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, terrainDesc[2].getHandle());
 
-	//	unifiedConsts unifiedconst;
+		unifiedConsts unifiedconst;
 
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
 
-	//	computeCmdList->Dispatch(1, 1, 1);
+		computeCmdList->Dispatch(1, 1, 1);
 
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
-	//}
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
 }
 
 void renderer::draw(float dt)

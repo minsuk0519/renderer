@@ -22,23 +22,22 @@ void unified_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint
     uint vertexNumStructs;
     uint vertexStride;
     vertexBuffer.GetDimensions(vertexNumStructs, vertexStride);
-    uint vertexSize = vertexNumStructs * vertexStride / 12;
+    uint vertexSize = vertexNumStructs / 3;
 
     uint indexNumStructs;
     uint indexStride;
     indexBuffer.GetDimensions(indexNumStructs, indexStride);
-    uint indexSize = indexNumStructs * indexStride / 4;
+    uint indexSize = indexNumStructs;
     int i;
     int j;
 
     for(i = 0; i < vertexSize; ++i)
     {
-        UVB[vertexOffset + i] = vertexBuffer[i];
+       UVB[vertexOffset + i] = vertexBuffer[i];
     }
 
     float3 minValue = float3(100,100,100);
     float3 maxValue = float3(-100,-100,-100);
-
 
     uint clusterNum = 1 + (indexSize / 3 - 1) / clusterSize;
     
@@ -82,54 +81,54 @@ void unified_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint
             accumNorm -= normal;
         }
 
-        float3 cone_norm;
-        float3 center = (minValue + maxValue) * 0.5f;
+        // float3 cone_norm;
+        // float3 center = (minValue + maxValue) * 0.5f;
 
-        float t = -9999;
-        float coneOpening = 1;
+        // float t = -9999;
+        // float coneOpening = 1;
 
-        if(length(accumNorm) == 0)
-        {
-            cone_norm = float3(1,0,0);
-            coneOpening = 0;
-            t = 0;
-        }   
-        else
-        {
-            cone_norm = normalize(accumNorm);
+        // if(length(accumNorm) == 0)
+        // {
+        //     cone_norm = float3(1,0,0);
+        //     coneOpening = 0;
+        //     t = 0;
+        // }   
+        // else
+        // {
+        //     cone_norm = normalize(accumNorm);
 
-            for(j = 0; j < adjustedClusterSize; ++j)
-            {
-                uint index = i * clusterSize + j;
+        //     for(j = 0; j < adjustedClusterSize; ++j)
+        //     {
+        //         uint index = i * clusterSize + j;
 
-                float3 normal = norms[j];
+        //         float3 normal = norms[j];
 
-                const float directionalPart = dot(cone_norm, -normal);
+        //         const float directionalPart = dot(cone_norm, -normal);
 
-                if(directionalPart <= 0)
-                {
-                    cone_norm = float3(1,0,0);
-                    coneOpening = 0;
-                    t = 0;
-                    break;
-                }
+        //         if(directionalPart <= 0)
+        //         {
+        //             cone_norm = float3(1,0,0);
+        //             coneOpening = 0;
+        //             t = 0;
+        //             break;
+        //         }
 
-                const float td = dot(center - vert0[j], normal) / -directionalPart;
-                t = max(t, td);
-                coneOpening = min(coneOpening, directionalPart);
-            }
-        }
+        //         const float td = dot(center - vert0[j], normal) / -directionalPart;
+        //         t = max(t, td);
+        //         coneOpening = min(coneOpening, directionalPart);
+        //     }
+        // }
 
-        minValue = float3(100,100,100);
-        maxValue = float3(-100,-100,-100);
+        // minValue = float3(100,100,100);
+        // maxValue = float3(-100,-100,-100);
 
-        float3 coneCenterPos  = center + cone_norm * t;
+        // float3 coneCenterPos  = center + cone_norm * t;
 
-        float coneAngleCosine = sqrt(1 - coneOpening * coneOpening);
-		float coneCenter = Pack3PNForFP32(coneCenterPos);
-		float coneAxis = Pack3PNForFP32(cone_norm);
+        // float coneAngleCosine = sqrt(1 - coneOpening * coneOpening);
+		// float coneCenter = Pack3PNForFP32(coneCenterPos);
+		// float coneAxis = Pack3PNForFP32(cone_norm);
 
-        clusterBoundingBox[(clusterOffset + i)] = float3(coneAxis, coneCenter, coneAngleCosine);
+        // clusterBoundingBox[(clusterOffset + i)] = float3(coneAxis, coneCenter, coneAngleCosine);
     }
 
     UIB[vertexMax * 3 + indicesOffset * 3 + 0] = indexOffset;
