@@ -93,5 +93,15 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false	
+	},{
+		"psoIndex":9,
+		"psoName":"GenCmdBuf",
+		"vertexIndex":12,
+		"pixelIndex":12,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
 	}
 ]

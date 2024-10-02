@@ -107,6 +107,9 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 		unifiedDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, unifiedBuffer[i]);
 	}
 
+	commandBuffer = buf::createUAVBuffer(MAX_OBJECTS * sizeof(uint) * 4);
+	commandDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, commandBuffer);
+
 	return true;
 }
 
@@ -377,7 +380,13 @@ struct unifiedConsts
 	uint clusterOffset = 0;
 	uint vertexOffset = 0;
 	uint indexOffset = 0;
-	uint indicesOffset = 0;
+	uint meshID = 0;
+};
+
+struct cmdConsts
+{
+	uint packedID[128 * 4];
+	uint objNum = 0;
 };
 
 void renderer::setUp()
@@ -399,6 +408,29 @@ void renderer::setUp()
 		unifiedConsts unifiedconst;
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+
+		computeCmdList->Dispatch(1, 1, 1);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
+	{
+		cmdConstBuffer = buf::createConstantBuffer(513 * sizeof(uint));
+		commandConstDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, cmdConstBuffer);
+
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENCMDBUF);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_BUFFER, commandDesc.getHandle());
+
+		cmdConsts cmdconst;
+
+		memcpy(cmdConstBuffer->info.cbvDataBegin, &cmdconst, cmdConstBuffer->info.size);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, commandConstDesc.getHandle());
 
 		computeCmdList->Dispatch(1, 1, 1);
 

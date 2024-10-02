@@ -53,6 +53,8 @@ private:
 
 	uavbuffer* terrainTex[3];
 	uavbuffer* unifiedBuffer[3];
+	uavbuffer* commandBuffer;
+	constantbuffer* cmdConstBuffer;
 
 public:
 	framebuffer* getFrameBuffer() const;
@@ -65,6 +67,8 @@ public:
 	descriptor ssaoDesc[3];
 	descriptor terrainDesc[3];
 	descriptor unifiedDesc[3];
+	descriptor commandDesc;
+	descriptor commandConstDesc;
 private:
 	void setUpTerrain();
 };

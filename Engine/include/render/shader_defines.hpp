@@ -66,6 +66,13 @@
 #define CBV_UNIFIEDCONSTS			GET_HLSL_LOC_CBV(0)
 ////////////////////Unified Buffer Ends
 
+////////////////////cmdBuf Buffer Begin
+//u0 uvb buffer output
+#define UAV_CMD_BUFFER				GET_HLSL_LOC_UAV(0)
+//b0 cmdBuf constants
+#define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(0)
+////////////////////cmdBuf Buffer Ends
+
 #define FEATURE_AO (1 << 0)
 
 //define PSO indcies
@@ -82,6 +89,7 @@ namespace render
 		PSO_GENTERRAIN,
 		PSO_GENNOISE,
 		PSO_GENUNIFIED,
+		PSO_GENCMDBUF,
 		PSO_END,
 	};
 }

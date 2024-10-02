@@ -13,7 +13,7 @@ cbuffer cb_unifiedConstant : register(b0)
 	uint clusterOffset;
     uint vertexOffset;
     uint indexOffset;
-    uint indicesOffset;
+    uint meshID;
 }
 
 [numthreads(1, 1, 1)]
@@ -131,7 +131,7 @@ void unified_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint
         // clusterBoundingBox[(clusterOffset + i)] = float3(coneAxis, coneCenter, coneAngleCosine);
     }
 
-    UIB[vertexMax * 3 + indicesOffset * 3 + 0] = indexOffset;
-    UIB[vertexMax * 3 + indicesOffset * 3 + 1] = indexSize;
-    UIB[vertexMax * 3 + indicesOffset * 3 + 2] = clusterOffset;
+    UIB[vertexMax * 3 + meshID * 3 + 0] = indexOffset;
+    UIB[vertexMax * 3 + meshID * 3 + 1] = indexSize;
+    UIB[vertexMax * 3 + meshID * 3 + 2] = clusterOffset;
 }

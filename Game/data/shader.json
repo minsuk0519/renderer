@@ -71,5 +71,11 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":11
+	},{
+		"shaderFile":"data/shader/source/cmdBuffer.hlsl",
+		"entryPoint":"genCmdBuf_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":12
 	}
 ]
