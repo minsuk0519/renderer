@@ -44,7 +44,14 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 			if (constant.name.find("cb_") != std::string::npos)
 			{
 				descType = render::D3D12_RANGE_TYPE_CONSTANT;
-				typeMaps[descType][constant.loc].size = (constant.data / 4);
+				if (constant.data > 64)
+				{
+					descType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+				}
+				else
+				{
+					typeMaps[descType][constant.loc].size = (constant.data);
+				}
 			}
 			else descType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 

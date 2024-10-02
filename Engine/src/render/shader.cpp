@@ -737,15 +737,7 @@ void shader::decipherHLSL()
 				uint size = 0;
 
 				line = line.substr(find2);
-				find3 = line.find_first_of(", }");
-				std::string constantName = line.substr(0, find3);
 
-				if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
-				{
-					size = 4;
-				}
-				//get size from struct
-				else if (constantName.size() >= 3)
 				{
 					uint stringIndex = 0;
 
