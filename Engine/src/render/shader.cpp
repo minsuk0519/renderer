@@ -11,6 +11,7 @@
 
 #include <array>
 #include <filesystem>
+#include <stack>
 
 namespace shaders
 {
@@ -735,65 +736,120 @@ void shader::decipherHLSL()
 
 				uint size = 0;
 
-				while (true)
+				line = line.substr(find2);
+				find3 = line.find_first_of(", }");
+				std::string constantName = line.substr(0, find3);
+
+				if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
 				{
-					line = line.substr(find2);
-					find3 = line.find_first_of(", }");
-					std::string constantName = line.substr(0, find3);
+					size = 4;
+				}
+				//get size from struct
+				else if (constantName.size() >= 3)
+				{
+					uint stringIndex = 0;
 
-					if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
+					std::stack<uint> stack;
+					std::stack<uint> stack2;
+					std::stack<uint> stack3;
+
+					while (true)
 					{
-						size += 4;
-						find2 = line.find_first_not_of(", }", find3);
-						continue;
-					}
+						char c = line[stringIndex];
 
-					if (constantName.size() < 3)
-					{
-						break;
-					}
-
-					//get size from struct
-					{
-						auto constantSizePos = sourceString.find(constantName + " = type { ") + constantName.size() + 11;
-						std::string constantSizeString = sourceString.substr(constantSizePos);
-
-						uint stringIndex = 0;
-
-						uint cumulate = 1;
-
-						while (true)
+						if (c == ' ')
 						{
-							char c = constantSizeString[stringIndex];
-
-							if (c == '}') break;
-							else if (c == 'f')
-							{
-								size += cumulate * 4;
-								cumulate = 1;
-								stringIndex += 5;
-							}
-							else if (c == 'i')
-							{
-								size += cumulate * 4;
-								cumulate = 1;
-								stringIndex += 3;
-							}
-							uint num = 0;
-							while (c >= '0' && c <= '9')
-							{
-								uint i = static_cast<uint>(c - '0');
-								num = num * 10 + i;
-								++stringIndex;
-								c = constantSizeString[stringIndex];
-							}
-							if (num != 0) cumulate *= num;
-
 							++stringIndex;
+							continue;
+						}
+
+						uint num = 0;
+						if (c == '}') break;
+						else if (c == 'f')
+						{
+							num = 1;
+							stringIndex += 4;
+						}
+						else if (c == 'i')
+						{
+							num = 1;
+							stringIndex += 2;
+						}
+						while (c >= '0' && c <= '9')
+						{
+							uint i = static_cast<uint>(c - '0');
+							num = num * 10 + i;
+							++stringIndex;
+							c = line[stringIndex];
+						}
+						if(num != 0) stack.push(num);
+
+						if (c == ']' || c == '>')
+						{
+							uint cumulate = stack.top();
+							stack.pop();
+
+							uint bracket = stack3.top();
+							stack3.pop();
+
+							while (stack.size() > bracket)
+							{
+								uint n = stack.top();
+								stack.pop();
+
+								uint op = stack2.top();
+								stack2.pop();
+
+								if (op == 0)
+								{
+									cumulate *= n;
+								}
+								else
+								{
+									cumulate += n;
+								}
+							}
+
+							stack.push(cumulate);
+						}
+						else if (c == '[' || c == '<')
+						{
+							stack3.push(stack.size());
+						}
+						else if (c == ',')
+						{
+							stack2.push(1);
+						}
+						else if (c == 'x')
+						{
+							stack2.push(0);
+						}
+
+						++stringIndex;
+					}
+
+					uint cumulate = stack.top();
+					stack.pop();
+
+					while (!stack.empty())
+					{
+						uint n = stack.top();
+						stack.pop();
+
+						uint op = stack2.top();
+						stack2.pop();
+
+						if (op == 0)
+						{
+							cumulate *= n;
+						}
+						else
+						{
+							cumulate += n;
 						}
 					}
 
-					find2 = line.find_first_not_of(", }", find3);
+					size = cumulate;
 				}
 
 				bufData.constantContainer[cbufferNum].data = size;
