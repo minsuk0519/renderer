@@ -144,10 +144,10 @@ void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 		cam->preDraw(cmdList);
 	}
 
-	for (uint i = 0; i < objectNum; ++i)
-	{
-		objects[i].draw(cmdList, false);
-	}
+	//for (uint i = 0; i < objectNum; ++i)
+	//{
+	//	objects[i].draw(cmdList, false);
+	//}
 }
 
 void world::setupScene()

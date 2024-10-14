@@ -103,5 +103,17 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false	
+	},{
+		"psoIndex":10,
+		"psoName":"GbufferIndirect",
+		"vertexIndex":13,
+		"pixelIndex":3,
+		"formats":[
+			2,
+			42
+		],
+		"cs":false,
+		"depth":true,
+		"wireframe":false	
 	}
 ]

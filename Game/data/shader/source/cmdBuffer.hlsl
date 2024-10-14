@@ -17,7 +17,8 @@ cbuffer cb_cmdBuf : register(b0)
 {
     //objID, meshIndex
     uint4 obj[MAX_OBJ_NUM / 2];
-    uint objNum;
+    uint objCount;
+    uint3 pad;
 }
 
 static uint2 packedObj[MAX_OBJ_NUM] = (uint2[MAX_OBJ_NUM])obj;  
@@ -29,7 +30,7 @@ void genCmdBuf_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, ui
     int j = 0;
     int k = 0;
 
-    if(i < objNum)
+    if(i >= objCount)
     {
         return;
     }
@@ -69,5 +70,5 @@ void genCmdBuf_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, ui
         commandBuffer[i].StartInstanceLocation = 0;
     }
 
-    if(gtid.x == 0 && i == 0) commandBuffer[MAX_OBJ_NUM * 2].cbv = objNum;
+    if(gtid.x == 0 && i == 0) commandBuffer[MAX_OBJ_NUM * 2].cbv = objCount;
 }

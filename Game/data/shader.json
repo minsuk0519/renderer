@@ -77,5 +77,11 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":12
+	},{
+		"shaderFile":"data/shader/source/gbuffer.hlsl",
+		"entryPoint":"gbufferIndirect_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":13
 	}
 ]

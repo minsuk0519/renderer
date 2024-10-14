@@ -56,8 +56,6 @@
 #define UAV_UNIFIED_VERTEX_BUFFER	GET_HLSL_LOC_UAV(0)
 //u1 uib buffer output
 #define UAV_UNIFIED_INDDEX_BUFFER	GET_HLSL_LOC_UAV(1)
-//u2 cluster bounding box output
-#define UAV_CLUSTER_BB_BUFFER		GET_HLSL_LOC_UAV(2)
 //t0 vertex buffer input
 #define SRV_VERTEX_BUFFER			GET_HLSL_LOC_SRV(0)
 //t1 index buffer input
@@ -69,6 +67,8 @@
 ////////////////////cmdBuf Buffer Begin
 //u0 uvb buffer output
 #define UAV_CMD_BUFFER				GET_HLSL_LOC_UAV(0)
+//t0 vertex buffer input
+#define SRV_CMD__VERTEX_BUFFER		GET_HLSL_LOC_SRV(0)
 //b0 cmdBuf constants
 #define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(0)
 ////////////////////cmdBuf Buffer Ends
@@ -90,6 +90,7 @@ namespace render
 		PSO_GENNOISE,
 		PSO_GENUNIFIED,
 		PSO_GENCMDBUF,
+		PSO_GBUFFERINDIRECT,
 		PSO_END,
 	};
 }
