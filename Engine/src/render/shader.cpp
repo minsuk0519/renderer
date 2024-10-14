@@ -420,13 +420,56 @@ void shader::decipherHLSL()
 					{
 						hlslbuf.name = str;
 					}
-					if (variableIndex == 2)
+					else if (variableIndex == 2)
 					{
 						hlslbuf.data = str.size();
 					}
-					if (variableIndex == 3)
+					else if (variableIndex == 3)
 					{
 						hlslbuf.loc = std::stoi(str);
+					}
+					else if (variableIndex == 5)
+					{
+						uint channelSize = hlslbuf.data;
+
+						if (str == "uint")
+						{
+							if (channelSize == 4)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32B32A32_UINT;
+							}
+							else if (channelSize == 3)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32B32_UINT;
+							}
+							else if (channelSize == 2)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32_UINT;
+							}
+							else if (channelSize == 1)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32_UINT;
+							}
+						}
+						else
+						{
+							if (channelSize == 4)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32B32A32_FLOAT;
+							}
+							else if (channelSize == 3)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32B32_FLOAT;
+							}
+							else if (channelSize == 2)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32_FLOAT;
+							}
+							else if (channelSize == 1)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32_FLOAT;
+							}
+						}
 					}
 					find2 = find3;
 
@@ -857,24 +900,7 @@ void shader::decipherHLSL()
 	{
 		for (auto& input : bufData.inputContainer)
 		{
-			DXGI_FORMAT format;
-
-			if (input.data == 4)
-			{
-				format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-			}
-			else if (input.data == 3)
-			{
-				format = DXGI_FORMAT_R32G32B32_FLOAT;
-			}
-			else if (input.data == 2)
-			{
-				format = DXGI_FORMAT_R32G32_FLOAT;
-			}
-			else if (input.data == 1)
-			{
-				format = DXGI_FORMAT_R32_FLOAT;
-			}
+			DXGI_FORMAT format = (DXGI_FORMAT)input.data;
 
 			inputs.push_back({ input.name.c_str(), 0, format, input.loc, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
 		}
