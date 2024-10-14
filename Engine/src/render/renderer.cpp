@@ -97,17 +97,18 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 
 //TODO : arbitrary size
 	//uvb
-	unifiedBuffer[0] = buf::createUAVBuffer(16777216 * sizeof(float));
+	unifiedBuffer[0] = buf::createUAVBuffer(16777216 * 3 * 2 * sizeof(float));
 	//uib
-	unifiedBuffer[1] = buf::createUAVBuffer(16777216 * sizeof(float));
-	//global bb
-	unifiedBuffer[2] = buf::createUAVBuffer(65536 * sizeof(float) * 3 * 6);
-	for (uint i = 0; i < 3; ++i)
+	unifiedBuffer[1] = buf::createUAVBuffer(16777216 * (sizeof(uint) * 3 + 3));
+	//clusterIDs
+	clusterIDBufferUAV = buf::createUAVBuffer(16777216 * sizeof(uint) * 3 * 2);
+	for (uint i = 0; i < 2; ++i)
 	{
 		unifiedDesc[i] = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, unifiedBuffer[i]);
 	}
+	clusterIDBuffer = buf::createVertexBufferFromUAV(clusterIDBufferUAV, sizeof(uint));
 
-	commandBuffer = buf::createUAVBuffer(MAX_OBJECTS * sizeof(uint) * 4);
+	commandBuffer = buf::createUAVBuffer((MAX_OBJECTS * 2 + 1) * sizeof(uint) * 5);
 	commandDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, commandBuffer);
 
 	return true;
@@ -241,6 +242,10 @@ bool renderer::createFrameResources()
 	debugFB = new framebuffer();
 	debugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	debugFB->setDepthClear(1.0f);
+
+	{
+		render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->setCommandSignature();
+	}
 
 	return true;
 }
@@ -385,8 +390,8 @@ struct unifiedConsts
 
 struct cmdConsts
 {
-	uint packedID[128 * 4];
-	uint objNum = 0;
+	uint packedID[128 * 4] = { 0 };
+	uint objCount = 0;
 };
 
 void renderer::setUp()
@@ -400,7 +405,6 @@ void renderer::setUp()
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_BB_BUFFER, unifiedDesc[2].getHandle());
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, terrainDesc[0].getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, terrainDesc[2].getHandle());
@@ -427,10 +431,13 @@ void renderer::setUp()
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_BUFFER, commandDesc.getHandle());
 
 		cmdConsts cmdconst;
+		cmdconst.objCount = 1;
 
 		memcpy(cmdConstBuffer->info.cbvDataBegin, &cmdconst, cmdConstBuffer->info.size);
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, commandConstDesc.getHandle());
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD__VERTEX_BUFFER, unifiedDesc[1].getHandle());
 
 		computeCmdList->Dispatch(1, 1, 1);
 
@@ -444,11 +451,18 @@ void renderer::draw(float dt)
 {
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFER);
+	//render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFER);
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFERINDIRECT);
 
 	gbufferFB->openFB(cmdList);
 
 	e_globWorld.drawWorld(cmdList);
+
+	{
+		cmdList->IASetVertexBuffers(0, 1, &clusterIDBuffer->view);
+
+		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, commandBuffer->resource.Get(), 5 * 1 * MAX_OBJECTS * sizeof(uint), commandBuffer->resource.Get(), 5 * 2 * MAX_OBJECTS * sizeof(uint));
+	}
 
 	gbufferFB->closeFB(cmdList);
 

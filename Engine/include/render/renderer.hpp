@@ -52,10 +52,12 @@ private:
 	imagebuffer* ssaoTex[3];
 
 	uavbuffer* terrainTex[3];
-	uavbuffer* unifiedBuffer[3];
+	uavbuffer* unifiedBuffer[2];
 	uavbuffer* commandBuffer;
 	constantbuffer* cmdConstBuffer;
 
+	vertexbuffer* clusterIDBuffer;
+	uavbuffer* clusterIDBufferUAV;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;

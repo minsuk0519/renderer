@@ -178,6 +178,26 @@ void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	}
 }
 
+void pipelinestate::setCommandSignature()
+{
+	D3D12_INDIRECT_ARGUMENT_DESC argumentDescs[2] = {};
+	//argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT_BUFFER_VIEW;
+	//argumentDescs[0].ConstantBufferView.RootParameterIndex = 1;
+
+	argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+	argumentDescs[0].Constant.RootParameterIndex = 4;
+	argumentDescs[0].Constant.DestOffsetIn32BitValues = 0;
+	argumentDescs[0].Constant.Num32BitValuesToSet = 1;
+	argumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+
+	D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
+	commandSignatureDesc.pArgumentDescs = argumentDescs;
+	commandSignatureDesc.NumArgumentDescs = _countof(argumentDescs);
+	commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS) + sizeof(uint);
+
+	e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, rootsig->getrootSignature(), IID_PPV_ARGS(&cmdSignature));
+}
+
 void pipelinestate::close()
 {
 	delete rootsig;
@@ -191,6 +211,11 @@ ID3D12PipelineState* pipelinestate::getPSO() const
 rootsignature* pipelinestate::getRootSig() const
 {
 	return rootsig;
+}
+
+ID3D12CommandSignature* pipelinestate::getCmdSignature() const
+{
+	return cmdSignature.Get();
 }
 
 void pipelinestate::guiSetting()
