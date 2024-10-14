@@ -1,4 +1,3 @@
-#include "include\helper.hlsli"
 #include "include\common.hlsli"
 
 RWStructuredBuffer<float3> vertOut : register(u0);

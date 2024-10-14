@@ -1,9 +1,8 @@
-#include "include\helper.hlsli"
 #include "include\common.hlsli"
 
 RWStructuredBuffer<float3> UVB : register(u0);
 RWStructuredBuffer<uint> UIB : register(u1);
-RWStructuredBuffer<float3> clusterBoundingBox : register(u2);
+//RWStructuredBuffer<float3> clusterBoundingBox : register(u2);
 
 StructuredBuffer<float3> vertexBuffer : register(t0);
 StructuredBuffer<uint3> indexBuffer : register(t1);
