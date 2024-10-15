@@ -67,8 +67,10 @@
 ////////////////////cmdBuf Buffer Begin
 //u0 uvb buffer output
 #define UAV_CMD_BUFFER				GET_HLSL_LOC_UAV(0)
+//u1 vertexID buffer output
+#define UAV_CMD_VERTEXID_BUFFER		GET_HLSL_LOC_UAV(1)
 //t0 vertex buffer input
-#define SRV_CMD__VERTEX_BUFFER		GET_HLSL_LOC_SRV(0)
+#define SRV_CMD_VERTEX_BUFFER		GET_HLSL_LOC_SRV(0)
 //b0 cmdBuf constants
 #define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(0)
 ////////////////////cmdBuf Buffer Ends

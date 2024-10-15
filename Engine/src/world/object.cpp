@@ -3,6 +3,7 @@
 #include <render/pipelinestate.hpp>
 #include <render/camera.hpp>
 #include <render/descriptorheap.hpp>
+#include <render/commandqueue.hpp>
 #include <system/gui.hpp>
 
 namespace obj
@@ -36,64 +37,60 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 
 
 
-void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool debugDraw)
+void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw)
 {
-	cmdList->SetGraphicsRootDescriptorTable(1, desc.getHandle());
+	cmdQueue->sendData(CBV_OBJECT, desc.getHandle());
 
-	if (debugDraw)
-	{
-		float a[6] = { 0.5f, -0.5f, 0.5f, -0.5f, 0.5f, -0.5f };
-		cmdList->SetGraphicsRoot32BitConstants(2, 6, a, 0);
-	}
+	//if (debugDraw)
+	//{
+	//	float a[6] = { 0.5f, -0.5f, 0.5f, -0.5f, 0.5f, -0.5f };
+	//	cmdList->SetGraphicsRoot32BitConstants(2, 6, a, 0);
+	//}
 
-	meshPtr->setBuffer(cmdList, debugDraw);
-	meshPtr->draw(cmdList);
+	//meshPtr->setBuffer(cmdList, debugDraw);
+	//meshPtr->draw(cmdList);
 
-	if (debugDraw)
-	{
-		cmdList->SetGraphicsRoot32BitConstants(2, 6, meshPtr->getData()->AABB, 0);
+	//if (debugDraw)
+	//{
+	//	cmdList->SetGraphicsRoot32BitConstants(2, 6, meshPtr->getData()->AABB, 0);
 
-		mesh* AABBMesh = msh::getMesh(msh::MESH_CUBE);
-		AABBMesh->setBuffer(cmdList, true);
-		AABBMesh->draw(cmdList);
-	}
+	//	mesh* AABBMesh = msh::getMesh(msh::MESH_CUBE);
+	//	AABBMesh->setBuffer(cmdList, true);
+	//	AABBMesh->draw(cmdList);
+	//}
 }
 
 void object::update(float dt)
 {
-	{
-		float* matPointer = trans->getMatPointer();
+	float* matPointer = trans->getMatPointer();
 
-		float a[] = {
-			albedo.x, albedo.y, albedo.z,
-			metal,
-			roughness,
-		};
+	float a[] = {
+		albedo.x, albedo.y, albedo.z,
+		metal,
+		roughness,
+	};
 
-		memcpy(cbv->info.cbvDataBegin, matPointer, cbv->info.size);
-		memcpy(cbv->info.cbvDataBegin + sizeof(float) * 16, &a, cbv->info.size);
-	}
+	memcpy(cbv->info.cbvDataBegin, matPointer, cbv->info.size);
+	memcpy(cbv->info.cbvDataBegin + sizeof(float) * 16, &a, cbv->info.size);
 }
 
 void object::sendMat(unsigned char* cbvdata)
 {
-	{
-		float* matPointer = trans->getMatPointer();
+	float* matPointer = trans->getMatPointer();
 
-		float a[] = {
-			albedo.x, albedo.y, albedo.z,
-			metal,
-			roughness,
-		};
+	float a[] = {
+		albedo.x, albedo.y, albedo.z,
+		metal,
+		roughness,
+	};
 
-		unsigned char* dataLoc;
+	unsigned char* dataLoc;
 		
-		if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
-		else dataLoc = cbvdata + consts::CONST_OBJ_SIZE_ALLIGNMENT * id;
+	if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
+	else dataLoc = cbvdata + consts::CONST_OBJ_SIZE_ALLIGNMENT * id;
 
-		memcpy(dataLoc, matPointer, cbv->info.size);
-		memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
-	}
+	memcpy(dataLoc, matPointer, cbv->info.size);
+	memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
 }
 
 void object::close()

@@ -56,8 +56,8 @@ private:
 	uavbuffer* commandBuffer;
 	constantbuffer* cmdConstBuffer;
 
-	vertexbuffer* clusterIDBuffer;
-	uavbuffer* clusterIDBufferUAV;
+	vertexbuffer* vertexIDBuffer;
+	uavbuffer* vertexIDBufferUAV;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
@@ -68,9 +68,10 @@ public:
 
 	descriptor ssaoDesc[3];
 	descriptor terrainDesc[3];
-	descriptor unifiedDesc[3];
+	descriptor unifiedDesc[2];
 	descriptor commandDesc;
 	descriptor commandConstDesc;
+	descriptor vertexIDDesc;
 private:
 	void setUpTerrain();
 };

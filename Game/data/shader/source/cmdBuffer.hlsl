@@ -2,7 +2,7 @@
 #include "include\cmd.hlsli"
 
 RWStructuredBuffer<cmdBuf> commandBuffer : register(u0);
-//RWStructuredBuffer<uint3> clusterBuffer : register(u1);
+RWStructuredBuffer<uint3> vertexIDBuffer : register(u1);
 
 StructuredBuffer<uint> UIB : register(t0);
 //StructuredBuffer<bool> clusterVis : register(t1);
@@ -43,18 +43,18 @@ void genCmdBuf_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, ui
 
     uint clusterNum = (size / 3) / clusterSize;
 
-    uint clusterBufferNum = 0;
+    uint vertexIDBufferNum = 0;
     uint vertexCount = 0;
     uint clusterOffset = packedObj[i][1] * clusterSize;
     for(j = 0; j < clusterNum + 1; ++j)
     {
         if(j * clusterSize + gtid.x >= size) break;
         //if(clusterVis[packedObj[i][1] + j] == false) continue;
-        //clusterBuffer[clusterOffset + clusterBufferNum * clusterSize + gtid.x].x = meshIndex << 24 | 0 << 22 | gtid.x << 16 | j;
-        //clusterBuffer[clusterOffset + clusterBufferNum * clusterSize + gtid.x].y = meshIndex << 24 | 1 << 22 | gtid.x << 16 | j;
-        //clusterBuffer[clusterOffset + clusterBufferNum * clusterSize + gtid.x].z = meshIndex << 24 | 2 << 22 | gtid.x << 16 | j;
-//
-        //++clusterBufferNum;
+        vertexIDBuffer[clusterOffset + vertexIDBufferNum * clusterSize + gtid.x].x = meshIndex << 24 | 0 << 22 | gtid.x << 16 | j;
+        vertexIDBuffer[clusterOffset + vertexIDBufferNum * clusterSize + gtid.x].y = meshIndex << 24 | 1 << 22 | gtid.x << 16 | j;
+        vertexIDBuffer[clusterOffset + vertexIDBufferNum * clusterSize + gtid.x].z = meshIndex << 24 | 2 << 22 | gtid.x << 16 | j;
+
+        ++vertexIDBufferNum;
         if(j == clusterNum) vertexCount += (size % clusterSize);
         else vertexCount += clusterSize * 3;
     }
