@@ -58,6 +58,8 @@ private:
 
 	vertexbuffer* vertexIDBuffer;
 	uavbuffer* vertexIDBufferUAV;
+
+	constantbuffer* objectConstBuffer;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
@@ -72,6 +74,7 @@ public:
 	descriptor commandDesc;
 	descriptor commandConstDesc;
 	descriptor vertexIDDesc;
+	descriptor objectConstDesc;
 private:
 	void setUpTerrain();
 };

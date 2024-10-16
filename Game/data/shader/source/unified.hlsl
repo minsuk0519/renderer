@@ -21,12 +21,12 @@ void unified_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint
     uint vertexNumStructs;
     uint vertexStride;
     vertexBuffer.GetDimensions(vertexNumStructs, vertexStride);
-    uint vertexSize = vertexNumStructs / 3;
+    uint vertexSize = vertexNumStructs;
 
     uint indexNumStructs;
     uint indexStride;
     indexBuffer.GetDimensions(indexNumStructs, indexStride);
-    uint indexSize = indexNumStructs;
+    uint indexSize = indexNumStructs * 3;
     int i;
     int j;
 

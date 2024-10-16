@@ -112,6 +112,9 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	commandBuffer = buf::createUAVBuffer((MAX_OBJECTS * 2 + 1) * sizeof(uint) * 5);
 	commandDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, commandBuffer);
 
+	objectConstBuffer = buf::createConstantBuffer(consts::CONST_OBJ_SIZE * 256);
+	objectConstDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, objectConstBuffer);
+
 	return true;
 }
 
@@ -399,7 +402,61 @@ void renderer::setUp()
 {
 	setUpTerrain();
 
+	uint clusterOffset = 0;
+	uint vertexOffset = 0;
+	uint indexOffset = 0;
+
+	//{
+	//	auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, terrainDesc[0].getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, terrainDesc[2].getHandle());
+
+	//	unifiedConsts unifiedconst;
+
+	//	unifiedconst.meshID = msh::MESH_TERRAIN;
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+
+	//	vertexOffset += 512 * 512 * 3 * 4;
+	//	uint indexSize = 512 * 512 * 3 * 2;
+	//	indexOffset += indexSize;
+	//	clusterOffset += (indexSize / (3 * 64)) + 1;
+
+	//	computeCmdList->Dispatch(1, 1, 1);
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	//}
+	
+	for(uint i = 0; i < 2; ++i)
 	{
+		if (i == msh::MESH_TERRAIN)
+		{
+			continue;
+		}
+
+		meshData* meshdata = msh::getMesh(msh::MESH_INDEX(i))->getData();
+
+		D3D12_BUFFER_SRV vertexDesc = {};
+		vertexDesc.NumElements = meshdata->vbs->view.SizeInBytes / (sizeof(float) * 3);
+		vertexDesc.StructureByteStride = sizeof(float) * 3;
+		D3D12_BUFFER_SRV indexDesc = {};
+		indexDesc.NumElements = meshdata->idx->view.SizeInBytes / (sizeof(uint) * 3);
+		indexDesc.StructureByteStride = sizeof(uint) * 3;
+		
+		imagebuffer* vbsBuffer = buf::createImageBufferFromBuffer(meshdata->vbs, vertexDesc);
+		imagebuffer* idxBuffer = buf::createImageBufferFromBuffer(meshdata->idx, indexDesc);
+
+		descriptor vertexSRV =  render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, vbsBuffer);
+		descriptor indexSRV =  render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, idxBuffer);
+
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
@@ -407,10 +464,20 @@ void renderer::setUp()
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, terrainDesc[0].getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, terrainDesc[2].getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
 
 		unifiedConsts unifiedconst;
+
+		unifiedconst.meshID = i;
+		unifiedconst.clusterOffset = clusterOffset;
+		unifiedconst.vertexOffset = vertexOffset;
+		unifiedconst.indexOffset = indexOffset;
+
+		vertexOffset += meshdata->vbs->view.SizeInBytes / meshdata->vbs->view.StrideInBytes;
+		uint indexSize = meshdata->idx->view.SizeInBytes / sizeof(uint);
+		indexOffset += indexSize;
+		clusterOffset += (indexSize / (3 * 64)) + 1;
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
 
@@ -433,7 +500,11 @@ void renderer::setUp()
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_VERTEXID_BUFFER, vertexIDDesc.getHandle());
 
 		cmdConsts cmdconst;
-		cmdconst.objCount = 1;
+		cmdconst.packedID[0] = 0;
+		cmdconst.packedID[1] = 0;
+		cmdconst.packedID[2] = (1 << 16) | 1;
+		cmdconst.packedID[3] = 1;
+		cmdconst.objCount = 2;
 
 		memcpy(cmdConstBuffer->info.cbvDataBegin, &cmdconst, cmdConstBuffer->info.size);
 
@@ -441,7 +512,7 @@ void renderer::setUp()
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_VERTEX_BUFFER, unifiedDesc[1].getHandle());
 
-		computeCmdList->Dispatch(1, 1, 1);
+		computeCmdList->Dispatch(4, 1, 1);
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
@@ -465,12 +536,17 @@ void renderer::draw(float dt)
 	{
 		cmdList->IASetVertexBuffers(0, 1, &vertexIDBuffer->view);
 
-		e_globWorld.objects[0].draw(cmdList, render::getCmdQueue(render::QUEUE_GRAPHIC), false);
+		e_globWorld.objects[0].sendMat(objectConstBuffer->info.cbvDataBegin);
+		e_globWorld.objects[1].sendMat(objectConstBuffer->info.cbvDataBegin);
+		e_globWorld.objects[2].sendMat(objectConstBuffer->info.cbvDataBegin);
+		e_globWorld.objects[3].sendMat(objectConstBuffer->info.cbvDataBegin);
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_OBJECT, objectConstDesc.getHandle());
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER0_TEX, unifiedDesc[0].getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER1_TEX, unifiedDesc[1].getHandle());
 
-		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, commandBuffer->resource.Get(), 0, commandBuffer->resource.Get(), 5 * MAX_OBJECTS * 2 * sizeof(uint));
+		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 2, commandBuffer->resource.Get(), 0, commandBuffer->resource.Get(), 5 * MAX_OBJECTS * 2 * sizeof(uint));
 	}
 
 	gbufferFB->closeFB(cmdList);

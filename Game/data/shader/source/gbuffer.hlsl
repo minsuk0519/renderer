@@ -9,8 +9,6 @@ struct PSInput
 	float4 position : SV_POSITION;
     float3 worldPos : WORLD_POS;
     float3 normal : NORMAL;
-
-    uint4 AAA : ASDFL;
 };
 
 struct PSOutput
@@ -45,15 +43,10 @@ PSInput gbufferIndirect_vs(uint clusterID : POSITION)
     float3 position = UVB[vertexIndex];
     float3 normal = UVB[vertexIndexOffset + clusterNum * 64 + triOffset + vertexMax];
 
-    float4 worldPos = float4(position, 1.0);//mul(objs[objID].objectMat, float4(position, 1.0));
+    float4 worldPos = mul(objs[objID].objectMat, float4(position, 1.0));
     result.worldPos = worldPos.xyz;
     float4 viewPos = mul(proj.viewMat, worldPos);
     result.position = mul(proj.projectionMat, viewPos);
-
-    result.AAA.x = vertexIndexOffset + triNum + 3 * (triOffset + 64 * clusterNum);
-    result.AAA.y = vertexMax;
-    result.AAA.z = meshIndex;
-    result.AAA.w = vertexIndexOffset;
 
     result.normal = normalize(mul((float3x3)(objs[objID].objectMat), normal));
 
