@@ -47,6 +47,7 @@ public:
 	bool init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui);
 	void draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw);
 	void update(float dt);
+	void submit(void* cbvLoc, uint& offset);
 
 	void sendMat(unsigned char* cbvdata);
 

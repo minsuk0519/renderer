@@ -504,32 +504,6 @@ void renderer::setUp()
 	{
 		cmdConstBuffer = buf::createConstantBuffer(513 * sizeof(uint));
 		commandConstDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, cmdConstBuffer);
-
-		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENCMDBUF);
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_BUFFER, commandDesc.getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_VERTEXID_BUFFER, vertexIDDesc.getHandle());
-
-		cmdConsts cmdconst;
-		cmdconst.packedID[0] = 0;
-		cmdconst.packedID[1] = 0;
-		cmdconst.packedID[2] = (3 << 16) | 3;
-		cmdconst.packedID[3] = 2;
-		cmdconst.objCount = 4;
-
-		memcpy(cmdConstBuffer->info.cbvDataBegin, &cmdconst, cmdConstBuffer->info.size);
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, commandConstDesc.getHandle());
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_VERTEX_BUFFER, unifiedDesc[1].getHandle());
-
-		computeCmdList->Dispatch(4, 1, 1);
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
 }
 
@@ -547,6 +521,27 @@ void renderer::draw(float dt)
 	e_globWorld.drawWorld(cmdList);
 
 	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENCMDBUF);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_BUFFER, commandDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_VERTEXID_BUFFER, vertexIDDesc.getHandle());
+
+		uint objCount = e_globWorld.drawObject(cmdConstBuffer->info.cbvDataBegin);
+
+		memcpy(cmdConstBuffer->info.cbvDataBegin + 128 * 4 * 4, &objCount, 4);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, commandConstDesc.getHandle());
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_VERTEX_BUFFER, unifiedDesc[1].getHandle());
+
+		computeCmdList->Dispatch(objCount, 1, 1);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+
 		cmdList->IASetVertexBuffers(0, 1, &vertexIDBuffer->view);
 
 		e_globWorld.objects[0].sendMat(objectConstBuffer->info.cbvDataBegin);
@@ -559,7 +554,7 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER0_TEX, unifiedDesc[0].getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER1_TEX, unifiedDesc[1].getHandle());
 
-		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 2, commandBuffer->resource.Get(), 0, commandBuffer->resource.Get(), 5 * MAX_OBJECTS * 2 * sizeof(uint));
+		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), objCount, commandBuffer->resource.Get(), 0, commandBuffer->resource.Get(), 5 * MAX_OBJECTS * 2 * sizeof(uint));
 	}
 
 	gbufferFB->closeFB(cmdList);

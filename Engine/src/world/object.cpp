@@ -74,6 +74,18 @@ void object::update(float dt)
 	memcpy(cbv->info.cbvDataBegin + sizeof(float) * 16, &a, cbv->info.size);
 }
 
+void object::submit(void* cbvLoc, uint& offset)
+{
+	uint data[2];
+
+	data[0] = (id << 16) | getMeshIdx();
+	data[1] = offset;
+
+	memcpy(cbvLoc, data, 4 * 2);
+
+	offset += 1 + (getMesh()->getData()->idx->view.SizeInBytes / (sizeof(uint) * 3)) / 64;
+}
+
 void object::sendMat(unsigned char* cbvdata)
 {
 	float* matPointer = trans->getMatPointer();

@@ -150,6 +150,20 @@ void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 	//}
 }
 
+uint world::drawObject(void* cbvLoc)
+{
+	uint offset = 0;
+
+	uint* location = static_cast<uint*>(cbvLoc);
+	for (uint i = 0; i < objectNum; ++i)
+	{
+		objects[i].submit(static_cast<void*>(location), offset);
+		location += 2;
+	}
+
+	return objectNum;
+}
+
 void world::setupScene()
 {
 	//TODO
