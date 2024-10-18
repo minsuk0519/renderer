@@ -1,4 +1,5 @@
 #include <render/framebuffer.hpp>
+#include <system/logger.hpp>
 
 #include <d3dx12.h>
 
@@ -98,7 +99,7 @@ void framebuffer::setDepthClear(float depth)
 
 D3D12_GPU_DESCRIPTOR_HANDLE framebuffer::getDescHandle(uint FBOIndex)
 {
-	assert(FBOIndex < FBOs.size());
+	TC_ASSERT(FBOIndex < FBOs.size());
 
 	return FBOs[FBOIndex]->textureDesc.getHandle();
 }

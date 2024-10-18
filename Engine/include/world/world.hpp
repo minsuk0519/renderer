@@ -26,6 +26,7 @@ public:
 	void close();
 
 	void drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+	uint drawObject(void* cbvLoc);
 
 	void setupScene();
 

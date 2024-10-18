@@ -18,6 +18,7 @@ class renderer
 {
 public:
 	bool init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter);
+	void setUp();
 	void draw(float dt);
 	void close();
 
@@ -48,8 +49,17 @@ private:
 	uint debugFBMeshID;
 	UINT64 debugProjection;
 
-	imagebuffer* ssaoTex;
+	imagebuffer* ssaoTex[3];
 
+	uavbuffer* terrainTex[3];
+	uavbuffer* unifiedBuffer[2];
+	uavbuffer* commandBuffer;
+	constantbuffer* cmdConstBuffer;
+
+	vertexbuffer* vertexIDBuffer;
+	uavbuffer* vertexIDBufferUAV;
+
+	constantbuffer* objectConstBuffer;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
@@ -58,7 +68,15 @@ public:
 
 	void guiSetting();
 
-	descriptor ssaoDesc;
+	descriptor ssaoDesc[3];
+	descriptor terrainDesc[3];
+	descriptor unifiedDesc[2];
+	descriptor commandDesc;
+	descriptor commandConstDesc;
+	descriptor vertexIDDesc;
+	descriptor objectConstDesc;
+private:
+	void setUpTerrain();
 };
 
 extern renderer e_globRenderer;

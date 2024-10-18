@@ -571,7 +571,7 @@ namespace buf
 
     vertexbuffer* getVertexBuffer(int index)
 	{
-        //assert(index < VERTEX_END && index >= VERTEX_START);
+        //TC_ASSERT(index < VERTEX_END && index >= VERTEX_START);
 
 		return dynamic_cast<vertexbuffer*>(bufferContainer[index]);
 	}
@@ -639,7 +639,7 @@ namespace buf
 
     constantbuffer* getConstantBuffer(int index)
     {
-        assert(index < CONSTANT_END && index >= CONSTANT_START);
+        TC_ASSERT(index < CONSTANT_END && index >= CONSTANT_START);
 
         return dynamic_cast<constantbuffer*>(bufferContainer[index]);
     }
@@ -678,7 +678,7 @@ namespace buf
 
     indexbuffer* getIndexBuffer(int index)
     {
-        assert(index < INDEX_END && index >= INDEX_START);
+        TC_ASSERT(index < INDEX_END && index >= INDEX_START);
 
         return dynamic_cast<indexbuffer*>(bufferContainer[index]);
     }
@@ -704,7 +704,7 @@ namespace buf
 
     depthbuffer* getDepthBuffer(int index)
     {
-        assert(index < DEPTH_END && index >= DEPTH_START);
+        TC_ASSERT(index < DEPTH_END && index >= DEPTH_START);
 
         return dynamic_cast<depthbuffer*>(bufferContainer[index]);
     }
@@ -743,7 +743,7 @@ namespace buf
 
     imagebuffer* getImageBuffer(int index)
     {
-        assert(index < IMAGE_END && index >= IMAGE_START);
+        TC_ASSERT(index < IMAGE_END && index >= IMAGE_START);
 
         return dynamic_cast<imagebuffer*>(bufferContainer[index]);
     }
@@ -770,7 +770,7 @@ namespace buf
 
     uavbuffer* getUAVBuffer(int index)
     {
-        assert(index < UAV_END && index >= UAV_START);
+        TC_ASSERT(index < UAV_END && index >= UAV_START);
 
         return dynamic_cast<uavbuffer*>(bufferContainer[index]);
     }

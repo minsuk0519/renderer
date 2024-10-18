@@ -21,14 +21,14 @@ namespace render
 
 		readJsonBuffer(psoJsons, JSON_FILE_NAME::PSO_FILE);
 
-		assert(psoJsons.size() == render::PSO_END);
+		TC_ASSERT(psoJsons.size() == render::PSO_END);
 
 		for (auto psoData : psoJsons)
 		{
 			pipelinestate* newObject = new pipelinestate();
 
 			if (!psoData.cs) newObject->init(psoData.psoName, psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, psoData.wireframe, psoData.depth);
-			else newObject->initCS(psoData.vertexIndex);
+			else newObject->initCS(psoData.psoName, psoData.vertexIndex);
 			
 			pipelineStateObjects[psoData.psoIndex] = newObject;
 		}
@@ -119,9 +119,13 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
  	return true;
 }
 
-bool pipelinestate::initCS(uint CS)
+bool pipelinestate::initCS(std::string psoName, uint CS)
 {
 	isCompute = true;
+
+	data.psoName = psoName;
+	data.vertexIndex = CS;
+	data.cs = true;
 
 	shader* cs = shaders::getShader(CS);
 
@@ -174,6 +178,26 @@ void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	}
 }
 
+void pipelinestate::setCommandSignature()
+{
+	D3D12_INDIRECT_ARGUMENT_DESC argumentDescs[2] = {};
+	//argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT_BUFFER_VIEW;
+	//argumentDescs[0].ConstantBufferView.RootParameterIndex = 1;
+
+	argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+	argumentDescs[0].Constant.RootParameterIndex = 4;
+	argumentDescs[0].Constant.DestOffsetIn32BitValues = 0;
+	argumentDescs[0].Constant.Num32BitValuesToSet = 1;
+	argumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+
+	D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
+	commandSignatureDesc.pArgumentDescs = argumentDescs;
+	commandSignatureDesc.NumArgumentDescs = _countof(argumentDescs);
+	commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS) + sizeof(uint);
+
+	e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, rootsig->getrootSignature(), IID_PPV_ARGS(&cmdSignature));
+}
+
 void pipelinestate::close()
 {
 	delete rootsig;
@@ -189,6 +213,11 @@ rootsignature* pipelinestate::getRootSig() const
 	return rootsig;
 }
 
+ID3D12CommandSignature* pipelinestate::getCmdSignature() const
+{
+	return cmdSignature.Get();
+}
+
 void pipelinestate::guiSetting()
 {
 	ImGui::BulletText(data.psoName.c_str());
@@ -198,47 +227,53 @@ void pipelinestate::guiSetting()
 		shader* ps = shaders::getShader(data.pixelIndex);
 		ImGui::Text(("VertexShader : " + vs->getName()).c_str());
 		ImGui::Text(("PixelShader : " + ps->getName()).c_str());
+
+		std::string depthText = (data.depth ? "enabled" : "disabled");
+		ImGui::Text(("Depth is " + depthText).c_str());
+
+		std::string numFormat = std::to_string(static_cast<uint>(data.formats.size()));
+
+		ImGui::Text(("Num Formats : " + numFormat).c_str());
+
+		for (auto form : data.formats)
+		{
+			uint size;
+			uint channel;
+
+			TC_ASSERT(form > 0);
+
+			if (form <= 12) size = ((12 - form) / 4) * 32 + 64;
+			else if (form <= 22) size = 64;
+			else if (form <= 47) size = 32;
+			else if (form <= 59) size = 16;
+			else if (form <= 65) size = 8;
+			else if (form <= 66) size = 1;
+			else TC_BREAK();
+
+			if (form <= 4) channel = 4;
+			else if (form <= 8) channel = 3;
+			else if (form <= 14) channel = 4;
+			else if (form <= 20) channel = 2;
+			else if (form <= 22) channel = 1;
+			else if (form <= 25) channel = 4;
+			else if (form <= 26) channel = 3;
+			else if (form <= 32) channel = 4;
+			else if (form <= 38) channel = 2;
+			else if (form <= 43) channel = 1;
+			else if (form <= 45) channel = 2;
+			else if (form <= 47) channel = 1;
+			else if (form <= 52) channel = 2;
+			else if (form <= 66) channel = 1;
+			else TC_BREAK();
+
+			std::string text = "size : " + std::to_string(size) + ", channel : " + std::to_string(channel);
+
+			ImGui::Text(text.c_str());
+		}
 	}
-	std::string depthText = (data.depth ? "enabled" : "disabled");
-	ImGui::Text(("Depth is " + depthText).c_str());
-
-	std::string numFormat = std::to_string(static_cast<uint>(data.formats.size()));
-
-	ImGui::Text(("Num Formats : " + numFormat).c_str());
-
-	for (auto form : data.formats)
+	else
 	{
-		uint size;
-		uint channel;
-
-		assert(form > 0);
-
-		if (form <= 12) size = ((12 - form) / 4) * 32 + 64;
-		else if (form <= 22) size = 64;
-		else if (form <= 47) size = 32;
-		else if (form <= 59) size = 16;
-		else if (form <= 65) size = 8;
-		else if (form <= 66) size = 1;
-		else assert(0);
-
-		if (form <= 4) channel = 4;
-		else if (form <= 8) channel = 3;
-		else if (form <= 14) channel = 4;
-		else if (form <= 20) channel = 2;
-		else if (form <= 22) channel = 1;
-		else if (form <= 25) channel = 4;
-		else if (form <= 26) channel = 3;
-		else if (form <= 32) channel = 4;
-		else if (form <= 38) channel = 2;
-		else if (form <= 43) channel = 1;
-		else if (form <= 45) channel = 2;
-		else if (form <= 47) channel = 1;
-		else if (form <= 52) channel = 2;
-		else if (form <= 66) channel = 1;
-		else assert(0);
-
-		std::string text = "size : " + std::to_string(size) + ", channel : " + std::to_string(channel);
-
-		ImGui::Text(text.c_str());
+		shader* cs = shaders::getShader(data.vertexIndex);
+		ImGui::Text(("ComputeShader : " + cs->getName()).c_str());
 	}
 }

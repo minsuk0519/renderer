@@ -7,7 +7,7 @@ class engine
 private:
 
 public:
-	bool init(HINSTANCE hInstance, int nCmdShow);
+	bool init(HINSTANCE hInstance, int nCmdShow, LPSTR cmdArgs);
 
 	void run();
 

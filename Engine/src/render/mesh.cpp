@@ -164,6 +164,20 @@ namespace msh
         return true;
 	}
 
+    void setUpTerrain(vertexbuffer* vertex, vertexbuffer* n, indexbuffer* index)
+    {
+        mesh* newData = new mesh(MESH_TERRAIN);
+        meshData* newMeshData = new meshData();
+
+        newMeshData->vbs = vertex;
+        newMeshData->norm = n;
+        newMeshData->idx = index;
+
+        newData->init(newMeshData);
+
+        meshes[MESH_TERRAIN] = newData;
+    }
+
     void cleanUp()
     {
         for (uint i = 0; i < MESH_END; ++i)

@@ -10,6 +10,7 @@
 
 #include <filesystem>
 #include <shlobj.h>
+#include <string>
 
 #include <wrl.h>
 #include <d3d12.h>
@@ -19,7 +20,7 @@ configJson configFile{};
 
 engine e_globEngine;
 
-#if CONFIG_PIX_ENABLED
+#if CONFIG_CAPTURE_ENABLED
 static std::wstring GetLatestWinPixGpuCapturerPath()
 {
     LPWSTR programFilesPath = nullptr;
@@ -48,17 +49,29 @@ static std::wstring GetLatestWinPixGpuCapturerPath()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-#endif
+#endif // #if CONFIG_CAPTURE_ENABLED
 
-bool engine::init(HINSTANCE hInstance, int nCmdShow)
+bool engine::init(HINSTANCE hInstance, int nCmdShow, LPSTR cmdArgs)
 {
+    std::string cmdArgsStr = cmdArgs;
+
+    uint captureFlag = 2;
+
+    if (auto find = cmdArgsStr.find("+capture"); find != std::string::npos)
+    {
+        captureFlag = std::stoi(cmdArgsStr.substr(find + 9, 1));
+    }
+
 #ifdef _DEBUG
-#if CONFIG_PIX_ENABLED
-	if ((GetModuleHandle(L"WinPixGpuCapturer.dll") == 0))
-	{
-		LoadLibrary(GetLatestWinPixGpuCapturerPath().c_str());
-	}
-#endif // #if CONFIG_PIX_ENABLED
+#if CONFIG_CAPTURE_ENABLED
+    if (captureFlag == 0)
+    {
+        if ((GetModuleHandle(L"WinPixGpuCapturer.dll") == 0))
+        {
+            LoadLibrary(GetLatestWinPixGpuCapturerPath().c_str());
+        }
+    }
+#endif // #if CONFIG_CAPTURE_ENABLED
 
     Microsoft::WRL::ComPtr<ID3D12Debug> debugInterface;
     D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface));
@@ -95,7 +108,7 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
                 continue;
             }
 
-            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, _uuidof(ID3D12Device), nullptr)))
             {
                 break;
             }
@@ -107,6 +120,8 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow)
     TC_INIT(e_globWindow.init(hInstance, nCmdShow, configFile.width, configFile.height));
 
     TC_INIT(e_globRenderer.init(factory, adapter));
+
+    e_globRenderer.setUp();
 
     TC_INIT(e_globWorld.init());
 

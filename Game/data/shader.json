@@ -41,5 +41,47 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":6
+	},{
+		"shaderFile":"data/shader/source/ssao.hlsl",
+		"entryPoint":"blur_horizontal_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":7
+	},{
+		"shaderFile":"data/shader/source/ssao.hlsl",
+		"entryPoint":"blur_vertical_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":8
+	},{
+		"shaderFile":"data/shader/source/terrain.hlsl",
+		"entryPoint":"terrain_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":9
+	},{
+		"shaderFile":"data/shader/source/noise.hlsl",
+		"entryPoint":"noise_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":10
+	},{
+		"shaderFile":"data/shader/source/unified.hlsl",
+		"entryPoint":"unified_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":11
+	},{
+		"shaderFile":"data/shader/source/cmdBuffer.hlsl",
+		"entryPoint":"genCmdBuf_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":12
+	},{
+		"shaderFile":"data/shader/source/gbuffer.hlsl",
+		"entryPoint":"gbufferIndirect_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":13
 	}
 ]

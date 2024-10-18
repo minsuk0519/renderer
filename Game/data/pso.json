@@ -17,7 +17,7 @@
 		"pixelIndex":3,
 		"formats":[
 			2,
-			2
+			42
 		],
 		"cs":false,
 		"depth":true,
@@ -43,5 +43,77 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":4,
+		"psoName":"SSAO_BlurHorizontal",
+		"vertexIndex":7,
+		"pixelIndex":7,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":5,
+		"psoName":"SSAO_BlurVertical",
+		"vertexIndex":8,
+		"pixelIndex":8,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":6,
+		"psoName":"GenTerrain",
+		"vertexIndex":9,
+		"pixelIndex":9,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":7,
+		"psoName":"GenNoise",
+		"vertexIndex":10,
+		"pixelIndex":10,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":8,
+		"psoName":"GenUnified",
+		"vertexIndex":11,
+		"pixelIndex":11,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":9,
+		"psoName":"GenCmdBuf",
+		"vertexIndex":12,
+		"pixelIndex":12,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":10,
+		"psoName":"GbufferIndirect",
+		"vertexIndex":13,
+		"pixelIndex":3,
+		"formats":[
+			2,
+			42
+		],
+		"cs":false,
+		"depth":true,
+		"wireframe":false	
 	}
 ]

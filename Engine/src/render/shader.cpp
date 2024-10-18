@@ -11,6 +11,7 @@
 
 #include <array>
 #include <filesystem>
+#include <stack>
 
 namespace shaders
 {
@@ -326,7 +327,7 @@ namespace shaders
 		}
 		else
 		{
-			assert(0);
+			TC_BREAK();
 		}
 
 		return num;
@@ -419,13 +420,56 @@ void shader::decipherHLSL()
 					{
 						hlslbuf.name = str;
 					}
-					if (variableIndex == 2)
+					else if (variableIndex == 2)
 					{
 						hlslbuf.data = str.size();
 					}
-					if (variableIndex == 3)
+					else if (variableIndex == 3)
 					{
 						hlslbuf.loc = std::stoi(str);
+					}
+					else if (variableIndex == 5)
+					{
+						uint channelSize = hlslbuf.data;
+
+						if (str == "uint")
+						{
+							if (channelSize == 4)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32B32A32_UINT;
+							}
+							else if (channelSize == 3)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32B32_UINT;
+							}
+							else if (channelSize == 2)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32_UINT;
+							}
+							else if (channelSize == 1)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32_UINT;
+							}
+						}
+						else
+						{
+							if (channelSize == 4)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32B32A32_FLOAT;
+							}
+							else if (channelSize == 3)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32B32_FLOAT;
+							}
+							else if (channelSize == 2)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32G32_FLOAT;
+							}
+							else if (channelSize == 1)
+							{
+								hlslbuf.data = DXGI_FORMAT_R32_FLOAT;
+							}
+						}
 					}
 					find2 = find3;
 
@@ -582,7 +626,7 @@ void shader::decipherHLSL()
 					}
 					else
 					{
-						assert(type == shaders::SHADER_CS);
+						TC_ASSERT(type == shaders::SHADER_CS);
 						cBufferLoc = str.substr(1);
 						hlslbuf.loc = std::stoi(cBufferLoc);
 						bufData.outputContainer.push_back(hlslbuf);
@@ -622,7 +666,14 @@ void shader::decipherHLSL()
 
 				find2 = 0;
 				
-				auto find3 = line.find("%dx.alignment.legacy") + 21;
+				auto find3 = line.find("%dx.alignment.legacy");
+
+				if (find3 == std::string::npos)
+				{
+					break;
+				}
+				
+				find3 += 21;
 
 				find2 = line.find(" ");
 
@@ -714,7 +765,7 @@ void shader::decipherHLSL()
 				
 				auto find2 = sourceString.find("\n", find) + 1;
 				std::string line = sourceString.substr(find, find2 - find);
-				find = find2;
+				find = find2 - 1;
 
 				auto find3 = line.find("%cb_");
 
@@ -728,65 +779,112 @@ void shader::decipherHLSL()
 
 				uint size = 0;
 
-				while (true)
+				line = line.substr(find2);
+
 				{
-					line = line.substr(find2);
-					find3 = line.find_first_of(", }");
-					std::string constantName = line.substr(0, find3);
+					uint stringIndex = 0;
 
-					if (constantName.find("i32") != std::string::npos || constantName.find("float") != std::string::npos)
+					std::stack<uint> stack;
+					std::stack<uint> stack2;
+					std::stack<uint> stack3;
+
+					while (true)
 					{
-						size += 4;
-						find2 = line.find_first_not_of(", }", find3);
-						continue;
-					}
+						char c = line[stringIndex];
 
-					if (constantName.size() < 3)
-					{
-						break;
-					}
-
-					//get size from struct
-					{
-						auto constantSizePos = sourceString.find(constantName + " = type { ") + constantName.size() + 11;
-						std::string constantSizeString = sourceString.substr(constantSizePos);
-
-						uint stringIndex = 0;
-
-						uint cumulate = 1;
-
-						while (true)
+						if (c == ' ')
 						{
-							char c = constantSizeString[stringIndex];
-
-							if (c == '}') break;
-							else if (c == 'f')
-							{
-								size += cumulate * 4;
-								cumulate = 1;
-								stringIndex += 5;
-							}
-							else if (c == 'i')
-							{
-								size += cumulate * 4;
-								cumulate = 1;
-								stringIndex += 3;
-							}
-							uint num = 0;
-							while (c >= '0' && c <= '9')
-							{
-								uint i = static_cast<uint>(c - '0');
-								num = num * 10 + i;
-								++stringIndex;
-								c = constantSizeString[stringIndex];
-							}
-							if (num != 0) cumulate *= num;
-
 							++stringIndex;
+							continue;
+						}
+
+						uint num = 0;
+						if (c == '}') break;
+						else if (c == 'f')
+						{
+							num = 1;
+							stringIndex += 4;
+						}
+						else if (c == 'i')
+						{
+							num = 1;
+							stringIndex += 2;
+						}
+						while (c >= '0' && c <= '9')
+						{
+							uint i = static_cast<uint>(c - '0');
+							num = num * 10 + i;
+							++stringIndex;
+							c = line[stringIndex];
+						}
+						if(num != 0) stack.push(num);
+
+						if (c == ']' || c == '>')
+						{
+							uint cumulate = stack.top();
+							stack.pop();
+
+							uint bracket = stack3.top();
+							stack3.pop();
+
+							while (stack.size() > bracket)
+							{
+								uint n = stack.top();
+								stack.pop();
+
+								uint op = stack2.top();
+								stack2.pop();
+
+								if (op == 0)
+								{
+									cumulate *= n;
+								}
+								else
+								{
+									cumulate += n;
+								}
+							}
+
+							stack.push(cumulate);
+						}
+						else if (c == '[' || c == '<')
+						{
+							stack3.push(stack.size());
+						}
+						else if (c == ',')
+						{
+							stack2.push(1);
+						}
+						else if (c == 'x')
+						{
+							stack2.push(0);
+						}
+
+						++stringIndex;
+					}
+
+					uint cumulate = stack.top();
+					stack.pop();
+
+					while (!stack.empty())
+					{
+						uint n = stack.top();
+						stack.pop();
+
+						uint op = stack2.top();
+						stack2.pop();
+
+						if (op == 0)
+						{
+							cumulate *= n;
+						}
+						else
+						{
+							cumulate += n;
 						}
 					}
 
-					find2 = line.find_first_not_of(", }", find3);
+					size = cumulate;
 				}
 
 				bufData.constantContainer[cbufferNum].data = size;
@@ -794,7 +892,7 @@ void shader::decipherHLSL()
 				++cbufferNum;
 			}
 		}
-		assert(bufData.constantContainer.size() == cbufferNum);
+		TC_ASSERT(bufData.constantContainer.size() == cbufferNum);
 	}
 
 	//set input signature
@@ -802,24 +900,7 @@ void shader::decipherHLSL()
 	{
 		for (auto& input : bufData.inputContainer)
 		{
-			DXGI_FORMAT format;
-
-			if (input.data == 4)
-			{
-				format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-			}
-			else if (input.data == 3)
-			{
-				format = DXGI_FORMAT_R32G32B32_FLOAT;
-			}
-			else if (input.data == 2)
-			{
-				format = DXGI_FORMAT_R32G32_FLOAT;
-			}
-			else if (input.data == 1)
-			{
-				format = DXGI_FORMAT_R32_FLOAT;
-			}
+			DXGI_FORMAT format = (DXGI_FORMAT)input.data;
 
 			inputs.push_back({ input.name.c_str(), 0, format, input.loc, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
 		}

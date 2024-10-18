@@ -50,7 +50,7 @@ void world::setMainCamera(camera* cam)
 void world::guiSetting()
 {
 	static uint objectGUIIndex;
-	ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+	ImGui::BeginChild("left pane", ImVec2(50, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
 
 	for (uint i = 0; i < objectNum; ++i)
 	{
@@ -144,10 +144,24 @@ void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 		cam->preDraw(cmdList);
 	}
 
+	//for (uint i = 0; i < objectNum; ++i)
+	//{
+	//	objects[i].draw(cmdList, false);
+	//}
+}
+
+uint world::drawObject(void* cbvLoc)
+{
+	uint offset = 0;
+
+	uint* location = static_cast<uint*>(cbvLoc);
 	for (uint i = 0; i < objectNum; ++i)
 	{
-		objects[i].draw(cmdList, false);
+		objects[i].submit(static_cast<void*>(location), offset);
+		location += 2;
 	}
+
+	return objectNum;
 }
 
 void world::setupScene()
@@ -155,53 +169,33 @@ void world::setupScene()
 	//TODO
 	{
 		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
-		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.0f,0.0f });
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.5f,0.0f });
 		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
 		++objectNum;
 	}
 
-	//{
-	//	objects[objectNum].init(msh::MESH_BUNNY, pso::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -0.4f,0.1f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.4f,0.4f,0.4f });
-	//
-	//	++objectNum;
-	//}
+	{
+		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
-	//for (int i = 0; i < 49; ++i)
-	//{
-	//	{
-	//		objects[objectNum].init(msh::MESH_BUNNY, pso::PSO_PBR, true);
-	//		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -1.5f + (i / 7) * 0.6f,0.1f + (i % 7) * 0.6f,-1.5f });
-	//		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.5f,0.5f,0.5f });
+		++objectNum;
+	}
 
-	//		++objectNum;
-	//	}
-	//}
+	{
+		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -1.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
-	//{
-	//	objects[objectNum].init(msh::MESH_ARMADILLO, pso::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.4f,0.1f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.4f,0.4f,0.4f });
-	//	objects[objectNum].getTransform()->setRotation(DirectX::XMVECTOR{ 0.0f,3.141592f,0.0f });
-	//		
-	//	++objectNum;
-	//}
-	//
-	//{
-	//	objects[objectNum].init(msh::MESH_ARMADILLO, pso::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,0.5f,-0.5f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 1.2f,1.2f,1.2f });
-	//	objects[objectNum].getTransform()->setRotation(DirectX::XMVECTOR{ 0.0f,3.141592f,0.0f });
-	//	
-	//	++objectNum;
-	//}
+		++objectNum;
+	}
 
-	//{
-	//	objects[objectNum].init(msh::MESH_CUBE_NONORM, pso::PSO_SKYBOX, false);
-	//	objects[objectNum].disableWire();
-	//	
-	//	++objectNum;
-	//}
+	{
+		objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -0.0f,-2.2f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 20.2f,20.2f,20.2f });
+
+		++objectNum;
+	}
 }
