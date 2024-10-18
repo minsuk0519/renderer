@@ -24,6 +24,7 @@ namespace msh
 		"Cube",
 		"Sphere",
 		"Bunny",
+		"Terrain",
 	};
 
 	bool loadResources();

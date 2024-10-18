@@ -544,10 +544,10 @@ void renderer::draw(float dt)
 
 		cmdList->IASetVertexBuffers(0, 1, &vertexIDBuffer->view);
 
-		e_globWorld.objects[0].sendMat(objectConstBuffer->info.cbvDataBegin);
-		e_globWorld.objects[1].sendMat(objectConstBuffer->info.cbvDataBegin);
-		e_globWorld.objects[2].sendMat(objectConstBuffer->info.cbvDataBegin);
-		e_globWorld.objects[3].sendMat(objectConstBuffer->info.cbvDataBegin);
+		for (uint i = 0; i < e_globWorld.objectNum; ++i)
+		{
+			e_globWorld.objects[i].sendMat(objectConstBuffer->info.cbvDataBegin);
+		}
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_OBJECT, objectConstDesc.getHandle());
 

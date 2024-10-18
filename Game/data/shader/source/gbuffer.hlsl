@@ -9,6 +9,8 @@ struct PSInput
 	float4 position : SV_POSITION;
     float3 worldPos : WORLD_POS;
     float3 normal : NORMAL;
+
+    uint4 output : OUTPUT;
 };
 
 struct PSOutput
@@ -32,10 +34,10 @@ PSInput gbufferIndirect_vs(uint clusterID : POSITION)
     uint meshIndex = clusterID >> 24;
     uint objID = ((1 << 16) - 1) & objectID;
 
-    // result.output.x = clusterNum;
-    // result.output.y = triOffset;
-    // result.output.z = triNum;
-    // result.output.w = objID;
+    result.output.x = clusterNum;
+    result.output.y = triOffset;
+    result.output.z = triNum;
+    result.output.w = meshIndex;
 
     uint vertexIndexOffset = UIB[vertexMax * 3 + meshIndex * 3 + 0];
     uint vertexIndex = UIB[vertexIndexOffset + triNum + 3 * (triOffset + 64 * clusterNum)];

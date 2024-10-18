@@ -119,17 +119,19 @@ void object::guiSetting()
 	gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
 	gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
 
-	int meshID = meshPtr->getId();
+	meshEnumIndex = meshPtr->getId();
 
-	if (meshID != -1)
+	if (meshEnumIndex != -1)
 	{
-		uint currentMeshId = meshID;
-
-		uint originalID = currentMeshId;
+		uint currentMeshId = meshEnumIndex;
 				
 		gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
 				
-		if (originalID != currentMeshId) meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
+		if (meshEnumIndex != currentMeshId)
+		{
+			meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
+			meshEnumIndex = currentMeshId;
+		}
 	}
 }
 
