@@ -3136,7 +3136,7 @@ constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
 
 int main(int argc, char** argv)
 {
-    std::string fileName = "sphere.ply";// argv[1];
+    std::string fileName = "bun_zipper.ply";// argv[1];
 
     HANDLE hFile = CreateFileA(
         fileName.c_str(),
@@ -3419,15 +3419,18 @@ int main(int argc, char** argv)
     double yMid = (extent[3] + extent[2]) / 2.0;
     double zLen = extent[5] - extent[4];
     double zMid = (extent[5] + extent[4]) / 2.0;
+	
+    double maxLen = (xLen > yLen) ? xLen : yLen;
+    maxLen = (maxLen > zLen) ? maxLen : zLen;
 
     for (uint i = 0; i < vertexSize; ++i)
     {
         vertexBuffer[i].x -= xMid;
-        vertexBuffer[i].x /= (xLen / 2.0);
+        vertexBuffer[i].x /= (maxLen / 2.0);
         vertexBuffer[i].y -= yMid;
-        vertexBuffer[i].y /= (yLen / 2.0);
+        vertexBuffer[i].y /= (maxLen / 2.0);
         vertexBuffer[i].z -= zMid;
-        vertexBuffer[i].z /= (zLen / 2.0);
+        vertexBuffer[i].z /= (maxLen / 2.0);
     }
 
 
