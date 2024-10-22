@@ -25,7 +25,7 @@ public:
 	void update(float dt);
 	void close();
 
-	void drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+	void drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe);
 	uint drawObject(void* cbvLoc);
 
 	void setupScene();

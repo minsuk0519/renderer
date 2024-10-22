@@ -122,6 +122,8 @@ struct buffer
 {
 	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 	virtual ~buffer() {}
+
+	void uploadBuffer(uint size, void* data);
 };
 
 struct vertexbuffer : public buffer

@@ -82,7 +82,7 @@ void camera::close()
 	delete transformPtr;
 }
 
-void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe)
 {
 	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ screenViewport.topLeftX, screenViewport.topLeftY, screenViewport.width, screenViewport.height };
 	CD3DX12_RECT scissorRect = CD3DX12_RECT{ scissor.left, scissor.top, scissor.right, scissor.bottom };
@@ -90,8 +90,14 @@ void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 	cmdList->RSSetViewports(1, &viewport);
 	cmdList->RSSetScissorRects(1, &scissorRect);
 
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
+	if (wireframe)
+	{
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
+	}
+	else
+	{
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	}
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, desc.getHandle());
 }

@@ -309,7 +309,7 @@ void renderer::preDraw(float dt)
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_WIREFRAME);
 
-		debugFB->openFB(cmdList);
+		debugFB->openFB(cmdList, true);
 
 		CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
 		CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
@@ -505,6 +505,12 @@ void renderer::setUp()
 		cmdConstBuffer = buf::createConstantBuffer(513 * sizeof(uint));
 		commandConstDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, cmdConstBuffer);
 	}
+
+	{
+		uint objIDs[4] = { 0, 1, 2, 3 };
+
+		AABBwireframeBuffer = buf::createVertexBuffer(objIDs, 4 * sizeof(uint), sizeof(uint));
+	}
 }
 
 #include <world/object.hpp>
@@ -516,9 +522,9 @@ void renderer::draw(float dt)
 	//render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFER);
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFERINDIRECT);
 
-	gbufferFB->openFB(cmdList);
+	gbufferFB->openFB(cmdList, true);
 
-	e_globWorld.drawWorld(cmdList);
+	e_globWorld.drawWorld(cmdList, false);
 
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
@@ -606,7 +612,7 @@ void renderer::draw(float dt)
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_PBR);
 
-	swapchainFB[frameIndex]->openFB(cmdList);
+	swapchainFB[frameIndex]->openFB(cmdList, true);
 
 	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
 	CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
@@ -633,6 +639,28 @@ void renderer::draw(float dt)
 	swapchainFB[frameIndex]->closeFB(cmdList);
 	
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+
+	//AABB draw
+	{
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_AABBDEBUGDRAW);
+
+		swapchainFB[frameIndex]->openFB(cmdList, false);
+
+		e_globWorld.drawWorld(cmdList, true);
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_OBJECT, objectConstDesc.getHandle());
+
+		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_CUBE)->getData()->vbs->view);
+		cmdList->IASetVertexBuffers(1, 1, &AABBwireframeBuffer->view);
+		cmdList->IASetIndexBuffer(&msh::getMesh(msh::MESH_CUBE)->getData()->idxLine->view);
+
+		cmdList->DrawIndexedInstanced(48, e_globWorld.objectNum, 0, 0, 0);
+
+		swapchainFB[frameIndex]->closeFB(cmdList);
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
+	}
 
 	TC_CONDITION(swapChain->Present(vsync, 0) == S_OK, "Failed to present the swapchain");
 

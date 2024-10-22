@@ -220,6 +220,27 @@ namespace buf
             }
         }
 
+        float xmax = -FLT_MAX;
+        float xmin = FLT_MAX;
+        float ymax = -FLT_MAX;
+        float ymin = FLT_MAX;
+        float zmax = -FLT_MAX;
+        float zmin = FLT_MAX;
+
+        for (uint i = 0; i < result.attributes.positions.size(); i += 3)
+        {
+            float x = result.attributes.positions[i + 0];
+            float y = result.attributes.positions[i + 1];
+            float z = result.attributes.positions[i + 2];
+
+            xmax = std::max(xmax, x);
+            xmin = std::min(xmin, x);
+            ymax = std::max(ymax, y);
+            ymin = std::min(ymin, y);
+            zmax = std::max(zmax, z);
+            zmin = std::min(zmin, z);
+        }
+
         meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);
         if (result.attributes.normals.size() != 0) meshdata->norm = createVertexBuffer(result.attributes.normals.data(), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3);
         else meshdata->norm = nullptr;
@@ -807,3 +828,12 @@ namespace buf
         return newBuffer;
     }
 };
+
+void buffer::uploadBuffer(uint size, void* data)
+{
+    UINT8* pVertexDataBegin;
+    CD3DX12_RANGE readRange(0, 0);
+    resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+    memcpy(pVertexDataBegin, data, size);
+    resource->Unmap(0, nullptr);
+}

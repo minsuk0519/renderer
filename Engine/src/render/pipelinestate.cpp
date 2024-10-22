@@ -27,7 +27,7 @@ namespace render
 		{
 			pipelinestate* newObject = new pipelinestate();
 
-			if (!psoData.cs) newObject->init(psoData.psoName, psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, D3D12_CULL_MODE_NONE, psoData.wireframe, psoData.depth);
+			if (!psoData.cs) newObject->init(psoData.psoName, psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_CULL_MODE_NONE, psoData.wireframe, psoData.depth);
 			else newObject->initCS(psoData.psoName, psoData.vertexIndex);
 			
 			pipelineStateObjects[psoData.psoIndex] = newObject;
@@ -61,8 +61,12 @@ namespace render
 	}
 }
 
-bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool wireframe, bool depth)
+bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_CULL_MODE cull, bool wireframe, bool depth)
 {
+	D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType;
+	if (wireframe) primitiveType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+	else primitiveType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
 	isCompute = false;
 
 	shader* vs = shaders::getShader(VS);

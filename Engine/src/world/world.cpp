@@ -137,11 +137,11 @@ void world::close()
 	}
 }
 
-void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe)
 {
 	for (auto cam : cameras)
 	{
-		cam->preDraw(cmdList);
+		cam->preDraw(cmdList, wireframe);
 	}
 
 	//for (uint i = 0; i < objectNum; ++i)

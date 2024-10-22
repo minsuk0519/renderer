@@ -60,6 +60,8 @@ private:
 	uavbuffer* vertexIDBufferUAV;
 
 	constantbuffer* objectConstBuffer;
+
+	vertexbuffer* AABBwireframeBuffer;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;

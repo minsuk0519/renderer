@@ -57,7 +57,7 @@ public:
 	void setCamAsMain();
 
 	void draw(uint psoIndex, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
-	void preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+	void preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe);
 
 	void changeViewport(const cam::VIEWPORT_TYPE type);
 	
