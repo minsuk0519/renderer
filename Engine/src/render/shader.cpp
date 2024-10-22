@@ -902,7 +902,14 @@ void shader::decipherHLSL()
 		{
 			DXGI_FORMAT format = (DXGI_FORMAT)input.data;
 
-			inputs.push_back({ input.name.c_str(), 0, format, input.loc, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
+			if (input.name == "POSITION")
+			{
+				inputs.push_back({ input.name.c_str(), 0, format, input.loc, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
+			}
+			else
+			{
+				inputs.push_back({ input.name.c_str(), 0, format, input.loc, 0, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1});
+			}
 		}
 	}
 }

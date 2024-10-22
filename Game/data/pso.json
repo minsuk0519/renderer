@@ -115,5 +115,16 @@
 		"cs":false,
 		"depth":true,
 		"wireframe":false	
+	},{
+		"psoIndex":11,
+		"psoName":"WireframeAABB",
+		"vertexIndex":14,
+		"pixelIndex":15,
+		"formats":[
+			28
+		],
+		"cs":false,
+		"depth":false,
+		"wireframe":true
 	}
 ]

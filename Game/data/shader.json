@@ -83,5 +83,17 @@
 		"target":"vs_6_5",
 		"shaderType":0,
 		"shaderIndex":13
+	},{
+		"shaderFile":"data/shader/source/wireframe.hlsl",
+		"entryPoint":"wireframeAABB_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":14
+	},{
+		"shaderFile":"data/shader/source/wireframe.hlsl",
+		"entryPoint":"wireframeAABB_ps",
+		"target":"ps_6_5",
+		"shaderType":1,
+		"shaderIndex":15
 	}
 ]
