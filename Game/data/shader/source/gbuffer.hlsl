@@ -24,7 +24,7 @@ cbuffer cb_objectIdentification : register(b2)
     uint objectID;
 }
 
-PSInput gbufferIndirect_vs(uint clusterID : POSITION)
+PSInput gbufferIndirect_vs(uint clusterID : VPOSITION)
 {
     PSInput result;
 
@@ -55,7 +55,7 @@ PSInput gbufferIndirect_vs(uint clusterID : POSITION)
     return result;
 }
 
-PSInput gbuffer_vs(float3 position : POSITION, float3 normal : NORMAL)
+PSInput gbuffer_vs(float3 position : VPOSITION, float3 normal : VNORMAL)
 {
     PSInput result;
 

@@ -50,6 +50,7 @@ public:
 	void submit(void* cbvLoc, uint& offset);
 
 	void sendMat(unsigned char* cbvdata);
+	void aabbData(unsigned char* data);
 
 	void close();
 

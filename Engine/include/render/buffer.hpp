@@ -124,6 +124,9 @@ struct buffer
 	virtual ~buffer() {}
 
 	void uploadBuffer(uint size, void* data);
+
+	void mapBuffer(unsigned char** dataPtr);
+	void unmapBuffer();
 };
 
 struct vertexbuffer : public buffer

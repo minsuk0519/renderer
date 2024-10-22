@@ -22,7 +22,7 @@ cbuffer cb_debugInfo : register(b3)
 	uint debugDraw = 0;
 }
 
-PSInput pbr_vs(float2 position : POSITION)
+PSInput pbr_vs(float2 position : VPOSITION)
 {
     PSInput result;
 

@@ -44,6 +44,7 @@ namespace renderGuiSetting
 	{
 		uint features;
 		uint debugDraw;
+		bool AABBDraw = false;
 	};
 
 	guiSetting guiDebug;
@@ -284,6 +285,7 @@ void renderer::guiSetting()
 	gui::comboBox("DebugDraw", debugDrawVersion, 4, renderGuiSetting::guiDebug.debugDraw);
 
 	ImGui::Checkbox("SSAO", &renderGuiSetting::ssaoEnabled);
+	ImGui::Checkbox("ShowAABB", &renderGuiSetting::guiDebug.AABBDraw);
 
 	if(renderGuiSetting::ssaoEnabled) renderGuiSetting::guiDebug.features |= FEATURE_AO;
 	else renderGuiSetting::guiDebug.features &= ~FEATURE_AO;
@@ -507,9 +509,7 @@ void renderer::setUp()
 	}
 
 	{
-		uint objIDs[4] = { 0, 1, 2, 3 };
-
-		AABBwireframeBuffer = buf::createVertexBuffer(objIDs, 4 * sizeof(uint), sizeof(uint));
+		AABBwireframeBuffer = buf::createVertexBuffer(nullptr, 24 * sizeof(float), 6 * sizeof(float));
 	}
 }
 
@@ -643,14 +643,23 @@ void renderer::draw(float dt)
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
 	//AABB draw
+	if(renderGuiSetting::guiDebug.AABBDraw)
 	{
+		unsigned char* aabbGPUAddress = nullptr;
+		AABBwireframeBuffer->mapBuffer(&aabbGPUAddress);
+
+		for (uint i = 0; i < e_globWorld.objectNum; ++i)
+		{
+			e_globWorld.objects[i].aabbData(aabbGPUAddress + i * 6 * sizeof(float));
+		}
+
+		AABBwireframeBuffer->unmapBuffer();
+
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_AABBDEBUGDRAW);
 
 		swapchainFB[frameIndex]->openFB(cmdList, false);
 
 		e_globWorld.drawWorld(cmdList, true);
-
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_OBJECT, objectConstDesc.getHandle());
 
 		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_CUBE)->getData()->vbs->view);
 		cmdList->IASetVertexBuffers(1, 1, &AABBwireframeBuffer->view);

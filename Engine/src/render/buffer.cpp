@@ -220,12 +220,14 @@ namespace buf
             }
         }
 
-        float xmax = -FLT_MAX;
-        float xmin = FLT_MAX;
-        float ymax = -FLT_MAX;
-        float ymin = FLT_MAX;
-        float zmax = -FLT_MAX;
-        float zmin = FLT_MAX;
+        float* aabb = meshdata->AABB;
+
+        aabb[msh::EDGE_XMAX] = -FLT_MAX;
+        aabb[msh::EDGE_XMIN] = FLT_MAX;
+        aabb[msh::EDGE_YMAX] = -FLT_MAX;
+        aabb[msh::EDGE_YMIN] = FLT_MAX;
+        aabb[msh::EDGE_ZMAX] = -FLT_MAX;
+        aabb[msh::EDGE_ZMIN] = FLT_MAX;
 
         for (uint i = 0; i < result.attributes.positions.size(); i += 3)
         {
@@ -233,12 +235,12 @@ namespace buf
             float y = result.attributes.positions[i + 1];
             float z = result.attributes.positions[i + 2];
 
-            xmax = std::max(xmax, x);
-            xmin = std::min(xmin, x);
-            ymax = std::max(ymax, y);
-            ymin = std::min(ymin, y);
-            zmax = std::max(zmax, z);
-            zmin = std::min(zmin, z);
+            aabb[msh::EDGE_XMAX] = std::max(aabb[msh::EDGE_XMAX], x);
+            aabb[msh::EDGE_XMIN] = std::min(aabb[msh::EDGE_XMIN], x);
+            aabb[msh::EDGE_YMAX] = std::max(aabb[msh::EDGE_YMAX], y);
+            aabb[msh::EDGE_YMIN] = std::min(aabb[msh::EDGE_YMIN], y);
+            aabb[msh::EDGE_ZMAX] = std::max(aabb[msh::EDGE_ZMAX], z);
+            aabb[msh::EDGE_ZMIN] = std::min(aabb[msh::EDGE_ZMIN], z);
         }
 
         meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);
@@ -328,11 +330,14 @@ namespace buf
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buf->resource));
 
-        UINT8* pVertexDataBegin;
-        CD3DX12_RANGE readRange(0, 0);
-        buf->resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-        memcpy(pVertexDataBegin, data, size);
-        buf->resource->Unmap(0, nullptr);
+        if (data != nullptr)
+        {
+            UINT8* pVertexDataBegin;
+            CD3DX12_RANGE readRange(0, 0);
+            buf->resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+            memcpy(pVertexDataBegin, data, size);
+            buf->resource->Unmap(0, nullptr);
+        }
 
         return true;
     }
@@ -835,5 +840,16 @@ void buffer::uploadBuffer(uint size, void* data)
     CD3DX12_RANGE readRange(0, 0);
     resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
     memcpy(pVertexDataBegin, data, size);
+    resource->Unmap(0, nullptr);
+}
+
+void buffer::mapBuffer(unsigned char** dataPtr)
+{
+    CD3DX12_RANGE readRange(0, 0);
+    resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
+}
+
+void buffer::unmapBuffer()
+{
     resource->Unmap(0, nullptr);
 }

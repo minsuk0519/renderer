@@ -105,6 +105,27 @@ void object::sendMat(unsigned char* cbvdata)
 	memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
 }
 
+void object::aabbData(unsigned char* data)
+{
+	float* aabb = getMesh()->getData()->AABB;
+
+	float aabbData[6];
+
+	float xScale = aabb[msh::EDGE_XMAX] - aabb[msh::EDGE_XMIN];
+	float yScale = aabb[msh::EDGE_YMAX] - aabb[msh::EDGE_YMIN];
+	float zScale = aabb[msh::EDGE_ZMAX] - aabb[msh::EDGE_ZMIN];
+
+	aabbData[0] = xScale * 0.5f * trans->getScale().m128_f32[0];
+	aabbData[1] = yScale * 0.5f * trans->getScale().m128_f32[0];
+	aabbData[2] = zScale * 0.5f * trans->getScale().m128_f32[0];
+
+	aabbData[3] = trans->getPosition().m128_f32[0];
+	aabbData[4] = trans->getPosition().m128_f32[1];
+	aabbData[5] = trans->getPosition().m128_f32[2];
+
+	memcpy(data, aabbData, sizeof(float) * 6);
+}
+
 void object::close()
 {
 	delete trans;
