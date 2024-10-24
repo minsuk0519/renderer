@@ -17,6 +17,7 @@ struct PSOutput
 {
     float4 position     : SV_TARGET0;
     uint normTex      	: SV_TARGET1;
+    uint debugID      	: SV_TARGET2;
 };
 
 cbuffer cb_objectIdentification : register(b2)
@@ -64,6 +65,11 @@ PSInput gbuffer_vs(float3 position : VPOSITION, float3 normal : VNORMAL)
     float4 viewPos = mul(proj.viewMat, worldPos);
     result.position = mul(proj.projectionMat, viewPos);
 
+    result.output.x = 0;
+    result.output.y = 0;
+    result.output.z = 0;
+    result.output.w = 0;
+
     result.normal = normalize(mul((float3x3)(obj.objectMat), normal));
 
     return result;
@@ -76,10 +82,9 @@ PSOutput gbuffer_ps(PSInput input)
 
     PSOutput result;
 
-    //TODO : channel w will be replaced with object ID
     result.position = float4(position, 1.0f);
-    //TODO : should pack normal into two channel
     result.normTex = encodeOct(normal);
+    result.debugID = input.output.x;
     
     return result;
 }

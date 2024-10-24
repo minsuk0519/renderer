@@ -10,8 +10,10 @@
 #define SRV_GBUFFER0_TEX	GET_HLSL_LOC_SRV(0)
 //t1 normal
 #define SRV_GBUFFER1_TEX	GET_HLSL_LOC_SRV(1)
-//t2 ssao input
-#define SRV_AO_FINAL		GET_HLSL_LOC_SRV(2)
+//t2 debug
+#define SRV_GBUFFER2_TEX	GET_HLSL_LOC_SRV(2)
+//t3 ssao input
+#define SRV_AO_FINAL		GET_HLSL_LOC_SRV(3)
 //b0 projection
 #define CBV_PROJECTION		GET_HLSL_LOC_CBV(0)
 //b1 object

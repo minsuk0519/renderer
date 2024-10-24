@@ -17,6 +17,7 @@
 		"pixelIndex":3,
 		"formats":[
 			2,
+			42,
 			42
 		],
 		"cs":false,
@@ -110,6 +111,7 @@
 		"pixelIndex":3,
 		"formats":[
 			2,
+			42,
 			42
 		],
 		"cs":false,

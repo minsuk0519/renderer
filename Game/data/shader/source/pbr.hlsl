@@ -9,8 +9,9 @@ struct PSInput
 
 Texture2D positionGbuffer 			: register(t0);
 Texture2D<uint> normalTexGbuffer 	: register(t1);
+Texture2D<uint> debugGbuffer 		: register(t2);
 
-Texture2D aoTexBuffer 		: register(t2);
+Texture2D aoTexBuffer 		: register(t3);
 
 SamplerState samp 			: register(s0);
 
@@ -38,6 +39,7 @@ float4 pbr_ps(PSInput input) : SV_TARGET
 	uint2 texPos = uint2(uv.x * screenWidth, uv.y * screenHeight);	
 	float3 position = positionGbuffer.Sample(samp, uv).xyz;
 	float3 normal = decodeOct((normalTexGbuffer[texPos].x));
+	uint debugInfo = debugGbuffer[texPos].x;
 	float ao = aoTexBuffer.Sample(samp, uv).x;
 		
 	if(debugDraw == 1)
@@ -49,6 +51,10 @@ float4 pbr_ps(PSInput input) : SV_TARGET
 		return float4(normal, 1.0f);
 	}
 	else if(debugDraw == 3)
+	{
+		return float4(DISTINCT_COLOR[debugInfo % 64], 1.0f);
+	}
+	else if(debugDraw == 4)
 	{
 		return float4(ao, ao, ao, 1.0f);
 	}

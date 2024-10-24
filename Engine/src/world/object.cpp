@@ -116,8 +116,8 @@ void object::aabbData(unsigned char* data)
 	float zScale = aabb[msh::EDGE_ZMAX] - aabb[msh::EDGE_ZMIN];
 
 	aabbData[0] = xScale * 0.5f * trans->getScale().m128_f32[0];
-	aabbData[1] = yScale * 0.5f * trans->getScale().m128_f32[0];
-	aabbData[2] = zScale * 0.5f * trans->getScale().m128_f32[0];
+	aabbData[1] = yScale * 0.5f * trans->getScale().m128_f32[1];
+	aabbData[2] = zScale * 0.5f * trans->getScale().m128_f32[2];
 
 	aabbData[3] = trans->getPosition().m128_f32[0];
 	aabbData[4] = trans->getPosition().m128_f32[1];

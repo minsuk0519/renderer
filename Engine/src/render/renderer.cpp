@@ -242,6 +242,8 @@ bool renderer::createFrameResources()
 	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//normal
 	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	//objInfo
+	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferFB->setDepthClear(1.0f);
 
 	debugFB = new framebuffer();
@@ -277,12 +279,13 @@ const char* debugDrawVersion[]
 	"None",
 	"Position",
 	"Normal",
+	"Debug",
 	"SSAO",
 };
 
 void renderer::guiSetting()
 {
-	gui::comboBox("DebugDraw", debugDrawVersion, 4, renderGuiSetting::guiDebug.debugDraw);
+	gui::comboBox("DebugDraw", debugDrawVersion, 5, renderGuiSetting::guiDebug.debugDraw);
 
 	ImGui::Checkbox("SSAO", &renderGuiSetting::ssaoEnabled);
 	ImGui::Checkbox("ShowAABB", &renderGuiSetting::guiDebug.AABBDraw);
@@ -626,6 +629,7 @@ void renderer::draw(float dt)
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER2_TEX, gbufferFB->getDescHandle(2));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_AO_FINAL, ssaoDesc[2].getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &renderGuiSetting::guiDebug);
