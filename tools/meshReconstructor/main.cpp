@@ -8,6 +8,7 @@
 #include <charconv>
 
 typedef unsigned int uint;
+typedef unsigned char uchar;
 
 //
 // Code below is from: https://github.com/fastfloat/fast_float/releases/download/v3.5.1/fast_float.h
@@ -3002,6 +3003,20 @@ struct face
 
         return result;
     }
+
+    uint operator[](const uint& index)
+    {
+        if (index == 0) return i0;
+        else if (index == 1) return i1;
+        else return i2;
+    }
+
+    uint operator[](const uint& index) const
+    {
+        if (index == 0) return i0;
+        else if (index == 1) return i1;
+        else return i2;
+    }
 };
 
 struct point
@@ -3021,6 +3036,17 @@ struct point
         result.x = x - target.x;
         result.y = y - target.y;
         result.z = z - target.z;
+
+        return result;
+    }
+
+    point operator+(const point& target) const
+    {
+        point result;
+
+        result.x = x + target.x;
+        result.y = y + target.y;
+        result.z = z + target.z;
 
         return result;
     }
@@ -3054,6 +3080,55 @@ struct point
         return result;
     }
 
+    double operator[](const uint& index)
+    {
+        if (index == 0) return x;
+        else if (index == 1) return y;
+        else return z;
+    }
+
+    double operator[](const uint& index) const
+    {
+        if (index == 0) return x;
+        else if (index == 1) return y;
+        else return z;
+    }
+
+    point operator/(const double& value)
+    {
+        point result;
+
+        result.x = x / value;
+        result.y = y / value;
+        result.z = z / value;
+
+        return result;
+    }
+
+    point operator*(const double& value)
+    {
+        point result;
+
+        result.x = x * value;
+        result.y = y * value;
+        result.z = z * value;
+
+        return result;
+    }
+
+    point normalize(double& length) const
+    {
+        point result;
+
+        length = std::sqrt(result.x* result.x + result.y * result.y + result.z * result.z);
+
+        result.x = x / length;
+        result.y = y / length;
+        result.z = z / length;
+
+        return result;
+    }
+
     point cross(const point& target) const
     {
         point result;
@@ -3063,6 +3138,11 @@ struct point
         result.z = x * target.y - y * target.x;
 
         return result;
+    }
+
+    double dot(const point& target) const
+    {
+        return x * target.x + y * target.y + z * target.z;
     }
 
     point getAvg(uint num) const
@@ -3116,6 +3196,27 @@ struct point
 
         return result;
     }
+
+    double distanceSquared(const point& target) const
+    {
+        return (x - target.x) * (x - target.x) + (y - target.y) * (y - target.y) + (z - target.z) * (z - target.z);
+    }
+
+    double distance(const point& target) const
+    {
+        return sqrt((x - target.x) * (x - target.x) + (y - target.y) * (y - target.y) + (z - target.z) * (z - target.z));
+    }
+
+    point getMidPoint(const point& target) const
+    {
+        point result;
+
+        result.x = (target.x + x) / 2.0;
+        result.y = (target.y + y) / 2.0;
+        result.z = (target.z + z) / 2.0;
+
+        return result;
+    }
 };
 
 inline constexpr bool EndsWith(std::string_view text, char c) noexcept
@@ -3132,7 +3233,37 @@ inline constexpr void TrimLeft(std::string_view& text) noexcept
     text.remove_prefix(index);
 }
 
+//referenced from zeux, meshoptimizer https://github.com/zeux/meshoptimizer/tree/master
+#include "external/meshoptimizer.h"
+
+struct Vertex
+{
+    float px, py, pz;
+    float nx, ny, nz;
+    float tx, ty;
+};
+
+struct LODBounds
+{
+    float center[3];
+    float radius;
+    float error;
+};
+
+struct Cluster
+{
+    std::vector<unsigned int> indices;
+
+    LODBounds self;
+    LODBounds parent;
+};
+
+void nanite(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<Vertex>& newVertices, const std::vector<unsigned int>& newIndices); // nanite.cpp
+
 constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
+
+const size_t VERTEXSIZE_PER_MESHLET = 126;
+const size_t TRISIZE_PER_MESHLET = 64;
 
 int main(int argc, char** argv)
 {
@@ -3401,6 +3532,23 @@ int main(int argc, char** argv)
             indexBuffer[i].i1 -= indexOffset[1];
             indexBuffer[i].i2 -= indexOffset[2];
         }
+
+        for (uint i = 0; i < changedVertexSize; ++i) isUsed[i] = false;
+
+        for (uint i = 0; i < indexSize; ++i)
+        {
+            isUsed[indexBuffer[i].i0] = true;
+            isUsed[indexBuffer[i].i1] = true;
+            isUsed[indexBuffer[i].i2] = true;
+        }
+
+        for (uint i = 0; i < changedVertexSize; ++i)
+        {
+            if (isUsed[i] == false)
+            {
+                auto a = 1;
+            }
+        }
     }
 
     for (uint i = 0; i < vertexSize; ++i)
@@ -3432,32 +3580,6 @@ int main(int argc, char** argv)
         vertexBuffer[i].z -= zMid;
         vertexBuffer[i].z /= (maxLen / 2.0);
     }
-
-
-
-    //extent[0] = DBL_MAX;
-    //extent[1] = -DBL_MAX;
-    //extent[2] = DBL_MAX;
-    //extent[3] = -DBL_MAX;
-    //extent[4] = DBL_MAX;
-    //extent[5] = -DBL_MAX;
-
-    //for (uint i = 0; i < vertexSize; ++i)
-    //{
-    //    extent[0] = std::fminl(extent[0], vertexBuffer[i].x);
-    //    extent[1] = std::fmaxl(extent[1], vertexBuffer[i].x);
-    //    extent[2] = std::fminl(extent[2], vertexBuffer[i].y);
-    //    extent[3] = std::fmaxl(extent[3], vertexBuffer[i].y);
-    //    extent[4] = std::fminl(extent[4], vertexBuffer[i].z);
-    //    extent[5] = std::fmaxl(extent[5], vertexBuffer[i].z);
-    //}
-
-    //std::cout << argc << std::endl;
-
-    //for (uint i = 0; i < argc; ++i)
-    //{
-    //    std::cout << argv[i] << std::endl;
-    //}
 
     std::vector<std::vector<point>> faceNormals;
 
@@ -3501,6 +3623,74 @@ int main(int argc, char** argv)
         normalBuffer[i].z = avg.z;
 
         //assert((avg.x* avg.x + avg.y * avg.y + avg.z * avg.z - 1.0) < 0.00001);
+    }
+
+    //clusterize
+    {
+        std::vector<Vertex> vertices;
+        std::vector<uint> indices;
+        
+        vertices.resize(vertexSize);
+        indices.resize(indexSize * 3);
+
+        //TODO : implement for tex coordnate;
+        for (uint i = 0; i < vertexSize; ++i)
+        {
+            vertexBuffer[i];
+            normalBuffer[i];
+
+            vertices[i].px = vertexBuffer[i].x;
+            vertices[i].py = vertexBuffer[i].y;
+            vertices[i].pz = vertexBuffer[i].z;
+
+            vertices[i].nx = normalBuffer[i].x;
+            vertices[i].ny = normalBuffer[i].y;
+            vertices[i].nz = normalBuffer[i].z;
+        }
+
+        for (uint i = 0; i < indexSize; ++i)
+        {
+            indices[i * 3 + 0] = indexBuffer[i].i0;
+            indices[i * 3 + 1] = indexBuffer[i].i1;
+            indices[i * 3 + 2] = indexBuffer[i].i2;
+        }
+
+        std::vector<Vertex> newVertices;
+        std::vector<uint> newIndices;
+
+        nanite(vertices, indices, newVertices, newIndices);
+
+        for (uint i = 0; i < indexSize; ++i)
+        {
+            if (indices[i * 3 + 0] != indexBuffer[i].i0)
+            {
+                auto a = 1;
+            }
+            if (indices[i * 3 + 1] != indexBuffer[i].i1)
+            {
+                auto a = 1;
+            }
+            if (indices[i * 3 + 2] != indexBuffer[i].i2)
+            {
+                auto a = 1;
+            }
+        }
+
+        for (uint i = 0; i < vertexSize; ++i)
+        {
+            if (std::abs(vertices[i].px - vertexBuffer[i].x) > 0.01f)
+            {
+                auto a = 1;
+            }
+            if (std::abs(vertices[i].py - vertexBuffer[i].y) > 0.01f)
+            {
+                auto a = 1;
+            }
+            if (std::abs(vertices[i].pz - vertexBuffer[i].z) > 0.01f)
+            {
+                auto a = 1;
+            }
+        }
     }
 
     {
