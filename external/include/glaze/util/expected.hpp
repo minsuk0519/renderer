@@ -25,6 +25,7 @@
 #pragma once
 
 #include <utility>
+#include <version>
 
 #ifndef GLZ_THROW_OR_ABORT
 #if __cpp_exceptions
@@ -49,7 +50,7 @@ namespace glz
 }
 
 #ifdef __has_include
-#if __has_include(<expected>)
+#if __has_include(<expected>) && __cpp_lib_expected >= 202202L
 #include <expected>
 #elif __has_include(<experimental/expected>)
 #include <experimental/expected>
@@ -59,16 +60,25 @@ namespace glz
 #if defined(__cpp_lib_expected)
 namespace glz
 {
-   template <class expected_t, class unexpected_t>
-   using expected = std::expected<expected_t, unexpected_t>;
+   template <class Expected, class Unexpected>
+   using expected = std::expected<Expected, Unexpected>;
 
-   template <class unexpected_t>
-   struct unexpected : public std::unexpected<unexpected_t>
+   template <class T>
+   concept is_expected =
+      std::same_as<std::remove_cvref_t<T>, expected<typename T::value_type, typename T::error_type> >;
+
+#ifdef __clang__
+   template <class Unexpected>
+   struct unexpected : public std::unexpected<Unexpected>
    {
-      using std::unexpected<unexpected_t>::unexpected;
+      using std::unexpected<Unexpected>::unexpected;
    };
-   template <class unexpected_t>
-   unexpected(unexpected_t) -> unexpected<unexpected_t>;
+   template <class Unexpected>
+   unexpected(Unexpected) -> unexpected<Unexpected>;
+#else
+   template <class Unexpected>
+   using unexpected = std::unexpected<Unexpected>;
+#endif
 }
 #else
 

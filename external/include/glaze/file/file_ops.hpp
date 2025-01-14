@@ -3,46 +3,56 @@
 
 #pragma once
 
+#include <cstdio>
 #include <filesystem>
-#include <fstream>
 #include <string>
 
 #include "glaze/core/context.hpp"
 
+#ifdef _MSC_VER
+// Turn off MSVC warning for unsafe fopen
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
+
 namespace glz
 {
    template <class T>
-   [[nodiscard]] error_code file_to_buffer(T& buffer, std::ifstream& file) noexcept
+   [[nodiscard]] error_code file_to_buffer(T& buffer, auto* file, const std::string_view path)
    {
       if (!file) {
          return error_code::file_open_failure;
       }
 
-      file.seekg(0, std::ios::end);
-      buffer.reserve(file.tellg());
-      file.seekg(0, std::ios::beg);
+      std::error_code ec{};
+      const auto n = std::filesystem::file_size(path, ec);
+      if (ec) {
+         std::fclose(file);
+         return error_code::file_open_failure;
+      }
+      buffer.resize(n);
 
-      buffer.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+      if (n != std::fread(static_cast<void*>(buffer.data()), 1, n, file)) {
+         std::fclose(file);
+         return error_code::file_open_failure;
+      }
+
+      if (std::fclose(file)) {
+         return error_code::file_close_failure;
+      }
 
       return {};
    }
 
    template <class T>
-   [[nodiscard]] error_code file_to_buffer(T& buffer, const std::string& file_name) noexcept
+   [[nodiscard]] error_code file_to_buffer(T& buffer, const std::string_view file_name)
    {
-      std::ifstream file(file_name, std::ios::binary);
-      return file_to_buffer(buffer, file);
+      auto* file = std::fopen(file_name.data(), "rb");
+      return file_to_buffer(buffer, file, file_name);
    }
 
    template <class T>
-   [[nodiscard]] error_code file_to_buffer(T& buffer, const std::string_view file_name) noexcept
-   {
-      std::ifstream file(std::string(file_name), std::ios::binary);
-      return file_to_buffer(buffer, file);
-   }
-
-   template <class T>
-   std::string file_to_buffer(T&& file_name) noexcept
+   std::string file_to_buffer(T&& file_name)
    {
       std::string buffer{};
       file_to_buffer(buffer, std::forward<T>(file_name));
@@ -50,7 +60,7 @@ namespace glz
    }
 
    inline std::filesystem::path relativize_if_not_absolute(const std::filesystem::path& working_directory,
-                                                           const std::filesystem::path& filepath) noexcept
+                                                           const std::filesystem::path& filepath)
    {
       if (filepath.is_absolute()) {
          return filepath;
@@ -59,3 +69,8 @@ namespace glz
       return working_directory / filepath;
    }
 }
+
+#ifdef _MSC_VER
+// restore disabled warning
+#pragma warning(pop)
+#endif

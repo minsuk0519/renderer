@@ -3,31 +3,18 @@
 
 #pragma once
 
-#include <map>
+#include <tuple>
 
-#include "glaze/api/name.hpp"
+#include "glaze/core/meta.hpp"
 
 namespace glz
 {
-   namespace detail
+   template <class... T>
+   struct meta<std::tuple<T...>>
    {
-      template <class Tuple, size_t... I>
-      constexpr std::string_view tuple_name_impl(std::index_sequence<I...>)
-      {
+      static constexpr std::string_view name = []<size_t... I>(std::index_sequence<I...>) {
          return join_v<chars<"std::tuple<">,
-                       ((I != std::tuple_size_v<Tuple> - 1) ? join_v<name_v<std::tuple_element_t<I, Tuple>>, chars<",">>
-                                                            : join_v<name_v<std::tuple_element_t<I, Tuple>>>)...,
-                       chars<">">>;
-      }
-   }
-
-   template <class T>
-   concept tuple = is_specialization_v<T, std::tuple>;
-
-   template <tuple T>
-   struct meta<T>
-   {
-      static constexpr std::string_view name =
-         detail::tuple_name_impl<T>(std::make_index_sequence<std::tuple_size_v<T>>());
+                       ((I != sizeof...(T) - 1) ? join_v<name_v<T>, chars<",">> : join_v<name_v<T>>)..., chars<">">>;
+      }(std::make_index_sequence<sizeof...(T)>{});
    };
 }

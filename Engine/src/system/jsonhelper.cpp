@@ -1,6 +1,6 @@
 #include "system/jsonhelper.hpp"
 
-int rawFileRead(std::string fileName, void* data, uint bufferSize = 0)
+int rawFileRead(std::string fileName, void* data, uint bufferSize)
 {
 	HANDLE hFile = CreateFileA(
 		fileName.c_str(),
@@ -68,6 +68,5 @@ int rawFileRead(std::string fileName, void* data, uint bufferSize = 0)
 
 	// It is always good practice to close the open file handles even though
 	// the app will exit here and clean up open handles anyway.
-
 	CloseHandle(hFile);
 }

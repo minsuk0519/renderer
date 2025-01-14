@@ -6,6 +6,7 @@
 #include <render/mesh.hpp>
 #include <system/window.hpp>
 #include <system/logger.hpp>
+#include <system/jsonhelper.hpp>
 
 #include <vector>
 
@@ -190,67 +191,13 @@ namespace buf
 
     void loadMeshInfo(std::string fileName, meshData* meshData)
     {
-        HANDLE hFile = CreateFileA(
-            fileName.c_str(),
-            GENERIC_READ,
-            0,
-            nullptr,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_READONLY,
-            nullptr);
+        auto pos = fileName.find(".obj");
 
-        std::error_code errorCode;
+        fileName = fileName.substr(pos) + ".info";
 
-        if (hFile == INVALID_HANDLE_VALUE)
-        {
-            errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
-            return -1;
-        }
 
-        auto size = LARGE_INTEGER{};
-        if (!GetFileSizeEx(hFile, &size))
-        {
-            errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
-            CloseHandle(hFile);
-            return -1;
-        }
-
-        std::vector<char> buffer;
-        buffer.resize(BUFFERSIZE);
-
-        uint offset = 0;
-
-        HANDLE m_handle = CreateEventA(nullptr, FALSE, FALSE, nullptr);
-
-        auto error = std::error_code();
-        if (m_handle == INVALID_HANDLE_VALUE)
-        {
-            error = std::error_code(static_cast<int>(GetLastError()), std::system_category());
-        }
-
-        OVERLAPPED overlapped{};
-        overlapped.hEvent = m_handle;
-        overlapped.Offset = static_cast<DWORD>(offset);
-        overlapped.OffsetHigh = static_cast<DWORD>(offset >> 32);
-
-        DWORD bytesRead;
-
-        bool success = ReadFile(hFile, buffer.data(), static_cast<DWORD>(BUFFERSIZE), &bytesRead, nullptr);
-
-        if (!success)
-        {
-            if (auto ec = GetLastError(); ec != ERROR_IO_PENDING)
-            {
-                error = std::error_code(ec, std::system_category());
-            }
-            else
-            {
-                auto a = 1;
-            }
-        }
-
-        CloseHandle(hFile);
-
+        char* data = nullptr;
+        rawFileRead(fileName, data);
     }
 
     void loadFiletoMesh(std::string fileName, meshData* meshdata)
