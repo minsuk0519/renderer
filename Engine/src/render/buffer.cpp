@@ -188,6 +188,71 @@ namespace buf
  
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
 
+    void loadMeshInfo(std::string fileName, meshData* meshData)
+    {
+        HANDLE hFile = CreateFileA(
+            fileName.c_str(),
+            GENERIC_READ,
+            0,
+            nullptr,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_READONLY,
+            nullptr);
+
+        std::error_code errorCode;
+
+        if (hFile == INVALID_HANDLE_VALUE)
+        {
+            errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+            return -1;
+        }
+
+        auto size = LARGE_INTEGER{};
+        if (!GetFileSizeEx(hFile, &size))
+        {
+            errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+            CloseHandle(hFile);
+            return -1;
+        }
+
+        std::vector<char> buffer;
+        buffer.resize(BUFFERSIZE);
+
+        uint offset = 0;
+
+        HANDLE m_handle = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+
+        auto error = std::error_code();
+        if (m_handle == INVALID_HANDLE_VALUE)
+        {
+            error = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+        }
+
+        OVERLAPPED overlapped{};
+        overlapped.hEvent = m_handle;
+        overlapped.Offset = static_cast<DWORD>(offset);
+        overlapped.OffsetHigh = static_cast<DWORD>(offset >> 32);
+
+        DWORD bytesRead;
+
+        bool success = ReadFile(hFile, buffer.data(), static_cast<DWORD>(BUFFERSIZE), &bytesRead, nullptr);
+
+        if (!success)
+        {
+            if (auto ec = GetLastError(); ec != ERROR_IO_PENDING)
+            {
+                error = std::error_code(ec, std::system_category());
+            }
+            else
+            {
+                auto a = 1;
+            }
+        }
+
+        CloseHandle(hFile);
+
+    }
+
     void loadFiletoMesh(std::string fileName, meshData* meshdata)
     {
         auto result = rapidobj::ParseFile(fileName);
@@ -250,6 +315,8 @@ namespace buf
 
         //TODO : not support now
         //meshdata->idxLine = createIndexBuffer(result.shapes[0].lines.indices.data(), static_cast<uint>(sizeof(uint) * result.shapes[0].lines.indices.size()));
+
+        loadMeshInfo(fileName, meshdata);
     }
 
     imagebuffer* loadTextureFromFile(std::wstring filename, bool mip)

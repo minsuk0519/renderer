@@ -48,6 +48,11 @@ const std::string JSON_FILE_PATHS[MAX_FILE] = {
 	"data/pso.json",
 };
 
+//arbitrary buffersize
+constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
+
+int rawFileRead(std::string fileName, void* data, uint bufferSize = 0);
+
 template <typename Buffer>
 void readJsonBuffer(Buffer& buf, const JSON_FILE_NAME& fileIndex)
 {

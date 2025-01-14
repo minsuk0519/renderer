@@ -57,6 +57,9 @@ struct meshData
 	indexbuffer* idx;
 	indexbuffer* idxLine;
 
+	uint lodNum = 0;
+	std::vector<uint> lodData;
+
 	float AABB[msh::EDGE_MAX] = {
 		0.5f, -0.5f, 
 		0.5f, -0.5f, 
