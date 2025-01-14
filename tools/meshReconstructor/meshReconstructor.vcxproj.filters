@@ -63,5 +63,6 @@
     <ClInclude Include="external\meshoptimizer.h">
       <Filter>meshoptimizer</Filter>
     </ClInclude>
+    <ClInclude Include="settings.hpp" />
   </ItemGroup>
 </Project>

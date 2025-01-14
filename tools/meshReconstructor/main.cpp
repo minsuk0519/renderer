@@ -7,6 +7,8 @@
 #include <cassert>
 #include <charconv>
 
+#include "settings.hpp"
+
 typedef unsigned int uint;
 typedef unsigned char uchar;
 
@@ -3236,29 +3238,7 @@ inline constexpr void TrimLeft(std::string_view& text) noexcept
 //referenced from zeux, meshoptimizer https://github.com/zeux/meshoptimizer/tree/master
 #include "external/meshoptimizer.h"
 
-struct Vertex
-{
-    float px, py, pz;
-    float nx, ny, nz;
-    float tx, ty;
-};
-
-struct LODBounds
-{
-    float center[3];
-    float radius;
-    float error;
-};
-
-struct Cluster
-{
-    std::vector<unsigned int> indices;
-
-    LODBounds self;
-    LODBounds parent;
-};
-
-void nanite(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<Vertex>& newVertices, const std::vector<unsigned int>& newIndices); // nanite.cpp
+void nanite(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, std::vector<Cluster>& clusters, std::vector<uint>& clusterSizes); // nanite.cpp
 
 constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
 
@@ -3340,6 +3320,7 @@ int main(int argc, char** argv)
     auto text = std::string_view();
 
     std::vector<face> indexBuffer;
+    std::vector<face> finalIndexBuffer;
     std::vector<point> vertexBuffer;
     std::vector<point> normalBuffer;
 
@@ -3625,6 +3606,9 @@ int main(int argc, char** argv)
         //assert((avg.x* avg.x + avg.y * avg.y + avg.z * avg.z - 1.0) < 0.00001);
     }
 
+    std::vector<Cluster> clusters;
+    std::vector<uint> clusterSizes;
+
     //clusterize
     {
         std::vector<Vertex> vertices;
@@ -3655,42 +3639,88 @@ int main(int argc, char** argv)
             indices[i * 3 + 2] = indexBuffer[i].i2;
         }
 
-        std::vector<Vertex> newVertices;
-        std::vector<uint> newIndices;
+        nanite(vertices, indices, clusters, clusterSizes);
 
-        nanite(vertices, indices, newVertices, newIndices);
+        //LOD 0
+        uint lodIndex = 0;
+        unsigned int clusterSize = clusterSizes[lodIndex];
 
-        for (uint i = 0; i < indexSize; ++i)
+        uint k = 0;
+
+        std::vector<bool> isReside;
+        isReside.resize(vertexSize);
+
+        for (uint i = 0; i < vertexSize; ++i)
         {
-            if (indices[i * 3 + 0] != indexBuffer[i].i0)
+            isReside[i] = false;
+        }
+
+        for (uint i = 0; i < clusterSize; ++i)
+        {
+            uint clusterIndexSize = clusters[i].indices.size();
+
+            for (uint j = 0; j < clusterIndexSize; ++j)
             {
-                auto a = 1;
-            }
-            if (indices[i * 3 + 1] != indexBuffer[i].i1)
-            {
-                auto a = 1;
-            }
-            if (indices[i * 3 + 2] != indexBuffer[i].i2)
-            {
-                auto a = 1;
+                uint clusterIndex = clusters[i].indices[j];
+                isReside.at(clusterIndex) = true;
+                ++k;
             }
         }
 
         for (uint i = 0; i < vertexSize; ++i)
         {
-            if (std::abs(vertices[i].px - vertexBuffer[i].x) > 0.01f)
+            assert(isReside[i] == true);
+        }
+
+        assert(k == (indexSize * 3));
+
+        uint lodNums = clusterSizes.size();
+
+        indexSize = 0;
+
+        for (uint lodID = 0; lodID < lodNums; ++lodID)
+        {
+            uint clusterNums = clusterSizes[lodID];
+            for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
             {
-                auto a = 1;
-            }
-            if (std::abs(vertices[i].py - vertexBuffer[i].y) > 0.01f)
-            {
-                auto a = 1;
-            }
-            if (std::abs(vertices[i].pz - vertexBuffer[i].z) > 0.01f)
-            {
-                auto a = 1;
+                uint clusterSize = clusters[clusterID].indices.size();
+
+                indexSize += clusterSize;
+
+                assert(clusterSize % 3 == 0);
             }
         }
+
+        assert(indexSize % 3 == 0);
+
+        indexSize /= 3;
+        finalIndexBuffer.resize(indexSize);
+
+        uint newIndexID = 0;
+
+        for (uint lodID = 0; lodID < lodNums; ++lodID)
+        {
+            uint clusterNums = clusterSizes[lodID];
+            for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
+            {
+                uint clusterSize = clusters[clusterID].indices.size();
+
+                for (uint indexID = 0; indexID < clusterSize; indexID += 3)
+                {
+                    uint clusterIndex0 = clusters[clusterID].indices[indexID + 0];
+                    uint clusterIndex1 = clusters[clusterID].indices[indexID + 1];
+                    uint clusterIndex2 = clusters[clusterID].indices[indexID + 2];
+
+                    finalIndexBuffer[newIndexID].i0 = clusterIndex0;
+                    finalIndexBuffer[newIndexID].i1 = clusterIndex1;
+                    finalIndexBuffer[newIndexID].i2 = clusterIndex2;
+
+                    ++newIndexID;
+                }
+            }
+        }
+
+        assert(newIndexID == indexSize);
     }
 
     {
@@ -3738,10 +3768,69 @@ int main(int argc, char** argv)
             dataBuffer += "vn " + normalBuffer[i].to_string() + "\n";
         }
 
-        for (auto face : indexBuffer)
+        for (uint i = 0; i < indexSize; ++i)
         {
-            dataBuffer += "f " + face.to_string() + "\n";
+            dataBuffer += "f " + finalIndexBuffer[i].to_string() + "\n";
         }
+
+        DWORD dwBytesToWrite = (DWORD)(dataBuffer.size());
+        DWORD dwBytesWritten = 0;
+
+        BOOL bErrorFlag = WriteFile(
+            hFile,
+            dataBuffer.data(),
+            dwBytesToWrite,
+            &dwBytesWritten,
+            NULL);
+
+        CloseHandle(hFile);
+    }
+
+    {
+        auto extensionPos = fileName.find(".ply");
+        auto targetFileName = fileName.substr(0, extensionPos);
+        targetFileName += ".info";
+
+        HANDLE hFile = CreateFileA(
+            targetFileName.c_str(),
+            FILE_GENERIC_WRITE,
+            0,
+            nullptr,
+            OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            nullptr);
+
+        std::error_code errorCode;
+
+        if (hFile == INVALID_HANDLE_VALUE)
+        {
+            errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+            return -1;
+        }
+
+        auto size = LARGE_INTEGER{};
+        if (!GetFileSizeEx(hFile, &size))
+        {
+            errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+            CloseHandle(hFile);
+            return -1;
+        }
+
+        std::string dataBuffer = "";
+
+        //cluster infos
+        //TODO : put level of details info as well
+        dataBuffer += "Number of LODs : ";
+        dataBuffer += std::to_string(clusterSizes.size());
+        dataBuffer += "\n";
+
+        dataBuffer += "Number of Clusters by LOD : ";
+        for (uint i = 0; i < clusterSizes.size(); ++i)
+        {
+            dataBuffer += std::to_string(clusterSizes[i]);
+            dataBuffer += " ";
+        }
+        dataBuffer += "\n";
 
         DWORD dwBytesToWrite = (DWORD)(dataBuffer.size());
         DWORD dwBytesWritten = 0;
