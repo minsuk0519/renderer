@@ -49,6 +49,14 @@ namespace msh
 	void guiMeshSetting(bool& meshWindow, uint& meshID);
 }
 
+struct lodInfos
+{
+	//how many clusters in lod
+	uint clusterNum;
+	//number of indices in clusters
+	uint clusterSize;
+};
+
 struct meshData
 {
 	vertexbuffer* vbs;
@@ -59,7 +67,7 @@ struct meshData
 	indexbuffer* idxLine;
 
 	uint lodNum = 0;
-	std::vector<uint> lodData;
+	std::vector<lodInfos> lodData;
 
 	float AABB[msh::EDGE_MAX] = {
 		0.5f, -0.5f, 

@@ -209,15 +209,25 @@ namespace buf
             std::string lodNumString = subStr.substr(0, subStr.find('\n'));
             meshData->lodNum = std::stoi(lodNumString);
 
-            subStr = subStr.substr(subStr.find("Number of Clusters by LOD : ") + 28);
+            subStr = subStr.substr(subStr.find("cluster Infos by LOD : \n") + 24);
+
+            meshData->lodData.resize(meshData->lodNum);
 
             for (uint i = 0; i < meshData->lodNum; ++i)
             {
-                uint nextPos = subStr.find(" ");
-                std::string clusterCountString = subStr.substr(0, nextPos);
+                uint nextPos = subStr.find(" : ");
+                std::string valueString = subStr.substr(0, nextPos);
+                TC_ASSERT(std::stoi(valueString) == i);
+                subStr = subStr.substr(nextPos + 3);
+                nextPos = subStr.find(", ");
+                valueString = subStr.substr(0, nextPos);
+                meshData->lodData[i].clusterNum = std::stoi(valueString);
+                subStr = subStr.substr(nextPos + 2);
+                nextPos = subStr.find('\n');
+                valueString = subStr.substr(0, nextPos);
+                meshData->lodData[i].clusterSize = std::stoi(valueString);
 
-                meshData->lodData.push_back(std::stoi(clusterCountString));
-
+                nextPos = subStr.find('\n');
                 subStr = subStr.substr(nextPos + 1);
             }
         }

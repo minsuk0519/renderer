@@ -14,12 +14,17 @@ struct Vertex
 	float tx, ty;
 };
 
-
 struct LODBounds
 {
 	float center[3];
 	float radius;
 	float error;
+};
+
+struct clusterInfo
+{
+	unsigned int clusterNum;
+	unsigned int clusterSize;
 };
 
 struct Cluster

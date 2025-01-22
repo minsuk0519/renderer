@@ -1,2 +1,8 @@
 Number of LODs : 5
-Number of Clusters by LOD : 14 7 4 2 1 
+cluster Infos by LOD : 
+0 : 14, 2520
+1 : 7, 1344
+2 : 4, 768
+3 : 2, 384
+4 : 1, 192
+

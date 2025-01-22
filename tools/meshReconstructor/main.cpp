@@ -3238,7 +3238,7 @@ inline constexpr void TrimLeft(std::string_view& text) noexcept
 //referenced from zeux, meshoptimizer https://github.com/zeux/meshoptimizer/tree/master
 #include "external/meshoptimizer.h"
 
-void nanite(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, std::vector<Cluster>& clusters, std::vector<uint>& clusterSizes); // nanite.cpp
+void nanite(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, std::vector<Cluster>& clusters, std::vector<clusterInfo>& clusterSizes); // nanite.cpp
 
 constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
 
@@ -3607,7 +3607,7 @@ int main(int argc, char** argv)
     }
 
     std::vector<Cluster> clusters;
-    std::vector<uint> clusterSizes;
+    std::vector<clusterInfo> clusterSizes;
 
     //clusterize
     {
@@ -3643,7 +3643,7 @@ int main(int argc, char** argv)
 
         //LOD 0
         uint lodIndex = 0;
-        unsigned int clusterSize = clusterSizes[lodIndex];
+        unsigned int numberofClusters = clusterSizes[lodIndex].clusterNum;
 
         uint k = 0;
 
@@ -3655,7 +3655,7 @@ int main(int argc, char** argv)
             isReside[i] = false;
         }
 
-        for (uint i = 0; i < clusterSize; ++i)
+        for (uint i = 0; i < numberofClusters; ++i)
         {
             uint clusterIndexSize = clusters[i].indices.size();
 
@@ -3680,7 +3680,7 @@ int main(int argc, char** argv)
 
         for (uint lodID = 0; lodID < lodNums; ++lodID)
         {
-            uint clusterNums = clusterSizes[lodID];
+            uint clusterNums = clusterSizes[lodID].clusterNum;
             for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
             {
                 uint clusterSize = clusters[clusterID].indices.size();
@@ -3700,7 +3700,7 @@ int main(int argc, char** argv)
 
         for (uint lodID = 0; lodID < lodNums; ++lodID)
         {
-            uint clusterNums = clusterSizes[lodID];
+            uint clusterNums = clusterSizes[lodID].clusterNum;
             for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
             {
                 uint clusterSize = clusters[clusterID].indices.size();
@@ -3824,11 +3824,14 @@ int main(int argc, char** argv)
         dataBuffer += std::to_string(clusterSizes.size());
         dataBuffer += "\n";
 
-        dataBuffer += "Number of Clusters by LOD : ";
+        dataBuffer += "cluster Infos by LOD : \n";
         for (uint i = 0; i < clusterSizes.size(); ++i)
         {
-            dataBuffer += std::to_string(clusterSizes[i]);
-            dataBuffer += " ";
+            dataBuffer += std::to_string(i) + " : ";
+            dataBuffer += std::to_string(clusterSizes[i].clusterNum);
+            dataBuffer += ", ";
+            dataBuffer += std::to_string(clusterSizes[i].clusterSize);
+            dataBuffer += "\n";
         }
         dataBuffer += "\n";
 
