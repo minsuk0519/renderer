@@ -193,11 +193,36 @@ namespace buf
     {
         auto pos = fileName.find(".obj");
 
-        fileName = fileName.substr(pos) + ".info";
-
+        fileName = fileName.substr(0, pos) + ".info";
 
         char* data = nullptr;
-        rawFileRead(fileName, data);
+        int size = rawFileRead(fileName, &data);
+
+        TC_ASSERT(size >= 0);
+
+        if (size != -1)
+        {
+            std::string stringData = data;
+            auto pos = stringData.find("Number of LODs : ") + 16;
+
+            std::string subStr = stringData.substr(pos);
+            std::string lodNumString = subStr.substr(0, subStr.find('\n'));
+            meshData->lodNum = std::stoi(lodNumString);
+
+            subStr = subStr.substr(subStr.find("Number of Clusters by LOD : ") + 28);
+
+            for (uint i = 0; i < meshData->lodNum; ++i)
+            {
+                uint nextPos = subStr.find(" ");
+                std::string clusterCountString = subStr.substr(0, nextPos);
+
+                meshData->lodData.push_back(std::stoi(clusterCountString));
+
+                subStr = subStr.substr(nextPos + 1);
+            }
+        }
+
+        delete[] data;
     }
 
     void loadFiletoMesh(std::string fileName, meshData* meshdata)

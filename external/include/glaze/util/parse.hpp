@@ -20,6 +20,14 @@
 #include "glaze/util/inline.hpp"
 #include "glaze/util/string_literal.hpp"
 
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
+
 namespace glz::detail
 {
    constexpr std::array<bool, 256> numeric_table = [] {

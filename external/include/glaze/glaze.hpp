@@ -32,6 +32,14 @@
 
 #pragma once
 
+#ifndef _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+#define _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+#endif
+
+#ifndef _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS
+#define _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS
+#endif
+
 #include "glaze/beve.hpp"
 #include "glaze/beve/beve_to_json.hpp"
 #include "glaze/csv.hpp"

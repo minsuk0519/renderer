@@ -1,6 +1,6 @@
 #include "system/jsonhelper.hpp"
 
-int rawFileRead(std::string fileName, void* data, uint bufferSize)
+int rawFileRead(std::string fileName, char** data, uint bufferSize)
 {
 	HANDLE hFile = CreateFileA(
 		fileName.c_str(),
@@ -16,7 +16,7 @@ int rawFileRead(std::string fileName, void* data, uint bufferSize)
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
 		errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
-		return false;
+		return -1;
 	}
 
 	auto size = LARGE_INTEGER{};
@@ -24,7 +24,7 @@ int rawFileRead(std::string fileName, void* data, uint bufferSize)
 	{
 		errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
 		CloseHandle(hFile);
-		return false;
+		return -1;
 	}
 
 	uint fileBufferSize;
@@ -33,7 +33,7 @@ int rawFileRead(std::string fileName, void* data, uint bufferSize)
 		fileBufferSize = BUFFERSIZE;
 	}
 	
-	data = new char[fileBufferSize];
+	*data = new char[fileBufferSize];
 
 	uint offset = 0;
 
@@ -52,7 +52,9 @@ int rawFileRead(std::string fileName, void* data, uint bufferSize)
 
 	DWORD bytesRead;
 
-	bool success = ReadFile(hFile, data, static_cast<DWORD>(BUFFERSIZE), &bytesRead, nullptr);
+	bool success = ReadFile(hFile, reinterpret_cast<void**>(*data), static_cast<DWORD>(BUFFERSIZE), &bytesRead, nullptr);
+
+	(*data)[bytesRead] = '\0';
 
 	if (!success)
 	{
@@ -60,13 +62,13 @@ int rawFileRead(std::string fileName, void* data, uint bufferSize)
 		{
 			error = std::error_code(ec, std::system_category());
 		}
-		else
-		{
-			auto a = 1;
-		}
+
+		return -1;
 	}
 
 	// It is always good practice to close the open file handles even though
 	// the app will exit here and clean up open handles anyway.
 	CloseHandle(hFile);
+
+	return bytesRead;
 }
