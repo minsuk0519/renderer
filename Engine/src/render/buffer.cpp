@@ -225,7 +225,7 @@ namespace buf
                 subStr = subStr.substr(nextPos + 2);
                 nextPos = subStr.find('\n');
                 valueString = subStr.substr(0, nextPos);
-                meshData->lodData[i].clusterSize = std::stoi(valueString);
+                meshData->lodData[i].indicesCount = std::stoi(valueString);
 
                 nextPos = subStr.find('\n');
                 subStr = subStr.substr(nextPos + 1);
@@ -399,7 +399,6 @@ namespace buf
         if (flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
         {
             heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-            //heap_property.CPUPageProperty |= 
             state = D3D12_RESOURCE_STATE_COMMON;
         }
         else
@@ -417,14 +416,26 @@ namespace buf
         return true;
     }
 
+    bool createNonTexture(buffer* buf, uint size, D3D12_RESOURCE_FLAGS flags)
+    {
+        CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+        CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
+        bufDesc.Flags |= flags;
+        D3D12_RESOURCE_STATES resourceStates = D3D12_RESOURCE_STATE_COMMON;
+
+        //TODO depth_write will be changed
+        e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
+            resourceStates, nullptr, IID_PPV_ARGS(&buf->resource));
+
+        return true;
+    }
+
     bool createTexture(buffer* buf, DXGI_FORMAT format, uint width, uint height, unsigned int mipLevel, D3D12_RESOURCE_FLAGS flags, CD3DX12_CLEAR_VALUE* clear, bool depth = false)
     {
         CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
         CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, (UINT16)mipLevel, 1, 0, flags);
         D3D12_RESOURCE_STATES resourceStates = D3D12_RESOURCE_STATE_COMMON;
         if (depth) resourceStates = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-
-
 
         //TODO depth_write will be changed
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
@@ -790,7 +801,14 @@ namespace buf
 
         trackedBuffer.push_back(newBuffer);
 
-        createTexture(newBuffer, format, width, height, mipLevel, flags, nullptr);
+        if (height == 0)
+        {
+            createNonTexture(newBuffer, width, flags);
+        }
+        else
+        {
+            createTexture(newBuffer, format, width, height, mipLevel, flags, nullptr);
+        }
 
         newBuffer->view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         newBuffer->view.Format = format;
@@ -826,14 +844,11 @@ namespace buf
 
     uavbuffer* createUAVBuffer(const uint size)
     {
-        //cbv size should be multiplied by 256 bytes
-        uint paddingSize = size;
-
         uavbuffer* newBuffer = new uavbuffer();
 
         trackedBuffer.push_back(newBuffer);
 
-        createResource(newBuffer, paddingSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+        createResource(newBuffer, size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
         newBuffer->view.Format = DXGI_FORMAT_R32_FLOAT;
         newBuffer->view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;

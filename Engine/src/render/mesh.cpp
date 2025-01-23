@@ -142,6 +142,10 @@ namespace msh
             newData->getData()->idx = buf::createIndexBuffer(cubeIndices, sizeof(cubeIndices));
             newData->getData()->idxLine = buf::createIndexBuffer(cubeIndicesLine, sizeof(cubeIndicesLine));
 
+            //no LOD
+            newData->getData()->lodNum = 1;
+            newData->getData()->lodData.push_back(lodInfos(1, 36));
+
             meshes[MESH_CUBE] = newData;
         }
 
@@ -173,6 +177,9 @@ namespace msh
         newMeshData->norm = n;
         newMeshData->idx = index;
 
+        newMeshData->lodNum = 1;
+        newMeshData->lodData.push_back(lodInfos(1, index->view.SizeInBytes / sizeof(uint)));
+
         newData->init(newMeshData);
 
         meshes[MESH_TERRAIN] = newData;
@@ -186,6 +193,11 @@ namespace msh
             meshes[i]->close();
             delete meshes[i];
         }
+    }
+
+    mesh* getMesh(const uint& idx)
+    {
+        return meshes[idx];
     }
 
     mesh* getMesh(const MESH_INDEX idx)

@@ -54,6 +54,12 @@ private:
 	uavbuffer* terrainTex[3];
 	uavbuffer* unifiedBuffer[2];
 	uavbuffer* commandBuffer;
+
+	//meshID -> meshOffset
+	imagebuffer* meshOffsetBuffer;
+	//meshOffset + lodID -> lodOffset
+	imagebuffer* lodOffsetBuffer;
+	
 	constantbuffer* cmdConstBuffer;
 
 	vertexbuffer* vertexIDBuffer;

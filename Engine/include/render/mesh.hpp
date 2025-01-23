@@ -33,6 +33,7 @@ namespace msh
 
 	void setUpTerrain(vertexbuffer* vertex, vertexbuffer* n, indexbuffer* index);
 
+	mesh* getMesh(const uint& idx);
 	mesh* getMesh(const MESH_INDEX idx);
 
 	enum EDGE_ENUM
@@ -53,8 +54,8 @@ struct lodInfos
 {
 	//how many clusters in lod
 	uint clusterNum;
-	//number of indices in clusters
-	uint clusterSize;
+	//number of indices in lods
+	uint indicesCount;
 };
 
 struct meshData
@@ -66,7 +67,7 @@ struct meshData
 	indexbuffer* idx;
 	indexbuffer* idxLine;
 
-	uint lodNum = 0;
+	uint lodNum = 1;
 	std::vector<lodInfos> lodData;
 
 	float AABB[msh::EDGE_MAX] = {

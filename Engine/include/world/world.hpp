@@ -12,6 +12,7 @@ class object;
 class world;
 
 constexpr uint MAX_OBJECTS = 256;
+constexpr uint MAX_LODS = 8;
 
 namespace game
 {
