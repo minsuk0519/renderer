@@ -452,6 +452,46 @@ void renderer::setUp()
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
+
+	//setup meshoffset buffer and lodoffset buffer
+	{
+		D3D12_BUFFER_SRV meshOffsetDesc;
+		uint meshOffsetSize = MAX_OBJECTS * sizeof(uint);
+		meshOffsetBuffer = buf::createImageBuffer(meshOffsetSize, 0, 1, DXGI_FORMAT_R32_UINT);
+		uint lodOffsetSize = MAX_OBJECTS * sizeof(uint);
+		lodOffsetBuffer = buf::createImageBuffer(MAX_OBJECTS * MAX_LODS * sizeof(uint), 0, 1, DXGI_FORMAT_R32_UINT);
+		
+		uint meshOffsetData[msh::MESH_END];
+		uint meshOffset = 0;
+		
+		for (uint i = 0; i < msh::MESH_END; ++i)
+		{
+			meshOffsetData[i] = meshOffset;
+			meshOffset += msh::getMesh(i)->getData()->lodNum;
+		}
+
+		uint* lodOffsetBufferData = new uint[meshOffset];
+
+		uint lodOffsetBufferIndex = 0;
+		uint lodOffset = 0;
+
+		for (uint i = 0; i < msh::MESH_END; ++i)
+		{
+			uint lodCount = msh::getMesh(i)->getData()->lodNum;
+			for (uint j = 0; j < lodCount; ++j)
+			{
+				lodOffsetBufferData[lodOffsetBufferIndex] = lodOffset;
+				lodOffset += msh::getMesh(i)->getData()->lodData[j].indicesCount;
+				++lodOffsetBufferIndex;
+			}
+		}
+
+		TC_ASSERT(lodOffsetBufferIndex == meshOffset);
+
+		meshOffsetBuffer->uploadBuffer(msh::MESH_END * sizeof(uint), meshOffsetData);
+		lodOffsetBuffer->uploadBuffer(lodOffsetBufferIndex * sizeof(uint), lodOffsetBufferData);
+		delete[] lodOffsetBufferData;
+	}
 	
 	for(uint i = 0; i < msh::MESH_END; ++i)
 	{
@@ -516,6 +556,7 @@ void renderer::setUp()
 	}
 }
 
+//TODO 
 #include <world/object.hpp>
 
 void renderer::draw(float dt)
