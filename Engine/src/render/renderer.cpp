@@ -405,11 +405,17 @@ struct cmdConsts
 
 void renderer::setUp()
 {
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Terrain", sizeof("Generate Terrain"));
+
 	setUpTerrain();
+	
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 
 	uint clusterOffset = 0;
 	uint vertexOffset = 0;
 	uint indexOffset = 0;
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Universal Buffer", sizeof("Generate Universal Buffer"));
 
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
@@ -492,6 +498,9 @@ void renderer::setUp()
 		lodOffsetBuffer->uploadBuffer(lodOffsetBufferIndex * sizeof(uint), lodOffsetBufferData);
 		delete[] lodOffsetBufferData;
 	}
+
+	meshOffsetDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, meshOffsetBuffer);
+	lodOffsetDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, lodOffsetBuffer);
 	
 	for(uint i = 0; i < msh::MESH_END; ++i)
 	{
@@ -546,6 +555,8 @@ void renderer::setUp()
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
 
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+
 	{
 		cmdConstBuffer = buf::createConstantBuffer(513 * sizeof(uint));
 		commandConstDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, cmdConstBuffer);
@@ -570,6 +581,8 @@ void renderer::draw(float dt)
 
 	e_globWorld.drawWorld(cmdList, false);
 
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Generate cmdBuffer", sizeof("Generate cmdBuffer"));
+
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
@@ -586,13 +599,19 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_VERTEX_BUFFER, unifiedDesc[1].getHandle());
 
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_MESH_OFFSET, meshOffsetDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_LOD_OFFSET, lodOffsetDesc.getHandle());
+
 		computeCmdList->Dispatch(objCount, 1, 1);
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
+
 		cmdList->IASetVertexBuffers(0, 1, &vertexIDBuffer->view);
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
 
 		for (uint i = 0; i < e_globWorld.objectNum; ++i)
 		{
@@ -613,6 +632,10 @@ void renderer::draw(float dt)
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw SSAO", sizeof("Draw SSAO"));
+
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
@@ -632,6 +655,8 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Blur AO", sizeof("Blur AO"));
 
 	for(uint i = 0; i < 2; ++i)
 	{
@@ -654,7 +679,12 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
 
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
+
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_PBR);
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw light", sizeof("Draw light"));
 
 	swapchainFB[frameIndex]->openFB(cmdList, true);
 
@@ -687,9 +717,11 @@ void renderer::draw(float dt)
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
-	//AABB draw
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
+
 	if(renderGuiSetting::guiDebug.AABBDraw)
 	{
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw AABB", sizeof("Draw AABB"));
 		unsigned char* aabbGPUAddress = nullptr;
 		AABBwireframeBuffer->mapBuffer(&aabbGPUAddress);
 
@@ -714,6 +746,8 @@ void renderer::draw(float dt)
 
 		swapchainFB[frameIndex]->closeFB(cmdList);
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
 
 	TC_CONDITION(swapChain->Present(vsync, 0) == S_OK, "Failed to present the swapchain");
