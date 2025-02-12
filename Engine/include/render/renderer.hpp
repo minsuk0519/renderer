@@ -14,6 +14,13 @@ class framebuffer;
 
 constexpr uint FRAME_COUNT = 2;
 
+struct meshInfo
+{
+	uint lodOffset;
+	uint numLod;
+	uint vertexOffset;
+};
+
 class renderer
 {
 public:
@@ -55,10 +62,10 @@ private:
 	uavbuffer* unifiedBuffer[2];
 	uavbuffer* commandBuffer;
 
-	//meshID -> meshOffset
-	imagebuffer* meshOffsetBuffer;
-	//meshOffset + lodID -> lodOffset
-	imagebuffer* lodOffsetBuffer;
+	meshInfo* meshInfos;
+	imagebuffer* meshInfoBuffer;
+	imagebuffer* lodInfoBuffer;
+	imagebuffer* clusterInfoBuffer;
 	
 	constantbuffer* cmdConstBuffer;
 
@@ -83,6 +90,10 @@ public:
 	descriptor commandConstDesc;
 	descriptor vertexIDDesc;
 	descriptor objectConstDesc;
+
+	descriptor meshInfoDesc;
+	descriptor lodInfoDesc;
+	descriptor clusterInfoDesc;
 private:
 	void setUpTerrain();
 };

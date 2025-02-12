@@ -55,7 +55,8 @@ struct lodInfos
 	//how many clusters in lod
 	uint clusterNum;
 	//number of indices in lods
-	uint indicesCount;
+	uint totalIndicesCount;
+	std::vector<uint> indexSize;
 };
 
 struct meshData

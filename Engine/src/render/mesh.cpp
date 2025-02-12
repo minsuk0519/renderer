@@ -144,7 +144,7 @@ namespace msh
 
             //no LOD
             newData->getData()->lodNum = 1;
-            newData->getData()->lodData.push_back(lodInfos(1, 36));
+            newData->getData()->lodData.push_back(lodInfos(1, 36, { 48 }));
 
             meshes[MESH_CUBE] = newData;
         }
@@ -178,7 +178,8 @@ namespace msh
         newMeshData->idx = index;
 
         newMeshData->lodNum = 1;
-        newMeshData->lodData.push_back(lodInfos(1, index->view.SizeInBytes / sizeof(uint)));
+        newMeshData->lodData.push_back(lodInfos(4096, index->view.SizeInBytes / sizeof(uint)));
+        for(uint i = 0; i < 4096; ++i) newMeshData->lodData[0].indexSize.push_back(384);
 
         newData->init(newMeshData);
 

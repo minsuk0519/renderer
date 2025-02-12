@@ -13,3 +13,34 @@ struct object
     float metal;
     float roughness;
 };
+
+struct cmdBuf
+{
+    uint cbv;
+
+    uint VertexCountPerInstance;
+    uint InstanceCount;
+    uint StartVertexLocation;
+    uint StartInstanceLocation;
+};
+
+//meshInfos
+struct meshInfo
+{
+    uint lodOffset;
+    uint lodNum;
+    uint vertexOffset;
+};
+//lodInfos
+struct lodInfo
+{
+    uint clusterCount;
+    uint clusterOffset;
+    uint indexSize;
+};
+//clusterInfos
+struct clusterInfo
+{
+    uint indexSize;
+    uint indexOffset;
+};
