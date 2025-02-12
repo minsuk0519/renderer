@@ -128,5 +128,15 @@
 		"cs":false,
 		"depth":false,
 		"wireframe":true
+	},{
+		"psoIndex":12,
+		"psoName":"GenTerrainIndex",
+		"vertexIndex":16,
+		"pixelIndex":16,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
 	}
 ]

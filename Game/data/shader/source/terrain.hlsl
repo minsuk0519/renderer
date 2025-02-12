@@ -9,9 +9,6 @@ StructuredBuffer<float> noiseMap : register(t0);
 static const int THREADS_X = 8;
 static const int THREADS_Y = 8;
 
-static const int CLUSTER_X = 4;
-static const int CLUSTER_Y = 4;
-
 static const int NUMTHREADS = THREADS_X * THREADS_Y;
 
 cbuffer cb_Height : register(b0)
@@ -19,47 +16,105 @@ cbuffer cb_Height : register(b0)
 	float HEIGHT_MODIFIER = 100.0f;
 }
 
-groupshared float HEIGHTS[THREADS_Y + 1][THREADS_X + 1];
+groupshared float HEIGHTS[THREADS_Y][THREADS_X];
+
+uint getIndex(uint u, uint v)
+{
+	return u + v * NOISE_WIDTH;
+}
 
 [numthreads(THREADS_X, THREADS_Y, 1)]
-void terrain_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
 {
-	uint index = (groupID.x + groupID.y * (NOISE_WIDTH - 1) / THREADS_X) * NUMTHREADS + gtid.x % CLUSTER_X + ((NUMTHREADS / CLUSTER_X) * (gtid.x / CLUSTER_X)) + CLUSTER_X * (gtid.y % CLUSTER_Y) + ((NUMTHREADS / CLUSTER_X) * (THREADS_X / CLUSTER_X) * (gtid.y / CLUSTER_Y));
-	//uint index = ((groupID.y * THREADS_Y + gtid.y) * NOISE_WIDTH + groupID.x * THREADS_X + gtid.x);
+	uint u = groupID.x * (THREADS_X - 1) + gtid.x;
+	uint v = groupID.y * (THREADS_Y - 1) + gtid.y;
 
-	float u = groupID.x * THREADS_X + gtid.x;
-	float v = groupID.y * THREADS_Y + gtid.y;
+	bool skipVert = false;
 
-	float height = noiseMap[u + v * NOISE_WIDTH] * HEIGHT_MODIFIER;
+	if(gtid.x == 0 || gtid.y == 0 || gtid.x == (THREADS_X - 1) || gtid.y == (THREADS_Y - 1)) skipVert = true;
+	if(groupID.x == 0 || groupID.y == 0|| groupID.x == (NOISE_WIDTH - 1) || groupID.y == (NOISE_HEIGHT - 1)) skipVert = false;
+
+	uint index = getIndex(u, v);
+
+	uint height;
+	if(u >= NOISE_WIDTH || v >= NOISE_HEIGHT)
+	{
+		skipVert = true;
+		height = 0.0f;
+	}
+	else
+	{
+		height = noiseMap[index] * HEIGHT_MODIFIER - 0.5 * HEIGHT_MODIFIER;
+	}
 
 	HEIGHTS[gtid.y][gtid.x] = height;
 
-	if(gtid.y == (THREADS_Y - 1) && gtid.x == (THREADS_X - 1)) HEIGHTS[THREADS_Y][THREADS_X] = noiseMap[u + 1 + (v + 1) * NOISE_WIDTH] * HEIGHT_MODIFIER;
-	if(gtid.y == (THREADS_Y - 1)) HEIGHTS[THREADS_Y][gtid.x] = noiseMap[u + (v + 1) * NOISE_WIDTH] * HEIGHT_MODIFIER;
-	if(gtid.x == (THREADS_X - 1)) HEIGHTS[gtid.y][THREADS_X] = noiseMap[u + 1 + v * NOISE_WIDTH] * HEIGHT_MODIFIER;
-
 	GroupMemoryBarrierWithGroupSync();
+	
+	//skip to write vertex
+	if(!skipVert)
+	{
+		float3 diff[4];
 
-	float h1 = HEIGHTS[gtid.y][gtid.x] - 0.5 * HEIGHT_MODIFIER;
-	float h2 = HEIGHTS[gtid.y][gtid.x + 1] - 0.5 * HEIGHT_MODIFIER;
-	float h3 = HEIGHTS[gtid.y + 1][gtid.x] - 0.5 * HEIGHT_MODIFIER;
-	float h4 = HEIGHTS[gtid.y + 1][gtid.x + 1] - 0.5 * HEIGHT_MODIFIER;
+		uint bits = 0;
 
-	vertOut[index * 4 + 0] = float3(u, h1, v) / (NOISE_WIDTH - 1) - float3(0.5, 0.0, 0.5);
-	vertOut[index * 4 + 1] = float3(u + 1, h2, v) / (NOISE_WIDTH - 1) - float3(0.5, 0.0, 0.5);
-	vertOut[index * 4 + 2] = float3(u, h3, v + 1) / (NOISE_WIDTH - 1) - float3(0.5, 0.0, 0.5);
-	vertOut[index * 4 + 3] = float3(u + 1, h4, v + 1) / (NOISE_WIDTH - 1) - float3(0.5, 0.0, 0.5);
+		float hCenter = HEIGHTS[gtid.y][gtid.x];
 
-	float3 v1 = float3(1, h2 - h1, 0);
-	float3 v2 = float3(0, h3 - h1, 1);
+		if(u < (NOISE_WIDTH - 1) && gtid.x < (THREADS_X - 1))
+		{
+			diff[0] = float3(1, HEIGHTS[gtid.y][gtid.x + 1] - hCenter, 0);
+			bits |= 1;
+		}
+		if(v < (NOISE_HEIGHT - 1) && gtid.y < (THREADS_Y - 1))
+		{
+			diff[1] = float3(0, HEIGHTS[gtid.y + 1][gtid.x] - hCenter, 1);
+			bits |= 2;
+		}
+		if(u != 0)
+		{
+			diff[2] = float3(-1, HEIGHTS[gtid.y][gtid.x - 1] - hCenter, 0);
+			bits |= 4;
+		}
+		if(v != 0)
+		{
+			diff[3] = float3(0, HEIGHTS[gtid.y - 1][gtid.x] - hCenter, -1);
+			bits |= 8;
+		}
 
-	float3 norm = normalize(cross(v2, v1));
+		vertOut[index] = float3(u, hCenter, v) / (NOISE_WIDTH - 1) - float3(0.5, 0.0, 0.5);
 
-	normOut[index * 4 + 0] = norm;
-	normOut[index * 4 + 1] = norm;
-	normOut[index * 4 + 2] = norm;
-	normOut[index * 4 + 3] = norm;
+		float3 accumNorm = float3(0,0,0);
 
-	indexOut[index * 2 + 0] = uint3(index * 4 + 0, index * 4 + 2, index * 4 + 1);
-	indexOut[index * 2 + 1] = uint3(index * 4 + 2, index * 4 + 3, index * 4 + 1);
+		[unroll]
+		for(uint i = 0; i < 4; ++i)
+		{
+			uint nextIndex = (i == 3) ? 0 : (i + 1);
+			if((bits & (1U << i)) && (bits & (1U << nextIndex)))
+			{
+				float3 v1 = diff[i];
+				float3 v2 = diff[nextIndex];
+
+				accumNorm += normalize(cross(v1, v2));
+			}
+		}
+
+		normOut[index] = normalize(accumNorm);
+	} 
+}
+
+[numthreads(THREADS_X, THREADS_Y, 1)]
+void genTerrainIndex_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+{
+	uint squareIndex = gtid.x + gtid.y * THREADS_X + THREADS_X * THREADS_Y * groupID.x + groupID.y * (NOISE_WIDTH - 1) * THREADS_Y;
+
+	uint baseU = groupID.x * (THREADS_X) + gtid.x;
+	uint baseV = groupID.y * (THREADS_Y) + gtid.y;
+
+	uint index = getIndex(baseU, baseV);
+	uint indexBottomRight = getIndex(baseU + 1, baseV + 1);
+	uint indexBottomLeft = getIndex(baseU, baseV + 1);
+	uint indexTopRight = getIndex(baseU + 1, baseV);
+
+	indexOut[(squareIndex) * 2 + 0] = uint3(index, indexTopRight, indexBottomLeft);
+	indexOut[(squareIndex) * 2 + 1] = uint3(indexTopRight, indexBottomLeft, indexBottomRight);
 }

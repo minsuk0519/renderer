@@ -55,7 +55,7 @@
 		"shaderIndex":8
 	},{
 		"shaderFile":"data/shader/source/terrain.hlsl",
-		"entryPoint":"terrain_cs",
+		"entryPoint":"genTerrainVert_cs",
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":9
@@ -95,5 +95,11 @@
 		"target":"ps_6_5",
 		"shaderType":1,
 		"shaderIndex":15
+	},{
+		"shaderFile":"data/shader/source/terrain.hlsl",
+		"entryPoint":"genTerrainIndex_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":16
 	}
 ]

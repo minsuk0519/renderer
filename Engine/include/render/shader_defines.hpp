@@ -38,13 +38,14 @@
 #define UAV_TERRAIN_VERT	GET_HLSL_LOC_UAV(0)
 //u1 normal output
 #define UAV_TERRAIN_NORM	GET_HLSL_LOC_UAV(1)
-//u2 indices output
+//u2 normal output
 #define UAV_TERRAIN_INDEX	GET_HLSL_LOC_UAV(2)
 //t0 position
 #define SRV_TERRAIN_NOISE	GET_HLSL_LOC_SRV(0)
 //b0 terrain constants
 #define CBV_TERRAINCONST	GET_HLSL_LOC_CBV(0)
 ////////////////////Terrain Buffer Ends
+
 
 ////////////////////Noise Buffer Begin
 //u0 noise output
@@ -71,8 +72,14 @@
 #define UAV_CMD_BUFFER				GET_HLSL_LOC_UAV(0)
 //u1 vertexID buffer output
 #define UAV_CMD_VERTEXID_BUFFER		GET_HLSL_LOC_UAV(1)
-//t0 vertex buffer input
-#define SRV_CMD_VERTEX_BUFFER		GET_HLSL_LOC_SRV(0)
+//t0 mesh info buffer input
+#define SRV_MESH_INFO_BUFFER		GET_HLSL_LOC_SRV(0)
+//t1 lod info buffer input
+#define SRV_LOD_INFO_BUFFER			GET_HLSL_LOC_SRV(1)
+//t2 cluster info buffer input
+#define SRV_CLUSTER_INFO_BUFFER		GET_HLSL_LOC_SRV(2)
+//t3 vertex ID Offsets buffer input
+#define SRV_VERTEX_ID_OFFSET		GET_HLSL_LOC_SRV(3)
 //b0 cmdBuf constants
 #define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(0)
 ////////////////////cmdBuf Buffer Ends
@@ -96,6 +103,7 @@ namespace render
 		PSO_GENCMDBUF,
 		PSO_GBUFFERINDIRECT,
 		PSO_AABBDEBUGDRAW,
+		PSO_GENTERRAININDEX,
 		PSO_END,
 	};
 }
