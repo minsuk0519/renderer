@@ -132,11 +132,15 @@ struct buffer
 struct vertexbuffer : public buffer
 {
 	D3D12_VERTEX_BUFFER_VIEW view = {};
+
+	uint getElemSize() const;
 };
 
 struct indexbuffer : public buffer
 {
 	D3D12_INDEX_BUFFER_VIEW view = {};
+
+	uint getElemSize() const;
 };
 
 struct uavbuffer : public buffer

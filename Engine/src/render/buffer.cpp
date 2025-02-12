@@ -213,6 +213,7 @@ namespace buf
 
             meshData->lodData.resize(meshData->lodNum);
 
+            uint totalClusters = 0;
             for (uint i = 0; i < meshData->lodNum; ++i)
             {
                 uint nextPos = subStr.find(" : ");
@@ -222,13 +223,35 @@ namespace buf
                 nextPos = subStr.find(", ");
                 valueString = subStr.substr(0, nextPos);
                 meshData->lodData[i].clusterNum = std::stoi(valueString);
+                totalClusters += meshData->lodData[i].clusterNum;
                 subStr = subStr.substr(nextPos + 2);
                 nextPos = subStr.find('\n');
                 valueString = subStr.substr(0, nextPos);
-                meshData->lodData[i].indicesCount = std::stoi(valueString);
+                meshData->lodData[i].totalIndicesCount = std::stoi(valueString);
 
                 nextPos = subStr.find('\n');
                 subStr = subStr.substr(nextPos + 1);
+            }
+
+            uint nextPos = subStr.find("\n") + 1;
+            subStr = subStr.substr(nextPos);
+
+            for (uint i = 0; i < meshData->lodNum; ++i)
+            {
+                uint totalIndexCount = 0;
+
+                for (uint j = 0; j < meshData->lodData[i].clusterNum; ++j)
+                {
+                    nextPos = subStr.find(", \n");
+                    std::string valueString = subStr.substr(0, nextPos);
+                    uint indexCount = std::stoi(valueString);
+                    meshData->lodData[i].indexSize.push_back(indexCount);
+                    totalIndexCount += indexCount;
+                    
+                    subStr = subStr.substr(nextPos + 1);
+                }
+
+                TC_ASSERT(totalIndexCount == meshData->lodData[i].totalIndicesCount);
             }
         }
 
@@ -427,6 +450,15 @@ namespace buf
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             resourceStates, nullptr, IID_PPV_ARGS(&buf->resource));
 
+        imagebuffer* imgBuffer = dynamic_cast<imagebuffer*>(buf);
+        if (imgBuffer != nullptr)
+        {
+            imgBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            imgBuffer->view.Buffer.FirstElement = 0;
+            imgBuffer->view.Buffer.NumElements = size / 4;
+            imgBuffer->view.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+        }
+
         return true;
     }
 
@@ -440,6 +472,13 @@ namespace buf
         //TODO depth_write will be changed
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             resourceStates, clear, IID_PPV_ARGS(&buf->resource));
+
+        imagebuffer* imgBuffer = dynamic_cast<imagebuffer*>(buf);
+        if (imgBuffer != nullptr)
+        {
+            imgBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            imgBuffer->view.Texture2D.MipLevels = mipLevel;
+        }
 
         return true;
     }
@@ -812,8 +851,6 @@ namespace buf
 
         newBuffer->view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         newBuffer->view.Format = format;
-        newBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        newBuffer->view.Texture2D.MipLevels = mipLevel;
 
         return newBuffer;
     }
@@ -916,4 +953,17 @@ void buffer::mapBuffer(unsigned char** dataPtr)
 void buffer::unmapBuffer()
 {
     resource->Unmap(0, nullptr);
+}
+
+uint vertexbuffer::getElemSize() const
+{
+    return view.SizeInBytes / view.StrideInBytes;
+}
+
+uint indexbuffer::getElemSize() const
+{
+    uint elemByteSize = 4;
+
+    //TODO
+    return view.SizeInBytes / elemByteSize;
 }
