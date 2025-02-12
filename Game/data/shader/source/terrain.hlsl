@@ -31,8 +31,7 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 
 	bool skipVert = false;
 
-	if(gtid.x == 0 || gtid.y == 0 || gtid.x == (THREADS_X - 1) || gtid.y == (THREADS_Y - 1)) skipVert = true;
-	if(groupID.x == 0 || groupID.y == 0|| groupID.x == (NOISE_WIDTH - 1) || groupID.y == (NOISE_HEIGHT - 1)) skipVert = false;
+	if((u != 0 && gtid.x == 0) || (v != 0 && gtid.y == 0)) skipVert = true;
 
 	uint index = getIndex(u, v);
 
