@@ -11,7 +11,9 @@ class camera;
 class object;
 class world;
 
+constexpr uint THREADS_NUM_CLUSTERS = 64;
 constexpr uint MAX_OBJECTS = 256;
+constexpr uint MAX_CLUSTERS = 1024 * MAX_OBJECTS;
 constexpr uint MAX_LODS = 8;
 
 namespace game

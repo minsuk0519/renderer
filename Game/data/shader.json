@@ -101,5 +101,23 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":16
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"uploadLocalObj_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":17
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"cullCluster_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":18
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"initCluster_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":19
 	}
 ]

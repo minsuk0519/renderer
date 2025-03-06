@@ -19,6 +19,7 @@ struct meshInfo
 	uint lodOffset;
 	uint numLod;
 	uint vertexOffset;
+	uint flags = 0;
 };
 
 class renderer
@@ -66,6 +67,10 @@ private:
 	imagebuffer* meshInfoBuffer;
 	imagebuffer* lodInfoBuffer;
 	imagebuffer* clusterInfoBuffer;
+	uavbuffer* localClusterOffsetBuffer;
+	uavbuffer* localClusterSizeBuffer;
+	uavbuffer* clusterArgsBuffer;
+	imagebuffer* viewInfoBuffer;
 	
 	constantbuffer* cmdConstBuffer;
 
@@ -94,6 +99,10 @@ public:
 	descriptor meshInfoDesc;
 	descriptor lodInfoDesc;
 	descriptor clusterInfoDesc;
+	descriptor localClusterOffsetDesc;
+	descriptor localClusterSizeDesc;
+	descriptor clusterArgsDesc;
+	descriptor viewInfoDesc;
 private:
 	void setUpTerrain();
 };

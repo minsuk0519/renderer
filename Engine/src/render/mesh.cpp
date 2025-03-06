@@ -144,7 +144,7 @@ namespace msh
 
             //no LOD
             newData->getData()->lodNum = 1;
-            newData->getData()->lodData.push_back(lodInfos(1, 36, { 48 }));
+            newData->getData()->lodData.push_back(lodInfos(1, 36, { 36 }));
 
             meshes[MESH_CUBE] = newData;
         }

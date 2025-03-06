@@ -3,6 +3,9 @@
 
 StructuredBuffer<float3> UVB : register(t0);
 StructuredBuffer<uint> UIB : register(t1);
+StructuredBuffer<uint> clusterArgs : register(t2);
+StructuredBuffer<float> viewInfos : register(t3);
+StructuredBuffer<uint> meshInfos : register(t4);
 
 struct PSInput
 {
@@ -25,34 +28,79 @@ cbuffer cb_objectIdentification : register(b2)
     uint objectID;
 }
 
-PSInput gbufferIndirect_vs(uint clusterID : VPOSITION)
+//(w x y z)
+float3 quatRotate(float4 q, float3 v)
+{
+    float3 result;
+
+    // float qyz = q.z * q.w;
+    // float qwx = q.x * q.y;
+    // float qwy = q.x * q.z;
+    // float qxz = q.y * q.w;
+    // float qwz = q.x * q.w;
+    // float qxy = q.y * q.z;
+
+    // result.x = q.x * q.x * v.x + 2.0f * (qwy - qxz) * v.y + 2.0f * (qwz + qxy) * v.z;
+    // result.y = q.y * q.y * v.y + 2.0f * (qwz - qxy) * v.x + 2.0f * (qyz - qwx) * v.z;
+    // result.z = q.z * q.z * v.z + 2.0f * (qwy + qxz) * v.x + 2.0f * (qyz + qwx) * v.y;
+
+    result = 2.0f * dot(q.xyz, v) * q.xyz + (q.w * q.w - dot(q.xyz, q.xyz)) * v + 2.0f * q.w * cross(q.xyz, v);
+
+    return result;
+}
+
+PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_InstanceID)
 {
     PSInput result;
 
-    uint clusterNum = ((1 << 16) - 1) & clusterID;
-    uint triOffset = ((1 << 6) - 1) & (clusterID >> 16);
-    uint triNum = ((1 << 2) - 1 ) & (clusterID >> 22);
-    uint meshIndex = clusterID >> 24;
-    uint objID = ((1 << 16) - 1) & objectID;
+    uint indexOffset = clusterArgs[(clusterID) * 3 + 0];
+    uint indexSize = clusterArgs[(clusterID) * 3 + 1];
+    uint packedID = clusterArgs[(clusterID) * 3 + 2];
 
-    result.output.x = clusterNum;
-    result.output.y = triOffset;
-    result.output.z = triNum;
-    result.output.w = meshIndex;
+    uint objectInfo = packedID & ((1 << 16) - 1);
+    uint meshIndex = objectInfo >> 3;
+    uint objID = packedID >> 16;
 
-    uint vertexIndexOffset = UIB[vertexMax * 3 + meshIndex * 3 + 0];
-    uint vertexIndex = UIB[vertexIndexOffset + triNum + 3 * (triOffset + 64 * clusterNum)];
+    uint vertexOffset = meshInfos[meshIndex * 4 + 2];
 
-    float3 position = UVB[vertexIndex];
-    float3 normal = UVB[vertexIndexOffset + clusterNum * 64 + triOffset + vertexMax];
+    uint vertexIndex = UIB[indexOffset + vertexID];
 
-    float4 worldPos = mul(objs[objID].objectMat, float4(position, 1.0));
-    result.worldPos = worldPos.xyz;
-    float4 viewPos = mul(proj.viewMat, worldPos);
-    result.position = mul(proj.projectionMat, viewPos);
+    float3 position = UVB[vertexOffset + vertexIndex];
+    float3 normal = UVB[vertexOffset + vertexIndex + vertexMax];
 
-    result.normal = normalize(mul((float3x3)(objs[objID].objectMat), normal));
+    if(vertexID < indexSize)
+    {
+        float3 translate = float3(
+            viewInfos[objID * 10 + 0],
+            viewInfos[objID * 10 + 1],
+            viewInfos[objID * 10 + 2]);
+        float3 scale = float3(
+            viewInfos[objID * 10 + 3],
+            viewInfos[objID * 10 + 4],
+            viewInfos[objID * 10 + 5]);
+        float4 rotation = float4(
+            viewInfos[objID * 10 + 6],
+            viewInfos[objID * 10 + 7],
+            viewInfos[objID * 10 + 8],
+            viewInfos[objID * 10 + 9]);
+        float3 scaledPos;
+        scaledPos.x = position.x * scale.x;
+        scaledPos.y = position.y * scale.y;
+        scaledPos.z = position.z * scale.z;
+        float3 worldPos = quatRotate(rotation, scaledPos);
+        worldPos += translate;
+        result.worldPos = position;
+        float4 viewPos = mul(proj.viewMat, float4(worldPos, 1.0f));
+        result.position = mul(proj.projectionMat, viewPos);
 
+        float3 scaledNorm;
+        scaledNorm.x = normal.x * scale.x;
+        scaledNorm.y = normal.y * scale.y;
+        scaledNorm.z = normal.z * scale.z;
+        result.normal = normalize(quatRotate(rotation, scaledNorm));
+
+        result.output = float4(meshIndex,vertexOffset,indexOffset,vertexIndex);
+    }
     return result;
 }
 

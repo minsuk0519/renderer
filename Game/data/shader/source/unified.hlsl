@@ -6,11 +6,14 @@ RWStructuredBuffer<uint> UIB : register(u1);
 
 StructuredBuffer<float3> vertexBuffer : register(t0);
 StructuredBuffer<uint3> indexBuffer : register(t1);
+StructuredBuffer<float3> normalBuffer : register(t2);
+
+ByteAddressBuffer meshInfos : register(t3);
 
 cbuffer cb_unifiedConstant : register(b0)
 {
-	uint clusterOffset;
-    uint vertexOffset;
+	uint vertexCount;
+	uint indexCount;
     uint indexOffset;
     uint meshID;
 }
@@ -18,67 +21,21 @@ cbuffer cb_unifiedConstant : register(b0)
 [numthreads(1, 1, 1)]
 void unified_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
 {
-    uint vertexNumStructs;
-    uint vertexStride;
-    vertexBuffer.GetDimensions(vertexNumStructs, vertexStride);
-    uint vertexSize = vertexNumStructs;
+    meshInfo mesh;
+    getMeshInfoFromBuffer(meshInfos, meshID, mesh);
 
-    uint indexNumStructs;
-    uint indexStride;
-    indexBuffer.GetDimensions(indexNumStructs, indexStride);
-    uint indexSize = indexNumStructs * 3;
-    int i;
-    int j;
-
-    for(i = 0; i < vertexSize; ++i)
+    for(uint vertIndex = 0; vertIndex < vertexCount; ++vertIndex)
     {
-       UVB[vertexOffset + i] = vertexBuffer[i];
+        UVB[mesh.vertexOffset + vertIndex] = vertexBuffer[vertIndex];
+        if(!(mesh.flags & GPU_MESH_INFO_FLAGS_NONORM)) UVB[vertexMax + mesh.vertexOffset + vertIndex] = normalBuffer[vertIndex];
     }
 
-    float3 minValue = float3(100,100,100);
-    float3 maxValue = float3(-100,-100,-100);
-
-    uint clusterNum = 1 + (indexSize / 3 - 1) / clusterSize;
-    
-    for(i = 0; i < clusterNum; ++i)
+    for(uint id = 0; id < indexCount; ++id)
     {
-        float3 norms[clusterSize];
-        float3 vert0[clusterSize];
-
-        uint adjustedClusterSize = (i == clusterNum - 1) ? (indexSize / 3) % clusterSize : 64;
-        if(adjustedClusterSize == 0) adjustedClusterSize = 64;
-
-        float3 accumNorm = float3(0,0,0);
-        for(j = 0; j < adjustedClusterSize; ++j)
-        {
-            uint index = i * clusterSize + j;
-
-            UIB[indexOffset + index * 3 + 0] = vertexOffset + indexBuffer[index].x;
-            UIB[indexOffset + index * 3 + 1] = vertexOffset + indexBuffer[index].y;
-            UIB[indexOffset + index * 3 + 2] = vertexOffset + indexBuffer[index].z;
-
-            float3 p0 = vertexBuffer[indexBuffer[index].x];
-            float3 p1 = vertexBuffer[indexBuffer[index].y];
-            float3 p2 = vertexBuffer[indexBuffer[index].z];
-
-            float3 v0 = p1 - p0;
-            float3 v1 = p2 - p0;
-
-            minValue.x = min(min(min(p0.x, p1.x), p2.x), minValue.x);
-            minValue.y = min(min(min(p0.y, p1.y), p2.y), minValue.y);
-            minValue.z = min(min(min(p0.z, p1.z), p2.z), minValue.z);
-            maxValue.x = max(max(max(p0.x, p1.x), p2.x), maxValue.x);
-            maxValue.y = max(max(max(p0.y, p1.y), p2.y), maxValue.y);
-            maxValue.z = max(max(max(p0.z, p1.z), p2.z), maxValue.z);
-
-            float3 normal = normalize(cross(v0, v1));
-
-            norms[j] = normal;
-            vert0[j] = p0;
-
-            UVB[vertexMax + indexOffset + index] = normal;
-            accumNorm -= normal;
-        }
+        UIB[indexOffset + id * 3 + 0] = indexBuffer[id].x;
+        UIB[indexOffset + id * 3 + 1] = indexBuffer[id].y;
+        UIB[indexOffset + id * 3 + 2] = indexBuffer[id].z;
+    }
 
         // float3 cone_norm;
         // float3 center = (minValue + maxValue) * 0.5f;
@@ -128,9 +85,4 @@ void unified_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint
 		// float coneAxis = Pack3PNForFP32(cone_norm);
 
         // clusterBoundingBox[(clusterOffset + i)] = float3(coneAxis, coneCenter, coneAngleCosine);
-    }
-
-    UIB[vertexMax * 3 + meshID * 3 + 0] = indexOffset;
-    UIB[vertexMax * 3 + meshID * 3 + 1] = indexSize;
-    UIB[vertexMax * 3 + meshID * 3 + 2] = clusterOffset;
 }

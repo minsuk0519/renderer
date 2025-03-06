@@ -180,24 +180,44 @@ void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	}
 }
 
-void pipelinestate::setCommandSignature()
+void pipelinestate::setCommandSignature(const std::vector<render::cmdSigData>& data)
 {
-	D3D12_INDIRECT_ARGUMENT_DESC argumentDescs[2] = {};
-	//argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT_BUFFER_VIEW;
-	//argumentDescs[0].ConstantBufferView.RootParameterIndex = 1;
+	std::vector<D3D12_INDIRECT_ARGUMENT_DESC> argumentDescs;
 
-	argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
-	argumentDescs[0].Constant.RootParameterIndex = 4;
-	argumentDescs[0].Constant.DestOffsetIn32BitValues = 0;
-	argumentDescs[0].Constant.Num32BitValuesToSet = 1;
-	argumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+	argumentDescs.resize(data.size() + 1);
+
+	uint byteStride = 0;
+
+	if (isCompute)
+	{
+		argumentDescs[data.size()].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+		byteStride += sizeof(D3D12_DISPATCH_ARGUMENTS);
+	}
+	else
+	{
+		argumentDescs[data.size()].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+		byteStride += sizeof(D3D12_DRAW_ARGUMENTS);
+	}
+
+	for (uint i = 0; i < data.size(); ++i)
+	{
+		argumentDescs[i].Type = data[i].type;
+		if (data[i].type == D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT)
+		{
+			argumentDescs[i].Constant.RootParameterIndex = hlslLoc[data[i].loc];
+			argumentDescs[i].Constant.DestOffsetIn32BitValues = 0;
+			argumentDescs[i].Constant.Num32BitValuesToSet = data[i].num;
+			byteStride += data[i].num * sizeof(uint);
+		}
+	}
 
 	D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
-	commandSignatureDesc.pArgumentDescs = argumentDescs;
-	commandSignatureDesc.NumArgumentDescs = _countof(argumentDescs);
-	commandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS) + sizeof(uint);
+	commandSignatureDesc.pArgumentDescs = argumentDescs.data();
+	commandSignatureDesc.NumArgumentDescs = data.size() + 1;
+	commandSignatureDesc.ByteStride = byteStride;
 
-	e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, rootsig->getrootSignature(), IID_PPV_ARGS(&cmdSignature));
+	if(data.empty()) e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, NULL, IID_PPV_ARGS(&cmdSignature));
+	else e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, rootsig->getrootSignature(), IID_PPV_ARGS(&cmdSignature));
 }
 
 void pipelinestate::close()

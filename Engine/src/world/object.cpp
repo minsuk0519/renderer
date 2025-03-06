@@ -76,12 +76,12 @@ void object::update(float dt)
 
 void object::submit(void* cbvLoc, uint& offset)
 {
-	uint data[2];
+	uint data;
 
-	data[0] = (id << 16) | getMeshIdx();
-	data[1] = offset;
+	//TODO : LOD is set to 0 for now but need to make lod selection
+	data = (id << 16) | (getMeshIdx() << 3) | 0;
 
-	memcpy(cbvLoc, data, 4 * 2);
+	memcpy(cbvLoc, &data, 4);
 
 	offset += 1 + (getMesh()->getData()->idx->view.SizeInBytes / (sizeof(uint) * 3)) / 64;
 }
@@ -103,6 +103,17 @@ void object::sendMat(unsigned char* cbvdata)
 
 	memcpy(dataLoc, matPointer, cbv->info.size);
 	memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
+}
+
+void object::uploadViewInfo(unsigned char* dataLoc)
+{
+	DirectX::XMVECTOR quat = trans->getQuaternion();
+	//translate
+	memcpy(dataLoc, trans->getPosPointer(), sizeof(uint) * 3);
+	//scale
+	memcpy(dataLoc + sizeof(uint) * 3, trans->getScalePointer(), sizeof(uint) * 3);
+	//rotate
+	memcpy(dataLoc + sizeof(uint) * 6, &quat, sizeof(uint) * 4);
 }
 
 void object::aabbData(unsigned char* data)

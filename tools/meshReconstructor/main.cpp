@@ -3247,7 +3247,7 @@ const size_t TRISIZE_PER_MESHLET = 64;
 
 int main(int argc, char** argv)
 {
-    std::string fileName = "bun_zipper.ply";// argv[1];
+    std::string fileName = "sphere.ply";// argv[1];
 
     HANDLE hFile = CreateFileA(
         fileName.c_str(),
@@ -3723,6 +3723,21 @@ int main(int argc, char** argv)
         assert(newIndexID == indexSize);
     }
 
+    uint AAA = clusterSizes[0].clusterNum;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    for (uint i = 0; i < AAA; ++i)
+    {
+        x += clusters[i].self.center[0];
+        y += clusters[i].self.center[1];
+        z += clusters[i].self.center[2];
+    }
+
+    x /= AAA;
+    y /= AAA;
+    z /= AAA;
+
     {
         auto extensionPos = fileName.find(".ply");
         auto targetFileName = fileName.substr(0, extensionPos);
@@ -3834,6 +3849,11 @@ int main(int argc, char** argv)
             dataBuffer += "\n";
         }
         dataBuffer += "\n";
+
+        for (uint i = 0; i < clusters.size(); ++i)
+        {
+            dataBuffer += std::to_string(clusters[i].indices.size()) + ", " + "\n";
+        }
 
         DWORD dwBytesToWrite = (DWORD)(dataBuffer.size());
         DWORD dwBytesWritten = 0;

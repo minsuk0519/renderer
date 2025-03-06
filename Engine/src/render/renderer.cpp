@@ -116,6 +116,14 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	objectConstBuffer = buf::createConstantBuffer(consts::CONST_OBJ_SIZE * 256);
 	objectConstDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, objectConstBuffer);
 
+	localClusterOffsetBuffer = buf::createUAVBuffer(MAX_CLUSTERS * sizeof(uint) * 2);
+	localClusterOffsetDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, localClusterOffsetBuffer);
+	localClusterSizeBuffer = buf::createUAVBuffer(sizeof(uint) * 12);
+	localClusterSizeDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, localClusterSizeBuffer);
+	clusterArgsBuffer = buf::createUAVBuffer((MAX_CLUSTERS / THREADS_NUM_CLUSTERS) * sizeof(uint));
+	clusterArgsDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, clusterArgsBuffer);
+	viewInfoBuffer = buf::createImageBuffer(MAX_OBJECTS * sizeof(float) * 10, 0, 0, DXGI_FORMAT_R32_TYPELESS);
+	viewInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, viewInfoBuffer);
 	return true;
 }
 
@@ -251,7 +259,12 @@ bool renderer::createFrameResources()
 	debugFB->setDepthClear(1.0f);
 
 	{
-		render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->setCommandSignature();
+		std::vector<render::cmdSigData> sigData[2];
+
+		//sigData[0].push_back({ D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT, CBV_SCREEN, 1 });
+
+		render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->setCommandSignature(sigData[0]);
+		render::getpipelinestate(render::PSO_CULLCLUSTER)->setCommandSignature(sigData[1]);
 	}
 
 	return true;
@@ -396,18 +409,18 @@ void renderer::setUpTerrain()
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
 
-	vertexbuffer* v = buf::createVertexBufferFromUAV(terrainTex[0], 12);
-	vertexbuffer* n = buf::createVertexBufferFromUAV(terrainTex[1], 12);
+	vertexbuffer* v = buf::createVertexBufferFromUAV(terrainTex[0], sizeof(float) * 3);
+	vertexbuffer* n = buf::createVertexBufferFromUAV(terrainTex[1], sizeof(float) * 3);
 	indexbuffer* i = buf::createIndexBufferFromUAV(terrainTex[2]);
 	msh::setUpTerrain(v, n, i);
 }
 
 struct unifiedConsts
 {
-	uint clusterOffset = 0;
-	uint vertexOffset = 0;
+	uint vertexCount = 0;
+	uint indexCount = 0;
 	uint indexOffset = 0;
-	uint meshID = 0;
+	uint meshID;
 };
 
 struct cmdConsts
@@ -424,53 +437,46 @@ void renderer::setUp()
 	
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 
-	uint clusterOffset = 0;
-	uint vertexOffset = 0;
-	uint indexOffset = 0;
-
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Universal Buffer", sizeof("Generate Universal Buffer"));
 
-	{
-		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+	//{
+	//	auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
 
-		D3D12_BUFFER_SRV vertexDesc = {};
-		vertexDesc.NumElements = 512 * 512 * 4;
-		vertexDesc.StructureByteStride = sizeof(float) * 3;
-		D3D12_BUFFER_SRV indexDesc = {};
-		indexDesc.NumElements = 512 * 512 * 2;
-		indexDesc.StructureByteStride = sizeof(uint) * 3;
+	//	D3D12_BUFFER_SRV vertexDesc = {};
+	//	vertexDesc.NumElements = 512 * 512 * 4;
+	//	vertexDesc.StructureByteStride = sizeof(float) * 3;
+	//	D3D12_BUFFER_SRV indexDesc = {};
+	//	indexDesc.NumElements = 512 * 512 * 2;
+	//	indexDesc.StructureByteStride = sizeof(uint) * 3;
 
-		imagebuffer* terrainVertBuffer = buf::createImageBufferFromBuffer(terrainTex[0], vertexDesc);
-		imagebuffer* terrainIdxBuffer = buf::createImageBufferFromBuffer(terrainTex[2], indexDesc);
+	//	imagebuffer* terrainVertBuffer = buf::createImageBufferFromBuffer(terrainTex[0], vertexDesc);
+	//	imagebuffer* terrainIdxBuffer = buf::createImageBufferFromBuffer(terrainTex[2], indexDesc);
 
-		descriptor vertexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, terrainVertBuffer);
-		descriptor indexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, terrainIdxBuffer);
+	//	descriptor vertexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, terrainVertBuffer);
+	//	descriptor indexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, terrainIdxBuffer);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
 
-		unifiedConsts unifiedconst;
+	//	unifiedConsts unifiedconst;
 
-		unifiedconst.meshID = msh::MESH_TERRAIN;
+	//	unifiedconst.meshID = msh::MESH_TERRAIN;
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
 
-		vertexOffset += 512 * 512 * 3 * 4;
-		uint indexSize = 512 * 512 * 3 * 2;
-		indexOffset += indexSize;
-		clusterOffset += (indexSize / (3 * 64)) + 1;
+	//	uint indexSize = 512 * 512 * 3 * 2;
 
-		computeCmdList->Dispatch(1, 1, 1);
+	//	computeCmdList->Dispatch(1, 1, 1);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
-	}
+	//	render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	//}
 
 	//setup infos
 	{
@@ -488,6 +494,7 @@ void renderer::setUp()
 			meshInfos[i].numLod = lodNum;
 			meshInfos[i].lodOffset = curLodOffset;
 			meshInfos[i].vertexOffset = curVertexOffset;
+			if (i == msh::MESH_TERRAIN) meshInfos[i].flags |= MESH_INFO_FLAGS_TERRAIN;
 			for (uint j = 0; j < lodNum; ++j)
 			{
 				uint curClusterCount = data->lodData[j].clusterNum;
@@ -495,7 +502,7 @@ void renderer::setUp()
 				curClusterOffset += curClusterCount;
 			}
 			curLodOffset += lodNum;
-			uint vertexSize = data->vbs->view.SizeInBytes / sizeof(float);
+			uint vertexSize = data->vbs->view.SizeInBytes / (sizeof(float) * 3);
 			curVertexOffset += vertexSize;
 		}
 
@@ -503,6 +510,7 @@ void renderer::setUp()
 		{
 			uint clusterCount;
 			uint clusterOffset;
+			uint indexSize;
 		};
 
 		struct clusterInfo
@@ -518,6 +526,7 @@ void renderer::setUp()
 		uint clusterInfoSize = curClusterOffset * sizeof(clusterInfo);
 		curClusterOffset = 0;
 		uint indexOffset = 0;
+		uint vertexOffset = 0;
 
 		for (uint i = 0; i < msh::MESH_END; ++i)
 		{
@@ -529,14 +538,18 @@ void renderer::setUp()
 			{
 				uint curClusterCount = data->lodData[j].clusterNum;
 				lodInfos[lodIndex].clusterCount = curClusterCount;
+				uint totalIndexSize = 0;
 				for (uint k = 0; k < curClusterCount; ++k)
 				{
 					uint indexCount = data->lodData[j].indexSize[k];
 					clusterInfos[clusterIndex].indexCount = indexCount;
-					indexOffset += indexCount;
 					clusterInfos[clusterIndex].indexOffset = indexOffset;
+					indexOffset += indexCount;
+					totalIndexSize += indexCount;
+					++clusterIndex;
 				}
 				lodInfos[lodIndex].clusterOffset = curClusterOffset;
+				lodInfos[lodIndex].indexSize = totalIndexSize;
 				curClusterOffset += curClusterCount;
 				++lodIndex;
 			}
@@ -554,58 +567,68 @@ void renderer::setUp()
 
 		delete[] lodInfos;
 		delete[] clusterInfos;
-	}
 
-	meshInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, meshInfoBuffer);
-	lodInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, lodInfoBuffer);
-	clusterInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, clusterInfoBuffer);
-	
-	for(uint i = 0; i < msh::MESH_END; ++i)
-	{
-		meshData* meshdata = msh::getMesh(msh::MESH_INDEX(i))->getData();
+		meshInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, meshInfoBuffer);
+		lodInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, lodInfoBuffer);
+		clusterInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, clusterInfoBuffer);
 
-		D3D12_BUFFER_SRV vertexDesc = {};
-		vertexDesc.NumElements = meshdata->vbs->view.SizeInBytes / (sizeof(float) * 3);
-		vertexDesc.StructureByteStride = sizeof(float) * 3;
-		D3D12_BUFFER_SRV indexDesc = {};
-		indexDesc.NumElements = meshdata->idx->view.SizeInBytes / (sizeof(uint) * 3);
-		indexDesc.StructureByteStride = sizeof(uint) * 3;
-		
-		imagebuffer* vbsBuffer = buf::createImageBufferFromBuffer(meshdata->vbs, vertexDesc);
-		imagebuffer* idxBuffer = buf::createImageBufferFromBuffer(meshdata->idx, indexDesc);
+		indexOffset = 0;
 
-		descriptor vertexSRV =  render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, vbsBuffer);
-		descriptor indexSRV =  render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, idxBuffer);
+		for (uint i = 0; i < msh::MESH_END; ++i)
+		{
+			meshData* meshdata = msh::getMesh(msh::MESH_INDEX(i))->getData();
 
-		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+			if (meshdata == nullptr) continue;
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
+			D3D12_BUFFER_SRV vertexDesc = {};
+			vertexDesc.NumElements = meshdata->vbs->view.SizeInBytes / (sizeof(float) * 3);
+			vertexDesc.StructureByteStride = sizeof(float) * 3;
+			D3D12_BUFFER_SRV indexDesc = {};
+			indexDesc.NumElements = meshdata->idx->view.SizeInBytes / (sizeof(uint) * 3);
+			indexDesc.StructureByteStride = sizeof(uint) * 3;
+			D3D12_BUFFER_SRV normDesc = {};
+			normDesc.NumElements = meshdata->norm->view.SizeInBytes / (sizeof(float) * 3);
+			normDesc.StructureByteStride = sizeof(float) * 3;
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
+			imagebuffer* vbsBuffer = buf::createImageBufferFromBuffer(meshdata->vbs, vertexDesc);
+			imagebuffer* normBuffer = buf::createImageBufferFromBuffer(meshdata->norm, normDesc);
+			imagebuffer* idxBuffer = buf::createImageBufferFromBuffer(meshdata->idx, indexDesc);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
+			descriptor vertexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, vbsBuffer);
+			descriptor indexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, idxBuffer);
+			descriptor normSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, normBuffer);
 
-		unifiedConsts unifiedconst;
+			auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
-		unifiedconst.meshID = i;
-		unifiedconst.clusterOffset = clusterOffset;
-		unifiedconst.vertexOffset = vertexOffset;
-		unifiedconst.indexOffset = indexOffset;
+			render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
 
-		vertexOffset += meshdata->vbs->view.SizeInBytes / meshdata->vbs->view.StrideInBytes;
-		uint indexSize = meshdata->idx->view.SizeInBytes / sizeof(uint);
-		indexOffset += indexSize;
-		clusterOffset += (indexSize / (3 * 64)) + 1;
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_NORMAL_BUFFER, normSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_UNIFIED_MESHINFO_BUFFER, meshInfoDesc.getHandle());
 
-		computeCmdList->Dispatch(1, 1, 1);
+			unifiedConsts unifiedconst;
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+			uint indexSize = indexDesc.NumElements * 3;
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+			unifiedconst.meshID = i;
+			unifiedconst.indexCount = indexSize;
+			unifiedconst.indexOffset = indexOffset;
+			unifiedconst.vertexCount = meshdata->vbs->view.SizeInBytes / (sizeof(float) * 3);
+
+			indexOffset += indexSize;
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+
+			computeCmdList->Dispatch(1, 1, 1);
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+		}
 	}
 
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
@@ -625,6 +648,62 @@ void renderer::setUp()
 
 void renderer::draw(float dt)
 {
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_INITCLUSTER);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeDesc.getHandle());
+
+		computeCmdList->Dispatch(1, 1, 1);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Triangle Processing", sizeof("Triangle Processing"));
+
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_UPLOADLOCALOBJ);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTEROFFSET_BUFFER, localClusterOffsetDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeDesc.getHandle());
+
+		uint objCount = e_globWorld.drawObject(cmdConstBuffer->info.cbvDataBegin);
+
+		memcpy(cmdConstBuffer->info.cbvDataBegin + 64 * 4 * 4, &objCount, 4);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLINGCONSTS, commandConstDesc.getHandle());
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESH_INFO_BUFFER, meshInfoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoDesc.getHandle());
+
+		computeCmdList->Dispatch(objCount, 1, 1);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_CULLCLUSTER);
+
+		//render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESH_INFO_BUFFER, meshInfoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_INFO_BUFFER, clusterInfoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_ARGS_BUFFER, localClusterOffsetDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERARGS_BUFFER, vertexIDDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeDesc.getHandle());
+
+		computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_CULLCLUSTER)->getCmdSignature(), 1, localClusterSizeBuffer->resource.Get(), sizeof(uint), nullptr, 0);
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
 	//render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFER);
@@ -634,49 +713,25 @@ void renderer::draw(float dt)
 
 	e_globWorld.drawWorld(cmdList, false);
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Generate cmdBuffer", sizeof("Generate cmdBuffer"));
-
 	{
-		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENCMDBUF);
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_BUFFER, commandDesc.getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CMD_VERTEXID_BUFFER, vertexIDDesc.getHandle());
-
-		uint objCount = e_globWorld.drawObject(cmdConstBuffer->info.cbvDataBegin);
-
-		memcpy(cmdConstBuffer->info.cbvDataBegin + 128 * 4 * 4, &objCount, 4);
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, commandConstDesc.getHandle());
-
-		//render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_VERTEX_BUFFER, unifiedDesc[1].getHandle());
-		//
-		//render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_MESH_OFFSET, meshOffsetDesc.getHandle());
-		//render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CMD_LOD_OFFSET, lodOffsetDesc.getHandle());
-
-		computeCmdList->Dispatch(objCount, 1, 1);
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
-
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
-
-		cmdList->IASetVertexBuffers(0, 1, &vertexIDBuffer->view);
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
 
+		unsigned char* dataPtr = nullptr;
+		viewInfoBuffer->mapBuffer(&dataPtr);
 		for (uint i = 0; i < e_globWorld.objectNum; ++i)
 		{
-			e_globWorld.objects[i].sendMat(objectConstBuffer->info.cbvDataBegin);
+			e_globWorld.objects[i].uploadViewInfo(dataPtr);
+			dataPtr += sizeof(uint) * 10;
 		}
+		viewInfoBuffer->unmapBuffer();
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_OBJECT, objectConstDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VERTEX, unifiedDesc[0].getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_NORM, unifiedDesc[1].getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VIEWINFO, viewInfoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_MESHINFO, meshInfoDesc.getHandle());
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER0_TEX, unifiedDesc[0].getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER1_TEX, unifiedDesc[1].getHandle());
-
-		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), objCount, commandBuffer->resource.Get(), 0, commandBuffer->resource.Get(), 5 * MAX_OBJECTS * 2 * sizeof(uint));
+		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, localClusterSizeBuffer->resource.Get(), 5 * sizeof(uint), nullptr, 0);
 	}
 
 	gbufferFB->closeFB(cmdList);
@@ -694,8 +749,8 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_SSAO);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoDesc[0].getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_AOCONST, 4, &renderGuiSetting::aoConstants);
@@ -717,8 +772,8 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO((render::PSO_INDEX)((uint)render::PSO_SSAOBLURX + i));
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoDesc[i].getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAOBLUR, ssaoDesc[i + 1].getHandle());
@@ -751,11 +806,11 @@ void renderer::draw(float dt)
 
 	cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER0_TEX, gbufferFB->getDescHandle(0));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER1_TEX, gbufferFB->getDescHandle(1));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER2_TEX, gbufferFB->getDescHandle(2));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferFB->getDescHandle(2));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_AO_FINAL, ssaoDesc[2].getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoDesc[2].getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &renderGuiSetting::guiDebug);
 	uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_SCREEN, 2, screenSize);

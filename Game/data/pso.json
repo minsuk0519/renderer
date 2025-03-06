@@ -138,5 +138,35 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false	
+	},{
+		"psoIndex":13,
+		"psoName":"UploadLocalObj",
+		"vertexIndex":17,
+		"pixelIndex":17,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":14,
+		"psoName":"CullCluster",
+		"vertexIndex":18,
+		"pixelIndex":18,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":15,
+		"psoName":"initCluster",
+		"vertexIndex":19,
+		"pixelIndex":19,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
 	}
 ]

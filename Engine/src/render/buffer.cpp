@@ -314,8 +314,16 @@ namespace buf
         }
 
         meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);
-        if (result.attributes.normals.size() != 0) meshdata->norm = createVertexBuffer(result.attributes.normals.data(), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3);
-        else meshdata->norm = nullptr;
+        //make sure that the model file contains normal data and it's vertex normal not face normal
+        if (result.attributes.normals.size() > 0)
+        {
+            meshdata->norm = createVertexBuffer(result.attributes.normals.data(), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3);
+            TC_ASSERT(result.attributes.normals.size() == result.attributes.positions.size());
+        }
+        else
+        {
+            meshdata->norm = nullptr;
+        }
         meshdata->idx = createIndexBuffer(indices.data(), static_cast<uint>(sizeof(uint) * indices.size()));
 
         //TODO : not support now
@@ -394,14 +402,8 @@ namespace buf
 
 namespace buf
 {
-    bool createResource(buffer* buf, uint size, void* data)
+    void copyResource(buffer* buf, void* data, uint offset, uint size)
     {
-        CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-        CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
-
-        e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
-            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buf->resource));
-
         if (data != nullptr)
         {
             UINT8* pVertexDataBegin;
@@ -410,6 +412,17 @@ namespace buf
             memcpy(pVertexDataBegin, data, size);
             buf->resource->Unmap(0, nullptr);
         }
+    }
+
+    bool createResource(buffer* buf, uint size, void* data)
+    {
+        CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+        CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
+
+        e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
+            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buf->resource));
+
+        copyResource(buf, data, 0, size);
 
         return true;
     }
@@ -662,13 +675,13 @@ namespace buf
         trackedBuffer.clear();
     }
 
-    vertexbuffer* createVertexBuffer(void* data, const uint size, const uint stride)
+    vertexbuffer* createVertexBuffer(void* vert, const uint size, const uint stride)
 	{
         vertexbuffer* newVertexBuffer = new vertexbuffer();
 
         trackedBuffer.push_back(newVertexBuffer);
 
-        createResource(newVertexBuffer, size, data);
+        createResource(newVertexBuffer, size, vert);
 
         // Initialize the vertex buffer view.
         newVertexBuffer->view.BufferLocation = newVertexBuffer->resource->GetGPUVirtualAddress();
