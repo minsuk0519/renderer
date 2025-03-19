@@ -3557,11 +3557,11 @@ int main(int argc, char** argv)
     for (uint i = 0; i < vertexSize; ++i)
     {
         vertexBuffer[i].x -= xMid;
-        vertexBuffer[i].x /= (maxLen / 2.0);
+        //vertexBuffer[i].x /= (maxLen / 2.0);
         vertexBuffer[i].y -= yMid;
-        vertexBuffer[i].y /= (maxLen / 2.0);
+        //vertexBuffer[i].y /= (maxLen / 2.0);
         vertexBuffer[i].z -= zMid;
-        vertexBuffer[i].z /= (maxLen / 2.0);
+        //vertexBuffer[i].z /= (maxLen / 2.0);
     }
 
     std::vector<std::vector<point>> faceNormals;
