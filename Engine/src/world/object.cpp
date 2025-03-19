@@ -126,13 +126,17 @@ void object::aabbData(unsigned char* data)
 	float yScale = aabb[msh::EDGE_YMAX] - aabb[msh::EDGE_YMIN];
 	float zScale = aabb[msh::EDGE_ZMAX] - aabb[msh::EDGE_ZMIN];
 
+	float xOffset = (aabb[msh::EDGE_XMAX] + aabb[msh::EDGE_XMIN]) * 0.5f;
+	float yOffset = (aabb[msh::EDGE_YMAX] + aabb[msh::EDGE_YMIN]) * 0.5f;
+	float zOffset = (aabb[msh::EDGE_ZMAX] + aabb[msh::EDGE_ZMIN]) * 0.5f;
+
 	aabbData[0] = xScale * 0.5f * trans->getScale().m128_f32[0];
 	aabbData[1] = yScale * 0.5f * trans->getScale().m128_f32[1];
 	aabbData[2] = zScale * 0.5f * trans->getScale().m128_f32[2];
 
-	aabbData[3] = trans->getPosition().m128_f32[0];
-	aabbData[4] = trans->getPosition().m128_f32[1];
-	aabbData[5] = trans->getPosition().m128_f32[2];
+	aabbData[3] = xOffset / aabbData[0] + trans->getPosition().m128_f32[0];
+	aabbData[4] = yOffset / aabbData[1] + trans->getPosition().m128_f32[1];
+	aabbData[5] = zOffset / aabbData[2] + trans->getPosition().m128_f32[2];
 
 	memcpy(data, aabbData, sizeof(float) * 6);
 }

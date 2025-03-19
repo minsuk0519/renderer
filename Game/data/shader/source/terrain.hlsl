@@ -80,7 +80,7 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 			bits |= 8;
 		}
 
-		vertOut[index] = float3(u, hCenter, v) / (NOISE_WIDTH - 1) - float3(0.5, 0.0, 0.5);
+		vertOut[index] = float3(u, hCenter, v) - float3(0.5 * NOISE_WIDTH, 0.0, 0.5 * NOISE_HEIGHT);
 
 		float3 accumNorm = float3(0,0,0);
 

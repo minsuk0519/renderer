@@ -178,7 +178,7 @@ void world::setupScene()
 	{
 		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
 		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.5f,0.0f });
-		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 5.0f,5.0f,5.0f });
 
 		++objectNum;
 	}
@@ -186,15 +186,15 @@ void world::setupScene()
 	{
 		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
 		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
-		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.005f,0.005f,0.005f });
 
 		++objectNum;
 	}
 
 	{
 		objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR, true);
-		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -0.0f,-2.2f,0.0f });
-		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 20.2f,20.2f,20.2f });
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-2.0f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
 		++objectNum;
 	}

@@ -146,6 +146,13 @@ namespace msh
             newData->getData()->lodNum = 1;
             newData->getData()->lodData.push_back(lodInfos(1, 36, { 36 }));
 
+            newData->getData()->AABB[msh::EDGE_XMAX] = 1.0f;
+            newData->getData()->AABB[msh::EDGE_XMIN] = -1.0f;
+            newData->getData()->AABB[msh::EDGE_YMAX] = 1.0f;
+            newData->getData()->AABB[msh::EDGE_YMIN] = -1.0f;
+            newData->getData()->AABB[msh::EDGE_ZMAX] = 1.0f;
+            newData->getData()->AABB[msh::EDGE_ZMIN] = -1.0f;
+
             meshes[MESH_CUBE] = newData;
         }
 
@@ -183,6 +190,13 @@ namespace msh
         {
             newMeshData->lodData[0].indexSize.push_back(192);
         }
+
+        newMeshData->AABB[msh::EDGE_XMAX] = 256.0f;
+        newMeshData->AABB[msh::EDGE_XMIN] = -256.0f;
+        newMeshData->AABB[msh::EDGE_YMAX] = 128.0f;
+        newMeshData->AABB[msh::EDGE_YMIN] = 0.0f;
+        newMeshData->AABB[msh::EDGE_ZMAX] = 256.0f;
+        newMeshData->AABB[msh::EDGE_ZMIN] = -256.0f;
 
         newData->init(newMeshData);
 
