@@ -25,6 +25,7 @@ struct clusterInfo
 {
 	unsigned int clusterNum;
 	unsigned int clusterSize;
+	unsigned int clusterOffset;
 };
 
 struct Cluster

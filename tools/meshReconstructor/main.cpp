@@ -3245,6 +3245,8 @@ constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
 const size_t VERTEXSIZE_PER_MESHLET = 126;
 const size_t TRISIZE_PER_MESHLET = 64;
 
+constexpr uint LOD_MAX = 7;
+
 int main(int argc, char** argv)
 {
     std::string fileName = "sphere.ply";// argv[1];
@@ -3674,21 +3676,27 @@ int main(int argc, char** argv)
 
         assert(k == (indexSize * 3));
 
-        uint lodNums = clusterSizes.size();
+        uint lodNums = LOD_MAX > clusterSizes.size() ? clusterSizes.size() : LOD_MAX;
 
         indexSize = 0;
 
         for (uint lodID = 0; lodID < lodNums; ++lodID)
         {
             uint clusterNums = clusterSizes[lodID].clusterNum;
+            uint indicesCount = clusterSizes[lodID].clusterSize;
+            uint clusterOffset = clusterSizes[lodID].clusterOffset;
+
+            uint indexSum = 0;
             for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
             {
-                uint clusterSize = clusters[clusterID].indices.size();
+                uint clusterSize = clusters[clusterOffset + clusterID].indices.size();
 
                 indexSize += clusterSize;
+                indexSum += clusterSize;
 
                 assert(clusterSize % 3 == 0);
             }
+            assert(indicesCount == indexSum);
         }
 
         assert(indexSize % 3 == 0);
@@ -3698,27 +3706,42 @@ int main(int argc, char** argv)
 
         uint newIndexID = 0;
 
+        std::vector<bool> isUsed;
+        isUsed.resize(vertexSize);
+
         for (uint lodID = 0; lodID < lodNums; ++lodID)
         {
             uint clusterNums = clusterSizes[lodID].clusterNum;
+            uint clusterOffset = clusterSizes[lodID].clusterOffset;
             for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
             {
-                uint clusterSize = clusters[clusterID].indices.size();
+                uint clusterSize = clusters[clusterOffset + clusterID].indices.size();
 
                 for (uint indexID = 0; indexID < clusterSize; indexID += 3)
                 {
-                    uint clusterIndex0 = clusters[clusterID].indices[indexID + 0];
-                    uint clusterIndex1 = clusters[clusterID].indices[indexID + 1];
-                    uint clusterIndex2 = clusters[clusterID].indices[indexID + 2];
+                    uint clusterIndex0 = clusters[clusterOffset + clusterID].indices[indexID + 0];
+                    uint clusterIndex1 = clusters[clusterOffset + clusterID].indices[indexID + 1];
+                    uint clusterIndex2 = clusters[clusterOffset + clusterID].indices[indexID + 2];
 
                     finalIndexBuffer[newIndexID].i0 = clusterIndex0;
                     finalIndexBuffer[newIndexID].i1 = clusterIndex1;
                     finalIndexBuffer[newIndexID].i2 = clusterIndex2;
+                    
+                    isUsed[clusterIndex0] = true;
+                    isUsed[clusterIndex1] = true;
+                    isUsed[clusterIndex2] = true;
 
                     ++newIndexID;
                 }
             }
         }
+
+        for (auto used : isUsed)
+        {
+            assert(used);
+        }
+
+        clusterSizes.resize(lodNums);
 
         assert(newIndexID == indexSize);
     }
