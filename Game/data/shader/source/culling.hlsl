@@ -7,7 +7,7 @@ RWStructuredBuffer<uint> localClusterOffsets : register(u2);
 RWStructuredBuffer<uint> localClusterSize : register(u3);
 RWStructuredBuffer<uint> clsuterCmdBufferclsuterCmdBuffer : register(u4);
 
-StructuredBuffer<meshInfo> meshInfos : register(t0);
+StructuredBuffer<uint> meshInfos : register(t0);
 StructuredBuffer<lodInfo> lodInfos : register(t1);
 StructuredBuffer<clusterInfo> clusterInfos : register(t2);
 StructuredBuffer<uint> clusterArgs : register(t3);
@@ -53,7 +53,7 @@ void uploadLocalObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
     uint meshIndex = packedID >> 3;
     uint objID = packedObj[localObjectIndex] >> 16;
 
-    uint lodIndex = meshInfos[meshIndex].lodOffset + packedID & 0x7;
+    uint lodIndex = meshInfos[meshIndex * 4 + 0];// + (packedID & 0x7);
 
     uint clusterCount = lodInfos[lodIndex].clusterCount;
     uint clusterOffset = lodInfos[lodIndex].clusterOffset;
@@ -61,18 +61,12 @@ void uploadLocalObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 
     uint offset;
     InterlockedAdd(localClusterSize[0], clusterCount, offset);
-
-    //these are cluster offsets
-    //we will sum up the counts to make it offset in next shader call
-    // localClusterOffsets[localObjectIndex * 3 + 0] = clusterCount;
-    // localClusterOffsets[localObjectIndex * 3 + 1] = packedObj[localObjectIndex];
-    // localClusterOffsets[localObjectIndex * 3 + 2] = offset;
-
+    
     for(uint i = 0; i < clusterCount; ++i)
     {
-       localClusterOffsets[(offset + i) * 3 + 0] = lodIndex;
-       localClusterOffsets[(offset + i) * 3 + 1] = packedObj[localObjectIndex];
-       localClusterOffsets[(offset + i) * 3 + 2] = i;
+      localClusterOffsets[(offset + i) * 3 + 0] = lodIndex;
+      localClusterOffsets[(offset + i) * 3 + 1] = packedObj[localObjectIndex];
+      localClusterOffsets[(offset + i) * 3 + 2] = i;
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -122,6 +116,7 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
 
     uint visToInt = vis ? 1 : 0;
     InterlockedAdd(localClusterSize[4], visToInt, offset);
+    offset = clusterArgsIndex;
 
     if(vis)
     {

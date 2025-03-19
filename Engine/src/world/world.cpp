@@ -167,29 +167,29 @@ uint world::drawObject(void* cbvLoc)
 void world::setupScene()
 {
 	//TODO
-	//{
-	//	objects[objectNum].init(msh::MESH_CUBE, render::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -1.0f,-0.5f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+	{
+		objects[objectNum].init(msh::MESH_CUBE, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -1.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
-	//	++objectNum;
-	//}
+		++objectNum;
+	}
 
-	//{
-	//	objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.5f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+	{
+		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
-	//	++objectNum;
-	//}
+		++objectNum;
+	}
 
-	//{
-	//	objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+	{
+		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
-	//	++objectNum;
-	//}
+		++objectNum;
+	}
 
 	{
 		objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR, true);

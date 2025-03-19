@@ -59,9 +59,10 @@ float4 pbr_ps(PSInput input) : SV_TARGET
 		return float4(ao, ao, ao, 1.0f);
 	}
 	
-	if(length(normal) == 0.0f)
+	if(debugInfo == 0)
 	{
-		discard;
+		return float4(0.5f, 0.5f, 0.1f, 1.0f);
+		//discard;
 	}
 	
 	normal = normalize(normal);

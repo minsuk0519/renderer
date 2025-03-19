@@ -178,8 +178,11 @@ namespace msh
         newMeshData->idx = index;
 
         newMeshData->lodNum = 1;
-        newMeshData->lodData.push_back(lodInfos(4096, index->view.SizeInBytes / sizeof(uint)));
-        for(uint i = 0; i < 4096; ++i) newMeshData->lodData[0].indexSize.push_back(384);
+        newMeshData->lodData.push_back(lodInfos(8192, index->view.SizeInBytes / sizeof(uint)));
+        for (uint i = 0; i < 8192; ++i)
+        {
+            newMeshData->lodData[0].indexSize.push_back(192);
+        }
 
         newData->init(newMeshData);
 

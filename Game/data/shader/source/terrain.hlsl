@@ -93,7 +93,7 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 				float3 v1 = diff[i];
 				float3 v2 = diff[nextIndex];
 
-				accumNorm += normalize(cross(v1, v2));
+				accumNorm += normalize(cross(v2, v1));
 			}
 		}
 

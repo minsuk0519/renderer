@@ -33,17 +33,6 @@ float3 quatRotate(float4 q, float3 v)
 {
     float3 result;
 
-    // float qyz = q.z * q.w;
-    // float qwx = q.x * q.y;
-    // float qwy = q.x * q.z;
-    // float qxz = q.y * q.w;
-    // float qwz = q.x * q.w;
-    // float qxy = q.y * q.z;
-
-    // result.x = q.x * q.x * v.x + 2.0f * (qwy - qxz) * v.y + 2.0f * (qwz + qxy) * v.z;
-    // result.y = q.y * q.y * v.y + 2.0f * (qwz - qxy) * v.x + 2.0f * (qyz - qwx) * v.z;
-    // result.z = q.z * q.z * v.z + 2.0f * (qwy + qxz) * v.x + 2.0f * (qyz + qwx) * v.y;
-
     result = 2.0f * dot(q.xyz, v) * q.xyz + (q.w * q.w - dot(q.xyz, q.xyz)) * v + 2.0f * q.w * cross(q.xyz, v);
 
     return result;
@@ -99,7 +88,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         scaledNorm.z = normal.z * scale.z;
         result.normal = normalize(quatRotate(rotation, scaledNorm));
 
-        result.output = float4(meshIndex,vertexOffset,indexOffset,vertexIndex);
+        result.output = float4(meshIndex,clusterID,indexOffset,vertexIndex);
     }
     return result;
 }
@@ -132,7 +121,7 @@ PSOutput gbuffer_ps(PSInput input)
 
     result.position = float4(position, 1.0f);
     result.normTex = encodeOct(normal);
-    result.debugID = input.output.x;
+    result.debugID = 2;//input.output.x;
     
     return result;
 }

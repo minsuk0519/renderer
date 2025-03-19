@@ -439,45 +439,6 @@ void renderer::setUp()
 
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Universal Buffer", sizeof("Generate Universal Buffer"));
 
-	//{
-	//	auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
-
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
-
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
-
-	//	D3D12_BUFFER_SRV vertexDesc = {};
-	//	vertexDesc.NumElements = 512 * 512 * 4;
-	//	vertexDesc.StructureByteStride = sizeof(float) * 3;
-	//	D3D12_BUFFER_SRV indexDesc = {};
-	//	indexDesc.NumElements = 512 * 512 * 2;
-	//	indexDesc.StructureByteStride = sizeof(uint) * 3;
-
-	//	imagebuffer* terrainVertBuffer = buf::createImageBufferFromBuffer(terrainTex[0], vertexDesc);
-	//	imagebuffer* terrainIdxBuffer = buf::createImageBufferFromBuffer(terrainTex[2], indexDesc);
-
-	//	descriptor vertexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, terrainVertBuffer);
-	//	descriptor indexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, terrainIdxBuffer);
-
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
-
-	//	unifiedConsts unifiedconst;
-
-	//	unifiedconst.meshID = msh::MESH_TERRAIN;
-
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
-
-	//	uint indexSize = 512 * 512 * 3 * 2;
-
-	//	computeCmdList->Dispatch(1, 1, 1);
-
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
-
-	//	render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
-	//}
-
 	//setup infos
 	{
 		meshInfos = new meshInfo[msh::MESH_END];

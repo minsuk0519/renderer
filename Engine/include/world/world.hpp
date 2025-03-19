@@ -52,6 +52,7 @@ public:
 
 	camera* getMainCam() const;
 
+	void submitTerrainData(unsigned char* loc) const;
 protected:
 	void setMainCamera(camera* cam);
 

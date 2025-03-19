@@ -1,3 +1,5 @@
+//DEPRECATED
+
 #include "include\helper.hlsli"
 #include "include\struct.hlsli"
 
