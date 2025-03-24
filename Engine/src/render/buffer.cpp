@@ -64,122 +64,6 @@ namespace img
     }
 }
 
-struct point
-{
-    float x;
-    float y;
-    float z;
-
-    point(float xValue, float yValue, float zValue) : x(xValue), y(yValue), z(zValue) {}
-    point() : x(0.0f), y(0.0f), z(0.0f) {}
-
-    point operator-(const point& target) const
-    {
-        point result;
-
-        result.x = x - target.x;
-        result.y = y - target.y;
-        result.z = z - target.z;
-
-        return result;
-    }
-
-    point& operator-=(const point& target)
-    {
-        x -= target.x;
-        y -= target.y;
-        z -= target.z;
-
-        return *this;
-    }
-
-    point& operator+=(const point& target)
-    {
-        x += target.x;
-        y += target.y;
-        z += target.z;
-
-        return *this;
-    }
-
-    point operator=(const point& target)
-    {
-        point result;
-
-        result.x = target.x;
-        result.y = target.y;
-        result.z = target.z;
-
-        return result;
-    }
-
-    point cross(const point& target) const
-    {
-        point result;
-
-        result.x = y * target.z - z * target.y;
-        result.y = z * target.x - x * target.z;
-        result.z = x * target.y - y * target.x;
-
-        return result;
-    }
-
-    point getAvg(uint num) const
-    {
-        point result;
-
-        float f_num = static_cast<float>(num);
-
-        result.x = x / f_num;
-        result.y = y / f_num;
-        result.z = z / f_num;
-
-        return result;
-    }
-
-    std::string to_string() const
-    {
-        std::string result = "";
-
-        result += std::to_string(x) + " ";
-        result += std::to_string(y) + " ";
-        result += std::to_string(z);
-
-        return result;
-    }
-
-    point getVec(point target) const
-    {
-        double xDiff = x - target.x;
-        double yDiff = y - target.y;
-        double zDiff = z - target.z;
-
-        double dLengthSquare = xDiff * xDiff + yDiff * yDiff + zDiff * zDiff;
-
-        double dLength = std::sqrt(dLengthSquare);
-
-        if (dLength == 0.0f)
-        {
-            auto a = 1;
-        }
-
-        double xUnit = xDiff / dLength;
-        double yUnit = yDiff / dLength;
-        double zUnit = zDiff / dLength;
-
-        point result;
-
-        result.x = xUnit;
-        result.y = yUnit;
-        result.z = zUnit;
-
-        return result;
-    }
-};
-
-#include <windows.h>
-
-
 namespace buf
 {
     //will be replaced in future
@@ -290,14 +174,9 @@ namespace buf
             }
         }
 
-        float* aabb = meshdata->AABB;
-
-        aabb[msh::EDGE_XMAX] = -FLT_MAX;
-        aabb[msh::EDGE_XMIN] = FLT_MAX;
-        aabb[msh::EDGE_YMAX] = -FLT_MAX;
-        aabb[msh::EDGE_YMIN] = FLT_MAX;
-        aabb[msh::EDGE_ZMAX] = -FLT_MAX;
-        aabb[msh::EDGE_ZMIN] = FLT_MAX;
+        meshdata->boundData.extent[msh::AXIS_X] = 0.0f;
+        meshdata->boundData.extent[msh::AXIS_Y] = 0.0f;
+        meshdata->boundData.extent[msh::AXIS_Z] = 0.0f;
 
         for (uint i = 0; i < result.attributes.positions.size(); i += 3)
         {
@@ -305,13 +184,14 @@ namespace buf
             float y = result.attributes.positions[i + 1];
             float z = result.attributes.positions[i + 2];
 
-            aabb[msh::EDGE_XMAX] = std::max(aabb[msh::EDGE_XMAX], x);
-            aabb[msh::EDGE_XMIN] = std::min(aabb[msh::EDGE_XMIN], x);
-            aabb[msh::EDGE_YMAX] = std::max(aabb[msh::EDGE_YMAX], y);
-            aabb[msh::EDGE_YMIN] = std::min(aabb[msh::EDGE_YMIN], y);
-            aabb[msh::EDGE_ZMAX] = std::max(aabb[msh::EDGE_ZMAX], z);
-            aabb[msh::EDGE_ZMIN] = std::min(aabb[msh::EDGE_ZMIN], z);
+            meshdata->boundData.extent[msh::AXIS_X] = std::max(meshdata->boundData.extent[msh::AXIS_X], std::abs(x));
+            meshdata->boundData.extent[msh::AXIS_Y] = std::max(meshdata->boundData.extent[msh::AXIS_Y], std::abs(y));
+            meshdata->boundData.extent[msh::AXIS_Z] = std::max(meshdata->boundData.extent[msh::AXIS_Z], std::abs(z));
         }
+
+        meshdata->boundData.radius = std::max(std::max(meshdata->boundData.extent[msh::AXIS_X], 
+            meshdata->boundData.extent[msh::AXIS_Y]), 
+            meshdata->boundData.extent[msh::AXIS_Z]);
 
         meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);
         //make sure that the model file contains normal data and it's vertex normal not face normal

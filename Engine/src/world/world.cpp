@@ -25,12 +25,11 @@ object* world::getObjects()
 
 void world::sendInfo(unsigned char* cbv)
 {
-	world* world = game::getWorld();
-	uint* index = world->cameraObjectIndex;
-	uint objNum = world->cameraObjNum;
+	uint* index = cameraObjectIndex;
+	uint objNum = cameraObjNum;
 	for (uint i = 0; i < objNum; ++i)
 	{
-		object* obj = world->objects + index[i];
+		object* obj = objects + index[i];
 		obj->sendMat(cbv);
 	}
 
@@ -39,6 +38,24 @@ void world::sendInfo(unsigned char* cbv)
 camera* world::getMainCam() const
 {
 	return mainCamera;
+}
+
+void world::instanceCulling()
+{
+	mainCamera->updateView();
+
+	for (uint i = 0; i < objectNum; ++i)
+	{
+		object* obj = objects + i;
+
+		DirectX::XMVECTOR* frustum = mainCamera->getFrustum();
+
+		if (obj->instanceCulling(frustum))
+		{
+			cameraObjectIndex[cameraObjNum] = i;
+			++cameraObjNum;
+		}
+	}
 }
 
 void world::setMainCamera(camera* cam)
@@ -90,10 +107,10 @@ bool world::init()
 
 void world::update(float dt)
 {
-	for (uint i = 0; i < objectNum; ++i)
-	{
-		objects[i].update(dt);
-	}
+	//for (uint i = 0; i < objectNum; ++i)
+	//{
+	//	objects[i].update(dt);
+	//}
 
 	//if (input::isTriggered(input::KEY_SPACE))
 	//{
@@ -150,18 +167,38 @@ void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList,
 	//}
 }
 
-uint world::drawObject(void* cbvLoc)
+uint world::submitObjects(void* cbvLoc)
 {
 	uint offset = 0;
 
 	uint* location = static_cast<uint*>(cbvLoc);
-	for (uint i = 0; i < objectNum; ++i)
+	for (uint i = 0; i < cameraObjNum; ++i)
 	{
-		objects[i].submit(static_cast<void*>(location), offset);
+		objects[cameraObjectIndex[i]].submit(static_cast<void*>(location), offset, i);
 		location += 1;
 	}
 
-	return objectNum;
+	return cameraObjNum;
+}
+
+void world::uploadObjectViewInfo(void* cbvLoc)
+{
+	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
+	for (uint i = 0; i < cameraObjNum; ++i)
+	{
+		objects[cameraObjectIndex[i]].uploadViewInfo(gpuAddress);
+		gpuAddress += sizeof(uint) * 10;
+	}
+}
+
+void world::boundData(void* cbvLoc)
+{
+	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
+	for (uint i = 0; i < cameraObjNum; ++i)
+	{
+		objects[cameraObjectIndex[i]].boundData(gpuAddress);
+		gpuAddress += 6 * sizeof(float);
+	}
 }
 
 void world::setupScene()

@@ -60,7 +60,10 @@ public:
 	void preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe);
 
 	void changeViewport(const cam::VIEWPORT_TYPE type);
-	
+	void updateView();
+
+	DirectX::XMVECTOR* getFrustum();
+
 	cam::viewport screenViewport;
 	cam::scissorRect scissor = {};
 
@@ -86,4 +89,6 @@ private:
 	void move(float x, float y, int mousex, int mousey, float dt);
 
 	transform* transformPtr = nullptr;
+
+	DirectX::XMVECTOR frustum[6];
 };

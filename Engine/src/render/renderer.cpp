@@ -351,6 +351,12 @@ void renderer::preDraw(float dt)
 
 		debugFBRequest = false;
 	}
+
+	//instance call
+	{
+		//uint objCount = e_globWorld.drawObject(cmdConstBuffer->info.cbvDataBegin);
+		e_globWorld.instanceCulling();
+	}
 }
 
 void renderer::setUpTerrain()
@@ -604,9 +610,6 @@ void renderer::setUp()
 	}
 }
 
-//TODO 
-#include <world/object.hpp>
-
 void renderer::draw(float dt)
 {
 	{
@@ -632,7 +635,7 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTEROFFSET_BUFFER, localClusterOffsetDesc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeDesc.getHandle());
 
-		uint objCount = e_globWorld.drawObject(cmdConstBuffer->info.cbvDataBegin);
+		uint objCount = e_globWorld.submitObjects(cmdConstBuffer->info.cbvDataBegin);
 
 		memcpy(cmdConstBuffer->info.cbvDataBegin + 64 * 4 * 4, &objCount, 4);
 
@@ -679,11 +682,7 @@ void renderer::draw(float dt)
 
 		unsigned char* dataPtr = nullptr;
 		viewInfoBuffer->mapBuffer(&dataPtr);
-		for (uint i = 0; i < e_globWorld.objectNum; ++i)
-		{
-			e_globWorld.objects[i].uploadViewInfo(dataPtr);
-			dataPtr += sizeof(uint) * 10;
-		}
+		e_globWorld.uploadObjectViewInfo(dataPtr);
 		viewInfoBuffer->unmapBuffer();
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VERTEX, unifiedDesc[0].getHandle());
@@ -794,10 +793,7 @@ void renderer::draw(float dt)
 		unsigned char* aabbGPUAddress = nullptr;
 		AABBwireframeBuffer->mapBuffer(&aabbGPUAddress);
 
-		for (uint i = 0; i < e_globWorld.objectNum; ++i)
-		{
-			e_globWorld.objects[i].aabbData(aabbGPUAddress + i * 6 * sizeof(float));
-		}
+		e_globWorld.boundData(aabbGPUAddress);
 
 		AABBwireframeBuffer->unmapBuffer();
 

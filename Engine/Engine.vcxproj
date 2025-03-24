@@ -108,6 +108,7 @@
     <ClInclude Include="include\system\jsonhelper.hpp" />
     <ClInclude Include="include\system\logger.hpp" />
     <ClInclude Include="include\system\logger_internal.hpp" />
+    <ClInclude Include="include\system\mathhelper.hpp" />
     <ClInclude Include="include\system\window.hpp" />
     <ClInclude Include="include\world\object.hpp" />
     <ClInclude Include="include\world\world.hpp" />
@@ -129,6 +130,7 @@
     <ClCompile Include="src\system\input.cpp" />
     <ClCompile Include="src\system\jsonhelper.cpp" />
     <ClCompile Include="src\system\logger_internal.cpp" />
+    <ClCompile Include="src\system\mathhelper.cpp" />
     <ClCompile Include="src\system\window.cpp" />
     <ClCompile Include="src\world\object.cpp" />
     <ClCompile Include="src\world\world.cpp" />

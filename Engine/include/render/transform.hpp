@@ -24,7 +24,6 @@ public:
 
 	void movePosition(DirectX::XMVECTOR offset);
 	void applyScale(DirectX::XMVECTOR offset);
-	void rotate(DirectX::XMVECTOR rot);
 
 	DirectX::XMVECTOR getPosition() const;
 	DirectX::XMVECTOR getScale() const;

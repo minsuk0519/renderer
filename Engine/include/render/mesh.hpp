@@ -36,15 +36,12 @@ namespace msh
 	mesh* getMesh(const uint& idx);
 	mesh* getMesh(const MESH_INDEX idx);
 
-	enum EDGE_ENUM
+	enum AXIS_ENUM
 	{
-		EDGE_XMAX = 0,
-		EDGE_XMIN,
-		EDGE_YMAX,
-		EDGE_YMIN,
-		EDGE_ZMAX,
-		EDGE_ZMIN,
-		EDGE_MAX,
+		AXIS_X = 0,
+		AXIS_Y,
+		AXIS_Z,
+		AXIS_MAX,
 	};
 
 	void guiMeshSetting(bool& meshWindow, uint& meshID);
@@ -59,6 +56,12 @@ struct lodInfos
 	std::vector<uint> indexSize;
 };
 
+struct bound
+{
+	float radius;
+	float extent[msh::AXIS_MAX];
+};
+
 struct meshData
 {
 	vertexbuffer* vbs;
@@ -71,11 +74,7 @@ struct meshData
 	uint lodNum = 1;
 	std::vector<lodInfos> lodData;
 
-	float AABB[msh::EDGE_MAX] = {
-		0.5f, -0.5f, 
-		0.5f, -0.5f, 
-		0.5f, -0.5f, 
-	};
+	bound boundData;
 };
 
 class mesh

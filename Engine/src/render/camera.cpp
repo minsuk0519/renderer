@@ -9,6 +9,7 @@
 #include <render/shader_defines.hpp>
 
 #include <DirectXMath.h>
+#include <cmath>
 
 constexpr float SPEED = 0.0003f;
 
@@ -127,6 +128,46 @@ void camera::changeViewport(const cam::VIEWPORT_TYPE type)
 	}
 
 	viewportType = type;
+}
+
+void camera::updateView()
+{
+	DirectX::XMVECTOR up = transformPtr->getUP();
+	DirectX::XMVECTOR right = transformPtr->getRIGHT();
+	DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);
+
+	DirectX::XMVECTOR camPos = transformPtr->getPosition();
+
+	const float upScale = std::tanf(DirectX::XMConvertToRadians(FOV) * 0.5f);
+	const float rightScale = upScale * (screenViewport.width / (float)screenViewport.height);
+
+	frustum[0] = DirectX::XMVectorNegate(forward);
+	frustum[0].m128_f32[3] = -DirectX::XMVector3Dot(frustum[0], DirectX::XMVectorMultiplyAdd(frustum[0], DirectX::XMVECTOR{ NEAR_PLANE, NEAR_PLANE, NEAR_PLANE }, camPos)).m128_f32[0];
+	frustum[1] = forward;
+	frustum[1].m128_f32[3] = -DirectX::XMVector3Dot(frustum[1], DirectX::XMVectorMultiplyAdd(frustum[1], DirectX::XMVECTOR{ FAR_PLANE, FAR_PLANE, FAR_PLANE }, camPos)).m128_f32[0];
+
+	DirectX::XMVECTOR scaledUp = DirectX::XMVectorMultiply(up, DirectX::XMVECTOR{ upScale, upScale, upScale });
+	DirectX::XMVECTOR scaledRight = DirectX::XMVectorMultiply(right, DirectX::XMVECTOR{ rightScale, rightScale, rightScale });
+
+	DirectX::XMVECTOR topright = DirectX::XMVectorAdd(DirectX::XMVectorAdd(scaledRight, scaledUp), forward);
+	DirectX::XMVECTOR bottomleft = DirectX::XMVectorAdd(DirectX::XMVectorNegate(DirectX::XMVectorAdd(scaledRight, scaledUp)), forward);
+
+	frustum[2] = DirectX::XMVector3Cross(topright, scaledUp);
+	frustum[2].m128_f32[3] = -DirectX::XMVector3Dot(frustum[2], camPos).m128_f32[0];
+
+	frustum[3] = DirectX::XMVector3Cross(scaledRight, topright);
+	frustum[3].m128_f32[3] = -DirectX::XMVector3Dot(frustum[3], camPos).m128_f32[0];
+
+	frustum[4] = DirectX::XMVector3Cross(scaledUp, bottomleft);
+	frustum[4].m128_f32[3] = -DirectX::XMVector3Dot(frustum[4], camPos).m128_f32[0];
+
+	frustum[5] = DirectX::XMVector3Cross(bottomleft, scaledRight);
+	frustum[5].m128_f32[3] = -DirectX::XMVector3Dot(frustum[5], camPos).m128_f32[0];
+}
+
+DirectX::XMVECTOR* camera::getFrustum()
+{
+	return frustum;
 }
 
 transform* camera::getTransform() const

@@ -41,17 +41,16 @@ private:
 	bool displayUI = true;
 	bool displayWire = true;
 public:
-
 	transform* getTransform() const;
 
 	bool init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui);
 	void draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw);
 	void update(float dt);
-	void submit(void* cbvLoc, uint& offset);
+	void submit(void* cbvLoc, uint& offset, uint localID);
 
 	void sendMat(unsigned char* cbvdata);
 	void uploadViewInfo(unsigned char* dataLoc);
-	void aabbData(unsigned char* data);
+	void boundData(unsigned char* data);
 
 	void close();
 
@@ -67,9 +66,7 @@ public:
 	uint64_t getCBVLoc() const;
 	uint getMeshIdx() const;
 
-	bool frustumCulling(camera* cam);
-
-	bool frstumCulled = false;
-
 	uint getObjID() const;
+
+	bool instanceCulling(DirectX::XMVECTOR* frustum);
 };

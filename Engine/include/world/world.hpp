@@ -29,7 +29,9 @@ public:
 	void close();
 
 	void drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe);
-	uint drawObject(void* cbvLoc);
+	uint submitObjects(void* cbvLoc);
+	void uploadObjectViewInfo(void* cbvLoc);
+	void boundData(void* cbvLoc);
 
 	void setupScene();
 
@@ -52,7 +54,7 @@ public:
 
 	camera* getMainCam() const;
 
-	void submitTerrainData(unsigned char* loc) const;
+	void instanceCulling();
 protected:
 	void setMainCamera(camera* cam);
 
@@ -65,8 +67,6 @@ private:
 	camera* debugCamera = nullptr;
 
 	bool active = false;
-
-	void addObject(object* obj);
 };
 
 extern world e_globWorld;
