@@ -121,7 +121,7 @@ PSOutput gbuffer_ps(PSInput input)
 
     result.position = float4(position, 1.0f);
     result.normTex = encodeOct(normal);
-    result.debugID = input.output.x;//input.output.x;
+    result.debugID = input.output.x + 1;//input.output.x;
     
     return result;
 }

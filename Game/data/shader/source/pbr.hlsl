@@ -52,7 +52,7 @@ float4 pbr_ps(PSInput input) : SV_TARGET
 	}
 	else if(debugDraw == 3)
 	{
-		return float4(DISTINCT_COLOR[debugInfo % 64], 1.0f);
+		return float4(DISTINCT_COLOR[(debugInfo - 1) % 64], 1.0f);
 	}
 	else if(debugDraw == 4)
 	{
