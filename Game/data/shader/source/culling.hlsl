@@ -53,7 +53,7 @@ void uploadLocalObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
     uint meshIndex = packedID >> 3;
     uint objID = packedObj[localObjectIndex] >> 16;
 
-    uint lodIndex = meshInfos[meshIndex * 4 + 0];// + (packedID & 0x7);
+    uint lodIndex = meshInfos[meshIndex * 4 + 0] + (packedID & 0x7);
 
     uint clusterCount = lodInfos[lodIndex].clusterCount;
     uint clusterOffset = lodInfos[lodIndex].clusterOffset;

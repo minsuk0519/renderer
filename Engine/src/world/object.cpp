@@ -78,8 +78,7 @@ void object::submit(void* cbvLoc, uint& offset, uint localID)
 {
 	uint data;
 
-	//TODO : LOD is set to 0 for now but need to make lod selection
-	data = (localID << 16) | (getMeshIdx() << 3) | 0;
+	data = (localID << 16) | (getMeshIdx() << 3) | lod;
 
 	memcpy(cbvLoc, &data, 4);
 
@@ -122,9 +121,9 @@ void object::boundData(unsigned char* data)
 
 	float aabbData[6];
 
-	float xScale = mshData->boundData.extent[msh::AXIS_X];
-	float yScale = mshData->boundData.extent[msh::AXIS_Y];
-	float zScale = mshData->boundData.extent[msh::AXIS_Z];
+	float xScale = mshData->boundData.halfExtent[msh::AXIS_X];
+	float yScale = mshData->boundData.halfExtent[msh::AXIS_Y];
+	float zScale = mshData->boundData.halfExtent[msh::AXIS_Z];
 
 	aabbData[0] = xScale * trans->getScale().m128_f32[0];
 	aabbData[1] = yScale * trans->getScale().m128_f32[1];
@@ -150,6 +149,9 @@ void object::guiSetting()
 
 	gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
 	gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
+
+	const int maxLOD = meshPtr->getData()->lodNum;
+	gui::editintwithrange("ForceLOD##" + std::to_string(id), reinterpret_cast<int *>(&lod), 0, maxLOD - 1);
 
 	meshEnumIndex = meshPtr->getId();
 
@@ -207,15 +209,16 @@ bool object::instanceCulling(DirectX::XMVECTOR* frustum)
 {
 	DirectX::XMVECTOR scale = trans->getScale();
 
-	float xExtent = scale.m128_f32[0] * meshPtr->getData()->boundData.extent[msh::AXIS_X];
-	float yExtent = scale.m128_f32[1] * meshPtr->getData()->boundData.extent[msh::AXIS_Y];
-	float zExtent = scale.m128_f32[2] * meshPtr->getData()->boundData.extent[msh::AXIS_Z];
+	float xExtent = scale.m128_f32[0] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_X];
+	float yExtent = scale.m128_f32[1] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_Y];
+	float zExtent = scale.m128_f32[2] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_Z];
 
 	float r = std::sqrt(xExtent * xExtent + yExtent * yExtent + zExtent * zExtent);
 
 	DirectX::XMVECTOR objCenter = trans->getPosition();
 	objCenter.m128_f32[3] = 1.0f;
 
+	//bound sphere vs frustum test
 	for (uint i = 0; i < 6; ++i)
 	{
 		bool isIn = DirectX::XMPlaneDot(frustum[i], objCenter).m128_f32[0] <= r;

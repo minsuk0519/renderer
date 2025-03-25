@@ -311,6 +311,15 @@ void gui::edituint(std::string str, uint* data)
     }
 }
 
+void gui::editintwithrange(std::string str, int* data, int min, int max)
+{
+    int integer = *data;
+    if (ImGui::InputInt(str.c_str(), &integer))
+    {
+        *data = std::clamp(integer, min, max);
+    }
+}
+
 void gui::comboBox(std::string name, const char* const items[], uint size, uint& index)
 {
     if (ImGui::BeginCombo(name.c_str(), items[index]))
