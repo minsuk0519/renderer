@@ -146,7 +146,7 @@ namespace buf
     {
         auto result = rapidobj::ParseFile(fileName);
 
-        if (result.error) 
+        if (result.error)
         {
             auto errorMsg = result.error.code.message();
             std::string errorLog = "Failed to load file : " + fileName + '\n' + errorMsg;
@@ -156,7 +156,7 @@ namespace buf
 
         rapidobj::Triangulate(result);
 
-        if (result.error) 
+        if (result.error)
         {
             auto errorMsg = result.error.code.message();
             std::string errorLog = "Failed to triangulate file : " + fileName + '\n' + errorMsg;
@@ -174,9 +174,15 @@ namespace buf
             }
         }
 
-        meshdata->boundData.extent[msh::AXIS_X] = 0.0f;
-        meshdata->boundData.extent[msh::AXIS_Y] = 0.0f;
-        meshdata->boundData.extent[msh::AXIS_Z] = 0.0f;
+        meshdata->boundData.halfExtent[msh::AXIS_X] = 0.0f;
+        meshdata->boundData.halfExtent[msh::AXIS_Y] = 0.0f;
+        meshdata->boundData.halfExtent[msh::AXIS_Z] = 0.0f;
+
+#if ENGINE_DEBUG_DATATEST
+        float xMin = FLT_MAX;
+        float yMin = FLT_MAX;
+        float zMin = FLT_MAX;
+#endif // #if ENGINE_DEBUG_DATATEST
 
         for (uint i = 0; i < result.attributes.positions.size(); i += 3)
         {
@@ -184,14 +190,22 @@ namespace buf
             float y = result.attributes.positions[i + 1];
             float z = result.attributes.positions[i + 2];
 
-            meshdata->boundData.extent[msh::AXIS_X] = std::max(meshdata->boundData.extent[msh::AXIS_X], std::abs(x));
-            meshdata->boundData.extent[msh::AXIS_Y] = std::max(meshdata->boundData.extent[msh::AXIS_Y], std::abs(y));
-            meshdata->boundData.extent[msh::AXIS_Z] = std::max(meshdata->boundData.extent[msh::AXIS_Z], std::abs(z));
+            meshdata->boundData.halfExtent[msh::AXIS_X] = std::max(meshdata->boundData.halfExtent[msh::AXIS_X], std::abs(x));
+            meshdata->boundData.halfExtent[msh::AXIS_Y] = std::max(meshdata->boundData.halfExtent[msh::AXIS_Y], std::abs(y));
+            meshdata->boundData.halfExtent[msh::AXIS_Z] = std::max(meshdata->boundData.halfExtent[msh::AXIS_Z], std::abs(z));
+
+#if ENGINE_DEBUG_DATATEST
+            xMin = std::min(xMin, x);
+            yMin = std::min(yMin, y);
+            zMin = std::min(zMin, z);
         }
 
-        meshdata->boundData.radius = std::max(std::max(meshdata->boundData.extent[msh::AXIS_X], 
-            meshdata->boundData.extent[msh::AXIS_Y]), 
-            meshdata->boundData.extent[msh::AXIS_Z]);
+        assert((xMin + meshdata->boundData.halfExtent[msh::AXIS_X]) < FLT_EPSILON);
+        assert((yMin + meshdata->boundData.halfExtent[msh::AXIS_Y]) < FLT_EPSILON);
+        assert((zMin + meshdata->boundData.halfExtent[msh::AXIS_Z]) < FLT_EPSILON);
+#else // #if ENGINE_DEBUG_DATATEST
+        }   
+#endif // #else // #if ENGINE_DEBUG_DATATEST
 
         meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);
         //make sure that the model file contains normal data and it's vertex normal not face normal

@@ -146,9 +146,9 @@ namespace msh
             newData->getData()->lodNum = 1;
             newData->getData()->lodData.push_back(lodInfos(1, 36, { 36 }));
 
-            newData->getData()->boundData.extent[msh::AXIS_X] = 1.0f;
-            newData->getData()->boundData.extent[msh::AXIS_Y] = 1.0f;
-            newData->getData()->boundData.extent[msh::AXIS_Z] = 1.0f;
+            newData->getData()->boundData.halfExtent[msh::AXIS_X] = 1.0f;
+            newData->getData()->boundData.halfExtent[msh::AXIS_Y] = 1.0f;
+            newData->getData()->boundData.halfExtent[msh::AXIS_Z] = 1.0f;
 
             newData->getData()->boundData.radius = 1.0f;
 
@@ -190,9 +190,9 @@ namespace msh
             newMeshData->lodData[0].indexSize.push_back(192);
         }
 
-        newMeshData->boundData.extent[msh::AXIS_X] = 256.0f;
-        newMeshData->boundData.extent[msh::AXIS_Y] = 128.0f;
-        newMeshData->boundData.extent[msh::AXIS_Z] = 256.0f;
+        newMeshData->boundData.halfExtent[msh::AXIS_X] = 256.0f;
+        newMeshData->boundData.halfExtent[msh::AXIS_Y] = 128.0f;
+        newMeshData->boundData.halfExtent[msh::AXIS_Z] = 256.0f;
 
         newMeshData->boundData.radius = 256.0f;
 

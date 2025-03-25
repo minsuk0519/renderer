@@ -35,6 +35,7 @@ private:
 
 	DirectX::XMFLOAT4 albedo = DirectX::XMFLOAT4{ 1,1,1,1 };
 
+	uint lod = 0;
 	uint id = 0;
 	uint pso = 0;
 

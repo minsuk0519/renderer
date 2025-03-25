@@ -59,7 +59,8 @@ struct lodInfos
 struct bound
 {
 	float radius;
-	float extent[msh::AXIS_MAX];
+	//half extent
+	float halfExtent[msh::AXIS_MAX];
 };
 
 struct meshData
