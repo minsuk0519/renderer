@@ -33,6 +33,7 @@
 
 .vs/
 Debug/
+Release/
 packages/
 external/
 tools/meshReconstructor/meshReconstructor.pdb
