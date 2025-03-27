@@ -3235,6 +3235,11 @@ inline constexpr void TrimLeft(std::string_view& text) noexcept
     text.remove_prefix(index);
 }
 
+std::string getStrFromFloat3(float f[3])
+{
+    return "(" + std::to_string(f[0]) + ", " + std::to_string(f[1]) + ", " + std::to_string(f[2]) + ")";
+}
+
 //referenced from zeux, meshoptimizer https://github.com/zeux/meshoptimizer/tree/master
 #include "external/meshoptimizer.h"
 
@@ -3709,13 +3714,35 @@ int main(int argc, char** argv)
         std::vector<bool> isUsed;
         isUsed.resize(vertexSize);
 
+
+
         for (uint lodID = 0; lodID < lodNums; ++lodID)
         {
             uint clusterNums = clusterSizes[lodID].clusterNum;
             uint clusterOffset = clusterSizes[lodID].clusterOffset;
+
             for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
             {
+                clusters[clusterOffset + clusterID].parent.center[0] = clusters[clusterOffset + clusterID].self.center[0];
+                clusters[clusterOffset + clusterID].parent.center[1] = clusters[clusterOffset + clusterID].self.center[1];
+                clusters[clusterOffset + clusterID].parent.center[2] = clusters[clusterOffset + clusterID].self.center[2];
+                clusters[clusterOffset + clusterID].parent.radius = clusters[clusterOffset + clusterID].self.radius;
+
                 uint clusterSize = clusters[clusterOffset + clusterID].indices.size();
+
+                float center[3];
+                float radius;
+                center[0] = clusters[clusterOffset + clusterID].self.center[0];
+                center[1] = clusters[clusterOffset + clusterID].self.center[1];
+                center[2] = clusters[clusterOffset + clusterID].self.center[2];
+                radius = clusters[clusterOffset + clusterID].self.radius;
+
+                float parentCenter[3];
+                float parentRadius;
+                parentCenter[0] = clusters[clusterOffset + clusterID].parent.center[0];
+                parentCenter[1] = clusters[clusterOffset + clusterID].parent.center[1];
+                parentCenter[2] = clusters[clusterOffset + clusterID].parent.center[2];
+                parentRadius = clusters[clusterOffset + clusterID].parent.radius;
 
                 for (uint indexID = 0; indexID < clusterSize; indexID += 3)
                 {
@@ -3732,7 +3759,64 @@ int main(int argc, char** argv)
                     isUsed[clusterIndex2] = true;
 
                     ++newIndexID;
+
+                    float x = vertices[clusterIndex0].px;
+                    float y = vertices[clusterIndex0].py;
+                    float z = vertices[clusterIndex0].pz;
+
+                    float x2 = vertices[clusterIndex1].px;
+                    float y2 = vertices[clusterIndex1].py;
+                    float z2 = vertices[clusterIndex1].pz;
+
+                    float x3 = vertices[clusterIndex2].px;
+                    float y3 = vertices[clusterIndex2].py;
+                    float z3 = vertices[clusterIndex2].pz;
+
+                    {
+                        float d2 = (x - center[0]) * (x - center[0]) + (y - center[1]) * (y - center[1]) + (z - center[2]) * (z - center[2]);
+
+                        assert((d2 - radius * radius) < 0.1f);
+
+                        d2 = (x2 - center[0]) * (x2 - center[0]) + (y2 - center[1]) * (y2 - center[1]) + (z2 - center[2]) * (z2 - center[2]);
+
+                        assert((d2 - radius * radius) < 0.1f);
+                        
+                        d2 = (x3 - center[0]) * (x3 - center[0]) + (y3 - center[1]) * (y3 - center[1]) + (z3 - center[2]) * (z3 - center[2]);
+
+                        assert((d2 - radius * radius) < 0.1f);
+
+                        d2 = (x - parentCenter[0]) * (x - parentCenter[0]) + (y - parentCenter[1]) * (y - parentCenter[1]) + (z - parentCenter[2]) * (z - parentCenter[2]);
+
+                        if ((d2 - parentRadius * parentRadius) >= 0.1f)
+                        {
+                            auto a = 1;
+                        }
+
+                        assert((d2 - parentRadius * parentRadius) < 0.1f);
+
+                        d2 = (x2 - parentCenter[0]) * (x2 - parentCenter[0]) + (y2 - parentCenter[1]) * (y2 - parentCenter[1]) + (z2 - parentCenter[2]) * (z2 - parentCenter[2]);
+
+                        if ((d2 - parentRadius * parentRadius) >= 0.1f)
+                        {
+                            auto a = 1;
+                        }
+
+                        assert((d2 - parentRadius * parentRadius) < 0.1f);
+                        
+                        d2 = (x3 - parentCenter[0]) * (x3 - parentCenter[0]) + (y3 - parentCenter[1]) * (y3 - parentCenter[1]) + (z3 - parentCenter[2]) * (z3 - parentCenter[2]);
+
+                        if ((d2 - parentRadius * parentRadius) >= 0.1f)
+                        {
+                            auto a = 1;
+                        }
+
+                        assert((d2 - parentRadius * parentRadius) < 0.1f);
+                    }
                 }
+
+                //+center	0x0000002caf774528 {37.0000000, -13.5000000, 104.000000}	float[3]
+                //    radius	60.0687103	float
+
             }
         }
 
@@ -3745,21 +3829,6 @@ int main(int argc, char** argv)
 
         assert(newIndexID == indexSize);
     }
-
-    uint AAA = clusterSizes[0].clusterNum;
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-    for (uint i = 0; i < AAA; ++i)
-    {
-        x += clusters[i].self.center[0];
-        y += clusters[i].self.center[1];
-        z += clusters[i].self.center[2];
-    }
-
-    x /= AAA;
-    y /= AAA;
-    z /= AAA;
 
     {
         auto extensionPos = fileName.find(".ply");
@@ -3873,9 +3942,10 @@ int main(int argc, char** argv)
         }
         dataBuffer += "\n";
 
+        dataBuffer += "(" + std::to_string(xLen) + ", " + std::to_string(yLen) + ", " + std::to_string(zLen) + ")" + "\n";
         for (uint i = 0; i < clusters.size(); ++i)
         {
-            dataBuffer += std::to_string(clusters[i].indices.size()) + ", " + "\n";
+            dataBuffer += std::to_string(clusters[i].indices.size()) + ", " + getStrFromFloat3(clusters[i].self.center) + ", " + std::to_string(clusters[i].self.radius) + "\n";
         }
 
         DWORD dwBytesToWrite = (DWORD)(dataBuffer.size());
