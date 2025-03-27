@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#define TC_EPSILON 0.000001
+
 namespace math
 {
 	point::point(float xValue, float yValue, float zValue) : x(xValue), y(yValue), z(zValue) {}
@@ -135,6 +137,6 @@ namespace math
     }
     bool compare_float(float a, float b)
     {
-        return (std::abs(a - b) < FLT_EPSILON);
+        return (std::abs(a - b) < TC_EPSILON);
     }
 };

@@ -487,6 +487,7 @@ void renderer::setUp()
 		};
 
 		lodInfo* lodInfos = new lodInfo[curLodOffset];
+		spherebound* clusterBounds = new spherebound[curClusterOffset];
 		clusterInfo* clusterInfos = new clusterInfo[curClusterOffset];
 		uint lodIndex = 0;
 		uint clusterIndex = 0;
@@ -501,16 +502,29 @@ void renderer::setUp()
 
 			meshData* data = msh::getMesh(i)->getData();
 			uint lodNum = data->lodNum;
+			uint meshClusterIndex = 0;
 			for (uint j = 0; j < lodNum; ++j)
 			{
 				uint curClusterCount = data->lodData[j].clusterNum;
 				lodInfos[lodIndex].clusterCount = curClusterCount;
 				uint totalIndexSize = 0;
+
 				for (uint k = 0; k < curClusterCount; ++k)
 				{
 					uint indexCount = data->lodData[j].indexSize[k];
 					clusterInfos[clusterIndex].indexCount = indexCount;
 					clusterInfos[clusterIndex].indexOffset = indexOffset;
+
+					if (!(meshInfos[i].flags & MESH_INFO_FLAGS_TERRAIN))
+					{
+						clusterBounds[clusterIndex].center[0] = data->clusterBounds[meshClusterIndex].center[0];
+						clusterBounds[clusterIndex].center[1] = data->clusterBounds[meshClusterIndex].center[1];
+						clusterBounds[clusterIndex].center[2] = data->clusterBounds[meshClusterIndex].center[2];
+						clusterBounds[clusterIndex].radius = data->clusterBounds[meshClusterIndex].radius;
+
+						++meshClusterIndex;
+					}
+
 					indexOffset += indexCount;
 					totalIndexSize += indexCount;
 					++clusterIndex;
@@ -527,17 +541,21 @@ void renderer::setUp()
 		uint lodInfoSize = curLodOffset * sizeof(lodInfo);
 		lodInfoBuffer = buf::createImageBuffer(lodInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
 		clusterInfoBuffer = buf::createImageBuffer(clusterInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
-
+		clusterBoundBuffer = buf::createImageBuffer(MAX_CLUSTERS * sizeof(float) * 4, 0, 0, DXGI_FORMAT_R32_TYPELESS);
 		meshInfoBuffer->uploadBuffer(meshInfoSize, meshInfos);
 		lodInfoBuffer->uploadBuffer(lodInfoSize, lodInfos);
 		clusterInfoBuffer->uploadBuffer(clusterInfoSize, clusterInfos);
+		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(spherebound), clusterBounds);
 
+
+		delete[] clusterBounds;
 		delete[] lodInfos;
 		delete[] clusterInfos;
 
 		meshInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, meshInfoBuffer);
 		lodInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, lodInfoBuffer);
 		clusterInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, clusterInfoBuffer);
+		clusterBoundDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, clusterBoundBuffer);
 
 		indexOffset = 0;
 
@@ -612,6 +630,11 @@ void renderer::setUp()
 
 void renderer::draw(float dt)
 {
+	unsigned char* dataPtr = nullptr;
+	viewInfoBuffer->mapBuffer(&dataPtr);
+	e_globWorld.uploadObjectViewInfo(dataPtr);
+	viewInfoBuffer->unmapBuffer();
+
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
@@ -658,6 +681,7 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_ARGS_BUFFER, localClusterOffsetDesc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERARGS_BUFFER, vertexIDDesc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_BOUNDS_BUFFER, clusterBoundDesc.getHandle());
 
 		computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_CULLCLUSTER)->getCmdSignature(), 1, localClusterSizeBuffer->resource.Get(), sizeof(uint), nullptr, 0);
 
@@ -679,11 +703,6 @@ void renderer::draw(float dt)
 
 	{
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
-
-		unsigned char* dataPtr = nullptr;
-		viewInfoBuffer->mapBuffer(&dataPtr);
-		e_globWorld.uploadObjectViewInfo(dataPtr);
-		viewInfoBuffer->unmapBuffer();
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VERTEX, unifiedDesc[0].getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_NORM, unifiedDesc[1].getHandle());

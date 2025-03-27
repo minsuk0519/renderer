@@ -118,6 +118,8 @@
 #define SRV_CULLING_CLUSTER_INFO_BUFFER		GET_HLSL_LOC_SRV(2)
 //t3 cluster args buffer input
 #define SRV_CLUSTER_ARGS_BUFFER				GET_HLSL_LOC_SRV(3)
+//t4 cluster bounds input
+#define SRV_CLUSTER_BOUNDS_BUFFER			GET_HLSL_LOC_SRV(4)
 //b0 cmdBuf constants
 #define CBV_CULLINGCONSTS					GET_HLSL_LOC_CBV(0)
 ////////////////////culling Buffer Ends

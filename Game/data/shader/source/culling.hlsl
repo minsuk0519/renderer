@@ -11,6 +11,9 @@ StructuredBuffer<uint> meshInfos : register(t0);
 StructuredBuffer<lodInfo> lodInfos : register(t1);
 StructuredBuffer<clusterInfo> clusterInfos : register(t2);
 StructuredBuffer<uint> clusterArgs : register(t3);
+StructuredBuffer<float> clusterBounds : register(t4);
+StructuredBuffer<float> viewInfos : register(t5);
+
 
 cbuffer cb_cmdBuf : register(b0)
 {
@@ -106,6 +109,12 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     uint objectInfo = packedID & ((1 << 16) - 1);
     uint meshIndex = objectInfo >> 3;
     uint objID = packedID >> 16;
+
+    float3 center = float3(
+        clusterBounds[(clusterOffset + clusterIndex) * 4 + 0],
+        clusterBounds[(clusterOffset + clusterIndex) * 4 + 1],
+        clusterBounds[(clusterOffset + clusterIndex) * 4 + 2]);
+    float radius = clusterBounds[(clusterOffset + clusterIndex) * 4 + 3];
 
     uint offset = 0;
     if(vis)

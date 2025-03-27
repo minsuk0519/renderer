@@ -71,6 +71,7 @@ private:
 	uavbuffer* localClusterSizeBuffer;
 	uavbuffer* clusterArgsBuffer;
 	imagebuffer* viewInfoBuffer;
+	imagebuffer* clusterBoundBuffer;
 	
 	constantbuffer* cmdConstBuffer;
 
@@ -103,6 +104,7 @@ public:
 	descriptor localClusterSizeDesc;
 	descriptor clusterArgsDesc;
 	descriptor viewInfoDesc;
+	descriptor clusterBoundDesc;
 private:
 	void setUpTerrain();
 };

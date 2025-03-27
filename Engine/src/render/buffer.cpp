@@ -256,9 +256,9 @@ namespace buf
             zMin = std::min(zMin, z);
         }
 
-        assert((xMin + meshdata->boundData.halfExtent[msh::AXIS_X]) < FLT_EPSILON);
-        assert((yMin + meshdata->boundData.halfExtent[msh::AXIS_Y]) < FLT_EPSILON);
-        assert((zMin + meshdata->boundData.halfExtent[msh::AXIS_Z]) < FLT_EPSILON);
+        math::compare_float(xMin + meshdata->boundData.halfExtent[msh::AXIS_X], 0.0f);
+        math::compare_float(yMin + meshdata->boundData.halfExtent[msh::AXIS_Y], 0.0f);
+        math::compare_float(zMin + meshdata->boundData.halfExtent[msh::AXIS_Z], 0.0f);
 #else // #if ENGINE_DEBUG_DATATEST
         }   
 #endif // #else // #if ENGINE_DEBUG_DATATEST
