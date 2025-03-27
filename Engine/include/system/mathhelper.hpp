@@ -40,4 +40,6 @@ namespace math
         bool isSphereInPlane(point c, float r) const;
         float dot(point p) const;
     };
+
+    bool compare_float(float a, float b);
 };

@@ -133,4 +133,8 @@ namespace math
     {
         return v.dot(p) + d;
     }
+    bool compare_float(float a, float b)
+    {
+        return (std::abs(a - b) < FLT_EPSILON);
+    }
 };

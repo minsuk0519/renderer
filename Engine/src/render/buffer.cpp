@@ -7,6 +7,7 @@
 #include <system/window.hpp>
 #include <system/logger.hpp>
 #include <system/jsonhelper.hpp>
+#include <system/mathhelper.hpp>
 
 #include <vector>
 
@@ -120,16 +121,70 @@ namespace buf
             uint nextPos = subStr.find("\n") + 1;
             subStr = subStr.substr(nextPos);
 
+            {
+                nextPos = subStr.find(",");
+                std::string valueString = subStr.substr(1, nextPos - 1);
+                float value = std::stof(valueString) / 2.0f;
+#if ENGINE_DEBUG_DATATEST
+                TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_X]));
+#endif // #if ENGINE_DEBUG_DATATEST
+                meshData->boundData.halfExtent[msh::AXIS_X] = value;
+
+                subStr = subStr.substr(nextPos + 1);
+                nextPos = subStr.find(",");
+                valueString = subStr.substr(1, nextPos - 1);
+                value = std::stof(valueString) / 2.0f;
+#if ENGINE_DEBUG_DATATEST
+                TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_Y]));
+#endif // #if ENGINE_DEBUG_DATATEST
+                meshData->boundData.halfExtent[msh::AXIS_Y] = value;
+
+                subStr = subStr.substr(nextPos + 1);
+                nextPos = subStr.find(",");
+                valueString = subStr.substr(1, nextPos - 1);
+                value = std::stof(valueString) / 2.0f;
+#if ENGINE_DEBUG_DATATEST
+                TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_Z]));
+#endif // #if ENGINE_DEBUG_DATATEST
+                meshData->boundData.halfExtent[msh::AXIS_Z] = value;
+            }
+
+            nextPos = subStr.find("\n") + 1;
+            subStr = subStr.substr(nextPos);
+
             for (uint i = 0; i < meshData->lodNum; ++i)
             {
                 uint totalIndexCount = 0;
 
                 for (uint j = 0; j < meshData->lodData[i].clusterNum; ++j)
                 {
-                    nextPos = subStr.find(", \n");
+                    nextPos = subStr.find(", (");
                     std::string valueString = subStr.substr(0, nextPos);
                     uint indexCount = std::stoi(valueString);
                     meshData->lodData[i].indexSize.push_back(indexCount);
+
+                    spherebound bound;
+
+                    nextPos = subStr.find("(");
+                    subStr = subStr.substr(nextPos + 1);
+                    nextPos = subStr.find(",");
+                    valueString = subStr.substr(0, nextPos);
+                    bound.center[0] = std::stof(valueString);
+                    subStr = subStr.substr(valueString.size() + 2);
+                    nextPos = subStr.find(",");
+                    valueString = subStr.substr(0, nextPos);
+                    bound.center[1] = std::stof(valueString);
+                    subStr = subStr.substr(valueString.size() + 2);
+                    nextPos = subStr.find(")");
+                    valueString = subStr.substr(0, nextPos);
+                    bound.center[2] = std::stof(valueString);
+
+                    subStr = subStr.substr(valueString.size() + 3);
+                    nextPos = subStr.find("\n");
+                    valueString = subStr.substr(0, nextPos);
+                    bound.radius = std::stof(valueString);
+
+                    meshData->clusterBounds.push_back(bound);
                     totalIndexCount += indexCount;
                     
                     subStr = subStr.substr(nextPos + 1);
@@ -178,6 +233,7 @@ namespace buf
         meshdata->boundData.halfExtent[msh::AXIS_Y] = 0.0f;
         meshdata->boundData.halfExtent[msh::AXIS_Z] = 0.0f;
 
+        //check if the mesh is centered correctly(0,0,0)
 #if ENGINE_DEBUG_DATATEST
         float xMin = FLT_MAX;
         float yMin = FLT_MAX;
@@ -190,11 +246,11 @@ namespace buf
             float y = result.attributes.positions[i + 1];
             float z = result.attributes.positions[i + 2];
 
-            meshdata->boundData.halfExtent[msh::AXIS_X] = std::max(meshdata->boundData.halfExtent[msh::AXIS_X], std::abs(x));
-            meshdata->boundData.halfExtent[msh::AXIS_Y] = std::max(meshdata->boundData.halfExtent[msh::AXIS_Y], std::abs(y));
-            meshdata->boundData.halfExtent[msh::AXIS_Z] = std::max(meshdata->boundData.halfExtent[msh::AXIS_Z], std::abs(z));
-
 #if ENGINE_DEBUG_DATATEST
+            meshdata->boundData.halfExtent[msh::AXIS_X] = std::max(meshdata->boundData.halfExtent[msh::AXIS_X], x);
+            meshdata->boundData.halfExtent[msh::AXIS_Y] = std::max(meshdata->boundData.halfExtent[msh::AXIS_Y], y);
+            meshdata->boundData.halfExtent[msh::AXIS_Z] = std::max(meshdata->boundData.halfExtent[msh::AXIS_Z], z);
+
             xMin = std::min(xMin, x);
             yMin = std::min(yMin, y);
             zMin = std::min(zMin, z);
