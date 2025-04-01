@@ -352,11 +352,7 @@ void renderer::preDraw(float dt)
 		debugFBRequest = false;
 	}
 
-	//instance call
-	{
-		//uint objCount = e_globWorld.drawObject(cmdConstBuffer->info.cbvDataBegin);
-		e_globWorld.instanceCulling();
-	}
+	e_globWorld.instanceCulling();
 }
 
 void renderer::setUpTerrain()

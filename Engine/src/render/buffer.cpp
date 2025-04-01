@@ -67,6 +67,40 @@ namespace img
 
 namespace buf
 {
+    inline constexpr void TrimLeft(std::string& text)
+    {
+        size_t index = 0;
+        while (index < text.size() && (text[index] == ' ' || text[index] == '\t' || text[index] == ',' || text[index] == ')' || text[index] == '(' || text[index] == '\n')) ++index;
+        
+        text.erase(0, index);
+    }
+
+    inline constexpr void ParseReals(std::string& text, uint count, float* out)
+    {
+        uint parsedCount = 0;
+
+        TrimLeft(text);
+
+        while (!text.empty() && parsedCount < count) 
+        {
+            auto [ptr, rc] = fast_float::from_chars(text.data(), text.data() + text.size(), *out);
+            assert(rc == std::errc());
+            
+            auto num_parsed = static_cast<size_t>(ptr - text.data());
+            text.erase(0, num_parsed);
+
+            TrimLeft(text);
+
+            ++parsedCount;
+            ++out;
+        }
+
+        TrimLeft(text);
+
+        assert(parsedCount == count);
+    }
+
+
     //will be replaced in future
     std::array<buffer*, DEPTH_END> bufferContainer;
 
@@ -122,35 +156,28 @@ namespace buf
             subStr = subStr.substr(nextPos);
 
             {
-                nextPos = subStr.find(",");
-                std::string valueString = subStr.substr(1, nextPos - 1);
-                float value = std::stof(valueString) / 2.0f;
+                uint count = 3;
+                float values[3];
+                ParseReals(subStr, count, values);
+
+                float value = values[0] / 2.0f;
 #if ENGINE_DEBUG_DATATEST
                 TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_X]));
 #endif // #if ENGINE_DEBUG_DATATEST
                 meshData->boundData.halfExtent[msh::AXIS_X] = value;
 
-                subStr = subStr.substr(nextPos + 1);
-                nextPos = subStr.find(",");
-                valueString = subStr.substr(1, nextPos - 1);
-                value = std::stof(valueString) / 2.0f;
+                value = values[1] / 2.0f;
 #if ENGINE_DEBUG_DATATEST
                 TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_Y]));
 #endif // #if ENGINE_DEBUG_DATATEST
                 meshData->boundData.halfExtent[msh::AXIS_Y] = value;
 
-                subStr = subStr.substr(nextPos + 1);
-                nextPos = subStr.find(",");
-                valueString = subStr.substr(1, nextPos - 1);
-                value = std::stof(valueString) / 2.0f;
+                value = values[2] / 2.0f;
 #if ENGINE_DEBUG_DATATEST
                 TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_Z]));
 #endif // #if ENGINE_DEBUG_DATATEST
                 meshData->boundData.halfExtent[msh::AXIS_Z] = value;
             }
-
-            nextPos = subStr.find("\n") + 1;
-            subStr = subStr.substr(nextPos);
 
             for (uint i = 0; i < meshData->lodNum; ++i)
             {
@@ -158,36 +185,21 @@ namespace buf
 
                 for (uint j = 0; j < meshData->lodData[i].clusterNum; ++j)
                 {
-                    nextPos = subStr.find(", (");
-                    std::string valueString = subStr.substr(0, nextPos);
-                    uint indexCount = std::stoi(valueString);
-                    meshData->lodData[i].indexSize.push_back(indexCount);
+                    uint count = 5;
+                    float values[5];
+                    ParseReals(subStr, count, values);
+
+                    meshData->lodData[i].indexSize.push_back(values[0]);
 
                     spherebound bound;
 
-                    nextPos = subStr.find("(");
-                    subStr = subStr.substr(nextPos + 1);
-                    nextPos = subStr.find(",");
-                    valueString = subStr.substr(0, nextPos);
-                    bound.center[0] = std::stof(valueString);
-                    subStr = subStr.substr(valueString.size() + 2);
-                    nextPos = subStr.find(",");
-                    valueString = subStr.substr(0, nextPos);
-                    bound.center[1] = std::stof(valueString);
-                    subStr = subStr.substr(valueString.size() + 2);
-                    nextPos = subStr.find(")");
-                    valueString = subStr.substr(0, nextPos);
-                    bound.center[2] = std::stof(valueString);
-
-                    subStr = subStr.substr(valueString.size() + 3);
-                    nextPos = subStr.find("\n");
-                    valueString = subStr.substr(0, nextPos);
-                    bound.radius = std::stof(valueString);
+                    bound.center[0] = values[1];
+                    bound.center[1] = values[2];
+                    bound.center[2] = values[3];
+                    bound.radius = values[4];
 
                     meshData->clusterBounds.push_back(bound);
-                    totalIndexCount += indexCount;
-                    
-                    subStr = subStr.substr(nextPos + 1);
+                    totalIndexCount += values[0];
                 }
 
                 TC_ASSERT(totalIndexCount == meshData->lodData[i].totalIndicesCount);
