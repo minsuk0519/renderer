@@ -3254,7 +3254,7 @@ constexpr uint LOD_MAX = 7;
 
 int main(int argc, char** argv)
 {
-    std::string fileName = "sphere.ply";// argv[1];
+    std::string fileName = "bunny.ply";// argv[1];
 
     HANDLE hFile = CreateFileA(
         fileName.c_str(),
@@ -3744,6 +3744,9 @@ int main(int argc, char** argv)
                 parentCenter[2] = clusters[clusterOffset + clusterID].parent.center[2];
                 parentRadius = clusters[clusterOffset + clusterID].parent.radius;
 
+                float mins[3] = { FLT_MAX, FLT_MAX , FLT_MAX };
+                float maxs[3] = { -FLT_MAX, -FLT_MAX , -FLT_MAX };
+
                 for (uint indexID = 0; indexID < clusterSize; indexID += 3)
                 {
                     uint clusterIndex0 = clusters[clusterOffset + clusterID].indices[indexID + 0];
@@ -3771,6 +3774,25 @@ int main(int argc, char** argv)
                     float x3 = vertices[clusterIndex2].px;
                     float y3 = vertices[clusterIndex2].py;
                     float z3 = vertices[clusterIndex2].pz;
+
+                    float minx = (x < x2) ? x : x2;
+                    minx = (minx < x3) ? minx : x3;
+                    mins[0] = (mins[0] < minx) ? mins[0] : minx;
+                    float miny = (y < y2) ? y : y2;
+                    miny = (miny < y3) ? miny : y3;
+                    mins[1] = (mins[1] < miny) ? mins[1] : miny;
+                    float minz = (z < z2) ? z : z2;
+                    minz = (minz < z3) ? minz : z3;
+                    mins[2] = (mins[2] < minz) ? mins[2] : minz;
+                    float maxx = (x > x2) ? x : x2;
+                    maxx = (maxx > x3) ? maxx : x3;
+                    maxs[0] = (maxs[0] > maxx) ? maxs[0] : maxx;
+                    float maxy = (y > y2) ? y : y2;
+                    maxy = (maxy > y3) ? maxy : y3;
+                    maxs[1] = (maxs[1] > maxy) ? maxs[1] : maxy;
+                    float maxz = (z > z2) ? z : z2;
+                    maxz = (maxz > z3) ? maxz : z3;
+                    maxs[2] = (maxs[2] > maxz) ? maxs[2] : maxz;
 
                     {
                         float d2 = (x - center[0]) * (x - center[0]) + (y - center[1]) * (y - center[1]) + (z - center[2]) * (z - center[2]);
@@ -3813,6 +3835,13 @@ int main(int argc, char** argv)
                         assert((d2 - parentRadius * parentRadius) < 0.1f);
                     }
                 }
+
+                clusters[clusterOffset + clusterID].bound.center[0] = (mins[0] + maxs[0]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.center[1] = (mins[1] + maxs[1]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.center[2] = (mins[2] + maxs[2]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.halfextent[0] = (maxs[0] - mins[0]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.halfextent[1] = (maxs[1] - mins[1]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.halfextent[2] = (maxs[2] - mins[2]) * 0.5f;
 
                 //+center	0x0000002caf774528 {37.0000000, -13.5000000, 104.000000}	float[3]
                 //    radius	60.0687103	float
@@ -3945,7 +3974,7 @@ int main(int argc, char** argv)
         dataBuffer += "(" + std::to_string(xLen) + ", " + std::to_string(yLen) + ", " + std::to_string(zLen) + ")" + "\n";
         for (uint i = 0; i < clusters.size(); ++i)
         {
-            dataBuffer += std::to_string(clusters[i].indices.size()) + ", " + getStrFromFloat3(clusters[i].self.center) + ", " + std::to_string(clusters[i].self.radius) + "\n";
+            dataBuffer += std::to_string(clusters[i].indices.size()) + ", " + getStrFromFloat3(clusters[i].self.center) + ", " + std::to_string(clusters[i].self.radius) + ", " + getStrFromFloat3(clusters[i].bound.center) + ", " + getStrFromFloat3(clusters[i].bound.halfextent) + "\n";
         }
 
         DWORD dwBytesToWrite = (DWORD)(dataBuffer.size());

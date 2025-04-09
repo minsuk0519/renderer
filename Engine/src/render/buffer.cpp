@@ -185,20 +185,29 @@ namespace buf
 
                 for (uint j = 0; j < meshData->lodData[i].clusterNum; ++j)
                 {
-                    uint count = 5;
-                    float values[5];
+                    uint count = 11;
+                    float values[11];
                     ParseReals(subStr, count, values);
 
                     meshData->lodData[i].indexSize.push_back(values[0]);
 
-                    spherebound bound;
+                    spherebound sphere;
 
-                    bound.center[0] = values[1];
-                    bound.center[1] = values[2];
-                    bound.center[2] = values[3];
-                    bound.radius = values[4];
+                    sphere.center[0] = values[1];
+                    sphere.center[1] = values[2];
+                    sphere.center[2] = values[3];
+                    sphere.radius = values[4];
 
-                    meshData->clusterBounds.push_back(bound);
+                    aabbbound aabb;
+
+                    aabb.center[0] = values[5];
+                    aabb.center[1] = values[6];
+                    aabb.center[2] = values[7];
+                    aabb.hExtent[0] = values[8];
+                    aabb.hExtent[1] = values[9];
+                    aabb.hExtent[2] = values[10];
+
+                    meshData->clusterBounds.push_back({ sphere, aabb });
                     totalIndexCount += values[0];
                 }
 

@@ -152,11 +152,17 @@ namespace msh
 
             newData->getData()->boundData.radius = 1.0f;
 
-            spherebound bound;
-            bound.center[0] = 0.0f;
-            bound.center[1] = 0.0f;
-            bound.center[2] = 0.0f;
-            bound.radius = std::sqrt(3.0f);
+            clusterbounddata bound;
+            bound.sphere.center[0] = 0.0f;
+            bound.sphere.center[1] = 0.0f;
+            bound.sphere.center[2] = 0.0f;
+            bound.sphere.radius = std::sqrt(3.0f);
+            bound.aabb.center[0] = 0.0f;
+            bound.aabb.center[1] = 0.0f;
+            bound.aabb.center[2] = 0.0f;
+            bound.aabb.hExtent[0] = 1.0f;
+            bound.aabb.hExtent[1] = 1.0f;
+            bound.aabb.hExtent[2] = 1.0f;
             newData->getData()->clusterBounds.push_back(bound);
 
             meshes[MESH_CUBE] = newData;

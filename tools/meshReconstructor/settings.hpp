@@ -21,6 +21,12 @@ struct LODBounds
 	float error;
 };
 
+struct AABBBounds
+{
+	float center[3];
+	float halfextent[3];
+};
+
 struct clusterInfo
 {
 	unsigned int clusterNum;
@@ -34,4 +40,6 @@ struct Cluster
 
 	LODBounds self;
 	LODBounds parent;
+
+	AABBBounds bound;
 };

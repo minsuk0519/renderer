@@ -56,10 +56,22 @@ struct lodInfos
 	std::vector<uint> indexSize;
 };
 
+struct aabbbound
+{
+	float center[3];
+	float hExtent[3];
+};
+
 struct spherebound
 {
 	float radius;
 	float center[3];
+};
+
+struct clusterbounddata
+{
+	spherebound sphere;
+	aabbbound aabb;
 };
 
 struct bound
@@ -83,7 +95,7 @@ struct meshData
 
 	bound boundData;
 
-	std::vector<spherebound> clusterBounds;
+	std::vector<clusterbounddata> clusterBounds;
 };
 
 class mesh

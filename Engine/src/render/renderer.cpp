@@ -483,7 +483,7 @@ void renderer::setUp()
 		};
 
 		lodInfo* lodInfos = new lodInfo[curLodOffset];
-		spherebound* clusterBounds = new spherebound[curClusterOffset];
+		clusterbounddata* clusterBounds = new clusterbounddata[curClusterOffset];
 		clusterInfo* clusterInfos = new clusterInfo[curClusterOffset];
 		uint lodIndex = 0;
 		uint clusterIndex = 0;
@@ -513,10 +513,17 @@ void renderer::setUp()
 
 					if (!(meshInfos[i].flags & MESH_INFO_FLAGS_TERRAIN))
 					{
-						clusterBounds[clusterIndex].center[0] = data->clusterBounds[meshClusterIndex].center[0];
-						clusterBounds[clusterIndex].center[1] = data->clusterBounds[meshClusterIndex].center[1];
-						clusterBounds[clusterIndex].center[2] = data->clusterBounds[meshClusterIndex].center[2];
-						clusterBounds[clusterIndex].radius = data->clusterBounds[meshClusterIndex].radius;
+						clusterBounds[clusterIndex].sphere.center[0] = data->clusterBounds[meshClusterIndex].sphere.center[0];
+						clusterBounds[clusterIndex].sphere.center[1] = data->clusterBounds[meshClusterIndex].sphere.center[1];
+						clusterBounds[clusterIndex].sphere.center[2] = data->clusterBounds[meshClusterIndex].sphere.center[2];
+						clusterBounds[clusterIndex].sphere.radius = data->clusterBounds[meshClusterIndex].sphere.radius;
+
+						clusterBounds[clusterIndex].aabb.center[0] = data->clusterBounds[meshClusterIndex].aabb.center[0];
+						clusterBounds[clusterIndex].aabb.center[1] = data->clusterBounds[meshClusterIndex].aabb.center[1];
+						clusterBounds[clusterIndex].aabb.center[2] = data->clusterBounds[meshClusterIndex].aabb.center[2];
+						clusterBounds[clusterIndex].aabb.hExtent[0] = data->clusterBounds[meshClusterIndex].aabb.hExtent[0];
+						clusterBounds[clusterIndex].aabb.hExtent[1] = data->clusterBounds[meshClusterIndex].aabb.hExtent[1];
+						clusterBounds[clusterIndex].aabb.hExtent[2] = data->clusterBounds[meshClusterIndex].aabb.hExtent[2];
 
 						++meshClusterIndex;
 					}
@@ -537,11 +544,11 @@ void renderer::setUp()
 		uint lodInfoSize = curLodOffset * sizeof(lodInfo);
 		lodInfoBuffer = buf::createImageBuffer(lodInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
 		clusterInfoBuffer = buf::createImageBuffer(clusterInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
-		clusterBoundBuffer = buf::createImageBuffer(MAX_CLUSTERS * sizeof(float) * 4, 0, 0, DXGI_FORMAT_R32_TYPELESS);
+		clusterBoundBuffer = buf::createImageBuffer(MAX_CLUSTERS * sizeof(clusterbounddata), 0, 0, DXGI_FORMAT_R32_TYPELESS);
 		meshInfoBuffer->uploadBuffer(meshInfoSize, meshInfos);
 		lodInfoBuffer->uploadBuffer(lodInfoSize, lodInfos);
 		clusterInfoBuffer->uploadBuffer(clusterInfoSize, clusterInfos);
-		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(spherebound), clusterBounds);
+		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(clusterbounddata), clusterBounds);
 
 
 		delete[] clusterBounds;
