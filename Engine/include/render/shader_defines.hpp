@@ -1,5 +1,7 @@
 #pragma once
 
+#include "system/defines.hpp"
+
 #define GET_HLSL_LOC_SRV( x ) ( (x << 2) | 0)
 #define GET_HLSL_LOC_SAMP( x ) ( (x << 2) | 1)
 #define GET_HLSL_LOC_UAV( x ) ( (x << 2) | 2)
@@ -120,8 +122,12 @@
 #define SRV_CLUSTER_ARGS_BUFFER				GET_HLSL_LOC_SRV(3)
 //t4 cluster bounds input
 #define SRV_CLUSTER_BOUNDS_BUFFER			GET_HLSL_LOC_SRV(4)
+//t5 view infos input
+#define SRV_VIEW_INFOS_BUFFER				GET_HLSL_LOC_SRV(5)
 //b0 cmdBuf constants
 #define CBV_CULLINGCONSTS					GET_HLSL_LOC_CBV(0)
+//b0 projection
+#define CBV_CULLING_PROJECTION				GET_HLSL_LOC_CBV(1)
 ////////////////////culling Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -132,6 +138,12 @@
 //b0 cmdBuf constants
 #define CBV_UTILSCONSTS					GET_HLSL_LOC_CBV(0)
 ////////////////////utils Buffer Ends
+
+////////////////////global buffer Begin
+//u63 debug buffer
+#define UAV_GLOBAL_DEBUG_BUFFER			GET_HLSL_LOC_UAV(63)
+////////////////////global buffer Ends
+
 
 #define FEATURE_AO (1 << 0)
 
@@ -164,7 +176,7 @@ namespace consts
 {
 	constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
 	constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
-	constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 * 2 + 4);
+	constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 + 4);
 }
 
 //define flags

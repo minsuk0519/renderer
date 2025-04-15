@@ -124,6 +124,11 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	clusterArgsDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, clusterArgsBuffer);
 	viewInfoBuffer = buf::createImageBuffer(MAX_OBJECTS * sizeof(float) * 10, 0, 0, DXGI_FORMAT_R32_TYPELESS);
 	viewInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, viewInfoBuffer);
+
+#if ENGINE_DEBUG_BUFFER
+	outDebugBuffer = buf::createUAVBuffer(65536 * 1024 * sizeof(uint));
+	outDebugDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, outDebugBuffer);
+#endif // #if ENGINE_DEBUG_BUFFER
 	return true;
 }
 
@@ -685,6 +690,13 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERARGS_BUFFER, vertexIDDesc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeDesc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_BOUNDS_BUFFER, clusterBoundDesc.getHandle());
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEW_INFOS_BUFFER, viewInfoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
+
+#if ENGINE_DEBUG_BUFFER
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugDesc.getHandle());
+#endif // #if ENGINE_DEBUG_BUFFER
 
 		computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_CULLCLUSTER)->getCmdSignature(), 1, localClusterSizeBuffer->resource.Get(), sizeof(uint), nullptr, 0);
 

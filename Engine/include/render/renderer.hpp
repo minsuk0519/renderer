@@ -70,6 +70,10 @@ private:
 	uavbuffer* localClusterOffsetBuffer;
 	uavbuffer* localClusterSizeBuffer;
 	uavbuffer* clusterArgsBuffer;
+#if	ENGINE_DEBUG_BUFFER
+	uavbuffer* outDebugBuffer;
+	descriptor outDebugDesc;
+#endif //#if ENGINE_DEBUG_BUFFER
 	imagebuffer* viewInfoBuffer;
 	imagebuffer* clusterBoundBuffer;
 	
