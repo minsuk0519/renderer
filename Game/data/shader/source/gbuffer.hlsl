@@ -1,5 +1,6 @@
 #include "include\common.hlsli"
 #include "include\packing.hlsli"
+#include "include\math.hlsli"
 
 StructuredBuffer<float3> UVB : register(t0);
 StructuredBuffer<uint> UIB : register(t1);
@@ -26,16 +27,6 @@ struct PSOutput
 cbuffer cb_objectIdentification : register(b2)
 {
     uint objectID;
-}
-
-//(w x y z)
-float3 quatRotate(float4 q, float3 v)
-{
-    float3 result;
-
-    result = 2.0f * dot(q.xyz, v) * q.xyz + (q.w * q.w - dot(q.xyz, q.xyz)) * v + 2.0f * q.w * cross(q.xyz, v);
-
-    return result;
 }
 
 PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_InstanceID)
@@ -72,15 +63,9 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
             viewInfos[objID * 10 + 7],
             viewInfos[objID * 10 + 8],
             viewInfos[objID * 10 + 9]);
-        float3 scaledPos;
-        scaledPos.x = position.x * scale.x;
-        scaledPos.y = position.y * scale.y;
-        scaledPos.z = position.z * scale.z;
-        float3 worldPos = quatRotate(rotation, scaledPos);
-        worldPos += translate;
-        result.worldPos = position;
-        float4 viewPos = mul(proj.viewMat, float4(worldPos, 1.0f));
-        result.position = mul(proj.projectionMat, viewPos);
+        float3 worldPos = transformToWorld(scale, rotation, translate, position);
+        result.worldPos = worldPos;
+        result.position = mul(proj.viewProj, float4(worldPos, 1.0f));
 
         float3 scaledNorm;
         scaledNorm.x = normal.x * scale.x;
@@ -99,8 +84,7 @@ PSInput gbuffer_vs(float3 position : VPOSITION, float3 normal : VNORMAL)
 
     float4 worldPos = mul(obj.objectMat, float4(position, 1.0));
     result.worldPos = worldPos.xyz;
-    float4 viewPos = mul(proj.viewMat, worldPos);
-    result.position = mul(proj.projectionMat, viewPos);
+    result.position = mul(proj.viewProj, worldPos);
 
     result.output.x = 0;
     result.output.y = 0;

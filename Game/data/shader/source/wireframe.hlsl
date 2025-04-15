@@ -14,8 +14,7 @@ PSInput wireframeAABB_vs(float3 position : VPOSITION, float3 size : IAABB_SIZE, 
     float z = position.z * size.z + offset.z;
     float4 worldPos = float4(x, y, z, 1.0);
     //float4 worldPos = mul(objs[objID].objectMat, float4(position, 1.0));
-    float4 viewPos = mul(proj.viewMat, worldPos);
-    result.position = mul(proj.projectionMat, viewPos);
+    result.position = mul(proj.viewProj, worldPos);
 
     return result;
 }
@@ -30,8 +29,7 @@ PSInput wireframe_vs(float3 position : VPOSITION)
     PSInput result;
 
     float4 worldPos = float4(position, 1.0);
-    float4 viewPos = mul(proj.viewMat, worldPos);
-    result.position = mul(proj.projectionMat, viewPos);
+    result.position = mul(proj.viewProj, worldPos);
 
     return result;
 }

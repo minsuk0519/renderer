@@ -214,11 +214,11 @@ void camera::update(float dt)
 
 	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, NEAR_PLANE, FAR_PLANE);
 
-	DirectX::XMMATRIX proj[2] = { projection, view };
+	DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, projection);
 
-	memcpy(projectionBuffer->info.cbvDataBegin, proj, sizeof(float) * 4 * 4 * 2);
-	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 * 2, &pos, sizeof(float) * 3);
-	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 * 2 + sizeof(float) * 3, &FAR_PLANE, sizeof(float));
+	memcpy(projectionBuffer->info.cbvDataBegin, &viewProj, sizeof(float) * 4 * 4);
+	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4, &pos, sizeof(float) * 3);
+	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 + sizeof(float) * 3, &FAR_PLANE, sizeof(float));
 	
 	if (viewportType == cam::VIEWPORT_MINI) return;
 
