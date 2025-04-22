@@ -83,7 +83,7 @@ void camera::close()
 	delete transformPtr;
 }
 
-void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe)
+void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 {
 	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ screenViewport.topLeftX, screenViewport.topLeftY, screenViewport.width, screenViewport.height };
 	CD3DX12_RECT scissorRect = CD3DX12_RECT{ scissor.left, scissor.top, scissor.right, scissor.bottom };
@@ -190,17 +190,17 @@ DirectX::XMMATRIX camera::getMat() const
 	return view * projection;
 }
 
+#if ENGINE_DEBUG_DEBUGCAM
 void camera::toggleDebugMode()
 {
 	debugMode = !(debugMode);
 	if (debugMode) changeViewport(cam::VIEWPORT_MINI);
 	else changeViewport(cam::VIEWPORT_FULL);
 }
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 void camera::update(float dt)
 {
-	//if (!(debugMode) && type == cam::CAMTYPE_DEBUG) return;
-
 	DirectX::XMVECTOR rotation = transformPtr->getQuaternion();
 
 	DirectX::XMVECTOR up = transformPtr->getUP();

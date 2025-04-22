@@ -709,12 +709,11 @@ void renderer::draw(float dt)
 
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
-	//render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFER);
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFERINDIRECT);
 
 	gbufferFB->openFB(cmdList, true);
 
-	e_globWorld.drawWorld(cmdList, false);
+	e_globWorld.setupCam(cmdList, true);
 
 	{
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
@@ -835,7 +834,7 @@ void renderer::draw(float dt)
 
 		swapchainFB[frameIndex]->openFB(cmdList, false);
 
-		e_globWorld.drawWorld(cmdList, true);
+		e_globWorld.setupCam(cmdList, true);
 
 		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_CUBE)->getData()->vbs->view);
 		cmdList->IASetVertexBuffers(1, 1, &AABBwireframeBuffer->view);
@@ -855,4 +854,8 @@ void renderer::draw(float dt)
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
+}
+
+void renderer::drawWorld(float dt)
+{
 }

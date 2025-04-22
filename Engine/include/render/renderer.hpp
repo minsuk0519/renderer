@@ -28,6 +28,7 @@ public:
 	bool init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter);
 	void setUp();
 	void draw(float dt);
+	void drawWorld(float dt);
 	void close();
 
 	void preDraw(float dt);

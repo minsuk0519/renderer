@@ -41,7 +41,9 @@ namespace cam
 	enum CAMTYPE
 	{
 		CAMTYPE_MAIN = 0,
+#if ENGINE_DEBUG_DEBUGCAM
 		CAMTYPE_DEBUG = 1,
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 		CAMTYPE_INVALID = -1,
 	};
 };
@@ -57,7 +59,7 @@ public:
 	void setCamAsMain();
 
 	void draw(uint psoIndex, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
-	void preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe);
+	void preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 
 	void changeViewport(const cam::VIEWPORT_TYPE type);
 	void updateView();
@@ -80,11 +82,19 @@ public:
 
 	DirectX::XMMATRIX getMat() const;
 
+#if ENGINE_DEBUG_DEBUGCAM
 	void toggleDebugMode();
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 private:
+#if ENGINE_DEBUG_DEBUGCAM
 	cam::CAMTYPE type = cam::CAMTYPE_DEBUG;
+#else #if ENGINE_DEBUG_DEBUGCAM
+	cam::CAMTYPE type = cam::CAMTYPE_MAIN;
+#endif // #else #if ENGINE_DEBUG_DEBUGCAM
 
+#if ENGINE_DEBUG_DEBUGCAM
 	bool debugMode = false;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	void move(float x, float y, int mousex, int mousey, float dt);
 

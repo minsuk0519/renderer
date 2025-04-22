@@ -3,6 +3,7 @@
 #include <render/camera.hpp>
 #include <render/pipelinestate.hpp>
 #include <system/gui.hpp>
+#include <system/input.hpp>
 
 world e_globWorld;
 
@@ -58,6 +59,13 @@ void world::instanceCulling()
 	}
 }
 
+#if ENGINE_DEBUG_DEBUGCAM
+void world::updateDebugCamera(float dt)
+{
+	debugCamera->update(dt);
+}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
+
 void world::setMainCamera(camera* cam)
 {
 	cam->setCamAsMain();
@@ -92,11 +100,12 @@ bool world::init()
 	camera* camPtr = new camera();
 	camPtr->init();
 	setMainCamera(camPtr);
-	cameras.push_back(camPtr);
 
-	//camera* debugCamPtr = new camera();
-	//debugCamPtr->init();
-	//cameras.push_back(debugCamPtr);
+#if ENGINE_DEBUG_DEBUGCAM
+	camera* debugCamPtr = new camera();
+	debugCamPtr->init();
+	debugCamera = debugCamPtr;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	objects = new object[MAX_OBJECTS];
 
@@ -112,31 +121,18 @@ void world::update(float dt)
 	//	objects[i].update(dt);
 	//}
 
-	//if (input::isTriggered(input::KEY_SPACE))
-	//{
-	//	for (auto cam : cameras)
-	//	{
-	//		cam->toggleDebugMode();
-	//	}
-	//}
+#if ENGINE_DEBUG_DEBUGCAM
+	if (input::isTriggered(input::KEY_SPACE))
+	{
+		mainCamera->toggleDebugMode();
+		debugCamera->toggleDebugMode();
+	}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	cameraObjNum = 0;
 
-	//{
-	//	for (uint i = 0; i < objectNum; ++i)
-	//	{
-	//		if ((objects[i].drawThisPSO(pso::PSO_PBR) == false) || (objects[i].frustumCulling(mainCamera) == true)) continue;
-
-	//		cameraObjectIndex[cameraObjNum] = i;
-	//		++cameraObjNum;
-	//	}
-	//}
-
-	for (auto cam : cameras)
-	{
-		//debug camera should not be updated when it is not debug mode
-		cam->update(dt);
-	}
+	mainCamera->update(dt);
+	//debugCamera->update(dt);
 }
 
 void world::close()
@@ -147,24 +143,13 @@ void world::close()
 	}
 	delete[]objects;
 
-	for (auto cam : cameras)
-	{
-		cam->close();
-		delete cam;
-	}
-}
+	mainCamera->close();
+	delete mainCamera;
 
-void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool wireframe)
-{
-	for (auto cam : cameras)
-	{
-		cam->preDraw(cmdList, wireframe);
-	}
-
-	//for (uint i = 0; i < objectNum; ++i)
-	//{
-	//	objects[i].draw(cmdList, false);
-	//}
+#if ENGINE_DEBUG_DEBUGCAM
+	debugCamera->close();
+	delete debugCamera;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 }
 
 uint world::submitObjects(void* cbvLoc)
@@ -235,4 +220,9 @@ void world::setupScene()
 
 		++objectNum;
 	}
+}
+
+void world::setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain)
+{
+	if(forceMain) mainCamera->preDraw(cmdList);
 }
