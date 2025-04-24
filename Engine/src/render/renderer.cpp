@@ -339,6 +339,8 @@ void renderer::preDraw(float dt)
 {
 	if (debugFBRequest)
 	{
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "DebugMeshDraw", sizeof("DebugMeshDraw"));
+
 		auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 		mesh* msh = msh::getMesh((msh::MESH_INDEX)debugFBMeshID);
 
@@ -366,7 +368,9 @@ void renderer::preDraw(float dt)
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
-		debugFBRequest = false;
+		//debugFBRequest = false;
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
 
 	e_globWorld.instanceCulling();

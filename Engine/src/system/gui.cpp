@@ -57,10 +57,6 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
     debugProjectionBuffer = buf::createConstantBuffer(consts::CONST_PROJ_SIZE);
     debugProjectionDesc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, debugProjectionBuffer));
 
-    DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), 1.0f, 0.1f, 10.0f);
-
-    memcpy(debugProjectionBuffer->info.cbvDataBegin, &projection, sizeof(float) * 4 * 4);
-
     return true;
 }
 
@@ -179,24 +175,31 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
                 openDebugWindow = false;
             }
 
-            if (changed)
+            if (changed || openDebugClick)
             {
                 float xPos = std::sinf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
                 float yPos = std::cosf(y) * meshDebugDrawCamArmLength;
                 float zPos = std::cosf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
                 meshDebugDrawCamPos = DirectX::XMVECTOR{ xPos, yPos, zPos };
                 e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionDesc.getHandle().ptr);
+
+                DirectX::XMVECTOR forward = DirectX::XMVector3Normalize(DirectX::XMVectorNegate(meshDebugDrawCamPos));
+                DirectX::XMVECTOR globUp = DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };
+
+                DirectX::XMVECTOR right = DirectX::XMVector3Cross(forward, globUp);
+                DirectX::XMVECTOR up = DirectX::XMVector3Cross(right, forward);
+
+                DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(meshDebugDrawCamPos, forward, up);
+
+                DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), 1.0f, 0.1f, 10.0f);
+
+                DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, projection);
+
+                float* aabbSize = msh::getMesh(meshID)->getData()->boundData.halfExtent;
+
+                memcpy(debugProjectionBuffer->info.cbvDataBegin, &viewProj, sizeof(float) * 4 * 4);
+                memcpy(debugProjectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4, aabbSize, sizeof(float) * 3);
             }
-
-            DirectX::XMVECTOR forward = DirectX::XMVector3Normalize(DirectX::XMVectorNegate(meshDebugDrawCamPos));
-            DirectX::XMVECTOR globUp = DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };
-
-            DirectX::XMVECTOR right = DirectX::XMVector3Cross(forward, globUp);
-            DirectX::XMVECTOR up = DirectX::XMVector3Cross(right, forward);
-
-            DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(meshDebugDrawCamPos, forward, up);
-
-            memcpy(debugProjectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4, &view, sizeof(float) * 4 * 4);
         }
 
         ImGui::EndChild();

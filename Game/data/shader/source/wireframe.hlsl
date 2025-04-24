@@ -28,9 +28,10 @@ PSInput wireframe_vs(float3 position : VPOSITION)
 {
     PSInput result;
 
-    float4 worldPos = float4(position, 1.0);
+    //this is tricky way, we will use camPos as aabb size
+    float3 pos = float3(position.x / proj.camPos.x, position.y / proj.camPos.y, position.z / proj.camPos.z);
+    float4 worldPos = float4(pos, 1.0);
     result.position = mul(proj.viewProj, worldPos);
-
     return result;
 }
 
