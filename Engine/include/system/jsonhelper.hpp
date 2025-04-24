@@ -24,12 +24,14 @@ struct shaderJson
 
 struct psoJson
 {
+	uint psoIndex;
+	std::string psoName;
 	uint vertexIndex;
 	uint pixelIndex;
-	uint psoIndex;
 	std::vector<uint> formats;
 	bool cs;
 	bool depth;
+	bool wireframe;
 };
 
 enum JSON_FILE_NAME
@@ -45,6 +47,11 @@ const std::string JSON_FILE_PATHS[MAX_FILE] = {
 	"data/shader.json",
 	"data/pso.json",
 };
+
+//arbitrary buffersize
+constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
+
+int rawFileRead(std::string fileName, char** data, uint bufferSize = 0);
 
 template <typename Buffer>
 void readJsonBuffer(Buffer& buf, const JSON_FILE_NAME& fileIndex)

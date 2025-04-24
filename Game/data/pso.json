@@ -1,22 +1,172 @@
 [
 	{
+		"psoIndex":0,
+		"psoName":"PBR",
 		"vertexIndex":0,
 		"pixelIndex":1,
-		"psoIndex":0,
 		"formats":[
 			28
 		],
 		"cs":false,
-		"depth":true
+		"depth":false,
+		"wireframe":false
 	},{
+		"psoIndex":1,
+		"psoName":"Gbuffer",
 		"vertexIndex":2,
 		"pixelIndex":3,
-		"psoIndex":1,
 		"formats":[
 			2,
-			2
+			42,
+			42
 		],
 		"cs":false,
-		"depth":true
+		"depth":true,
+		"wireframe":false
+	},{
+		"psoIndex":2,
+		"psoName":"WireframeDebug",
+		"vertexIndex":4,
+		"pixelIndex":5,
+		"formats":[
+			61
+		],
+		"cs":false,
+		"depth":true,
+		"wireframe":true
+	},{
+		"psoIndex":3,
+		"psoName":"SSAO",
+		"vertexIndex":6,
+		"pixelIndex":6,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":4,
+		"psoName":"SSAO_BlurHorizontal",
+		"vertexIndex":7,
+		"pixelIndex":7,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":5,
+		"psoName":"SSAO_BlurVertical",
+		"vertexIndex":8,
+		"pixelIndex":8,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":6,
+		"psoName":"GenTerrain",
+		"vertexIndex":9,
+		"pixelIndex":9,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":7,
+		"psoName":"GenNoise",
+		"vertexIndex":10,
+		"pixelIndex":10,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":8,
+		"psoName":"GenUnified",
+		"vertexIndex":11,
+		"pixelIndex":11,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":9,
+		"psoName":"GenCmdBuf",
+		"vertexIndex":12,
+		"pixelIndex":12,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":10,
+		"psoName":"GbufferIndirect",
+		"vertexIndex":13,
+		"pixelIndex":3,
+		"formats":[
+			2,
+			42,
+			42
+		],
+		"cs":false,
+		"depth":true,
+		"wireframe":false	
+	},{
+		"psoIndex":11,
+		"psoName":"WireframeAABB",
+		"vertexIndex":14,
+		"pixelIndex":15,
+		"formats":[
+			28
+		],
+		"cs":false,
+		"depth":false,
+		"wireframe":true
+	},{
+		"psoIndex":12,
+		"psoName":"GenTerrainIndex",
+		"vertexIndex":16,
+		"pixelIndex":16,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":13,
+		"psoName":"UploadLocalObj",
+		"vertexIndex":17,
+		"pixelIndex":17,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":14,
+		"psoName":"CullCluster",
+		"vertexIndex":18,
+		"pixelIndex":18,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
+	},{
+		"psoIndex":15,
+		"psoName":"initCluster",
+		"vertexIndex":19,
+		"pixelIndex":19,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
 	}
 ]

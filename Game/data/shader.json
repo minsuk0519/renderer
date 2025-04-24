@@ -1,27 +1,123 @@
 [
 	{
-		"shaderFile":"data/shader/source/pbr.vs",
-		"entryPoint":"VSMain",
+		"shaderFile":"data/shader/source/pbr.hlsl",
+		"entryPoint":"pbr_vs",
 		"target":"vs_6_5",
 		"shaderType":0,
 		"shaderIndex":0
 	},{
-		"shaderFile":"data/shader/source/gbuffer.vs",
-		"entryPoint":"VSMain",
+		"shaderFile":"data/shader/source/gbuffer.hlsl",
+		"entryPoint":"gbuffer_vs",
 		"target":"vs_6_5",
 		"shaderType":0,
 		"shaderIndex":2
 	},{
-		"shaderFile":"data/shader/source/pbr.ps",
-		"entryPoint":"PSMain",
+		"shaderFile":"data/shader/source/pbr.hlsl",
+		"entryPoint":"pbr_ps",
 		"target":"ps_6_5",
 		"shaderType":1,
 		"shaderIndex":1
 	},{
-		"shaderFile":"data/shader/source/gbuffer.ps",
-		"entryPoint":"PSMain",
+		"shaderFile":"data/shader/source/gbuffer.hlsl",
+		"entryPoint":"gbuffer_ps",
 		"target":"ps_6_5",
 		"shaderType":1,
 		"shaderIndex":3
+	},{
+		"shaderFile":"data/shader/source/wireframe.hlsl",
+		"entryPoint":"wireframe_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":4
+	},{
+		"shaderFile":"data/shader/source/wireframe.hlsl",
+		"entryPoint":"wireframe_ps",
+		"target":"ps_6_5",
+		"shaderType":1,
+		"shaderIndex":5
+	},{
+		"shaderFile":"data/shader/source/ssao.hlsl",
+		"entryPoint":"ssao_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":6
+	},{
+		"shaderFile":"data/shader/source/ssao.hlsl",
+		"entryPoint":"blur_horizontal_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":7
+	},{
+		"shaderFile":"data/shader/source/ssao.hlsl",
+		"entryPoint":"blur_vertical_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":8
+	},{
+		"shaderFile":"data/shader/source/terrain.hlsl",
+		"entryPoint":"genTerrainVert_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":9
+	},{
+		"shaderFile":"data/shader/source/noise.hlsl",
+		"entryPoint":"noise_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":10
+	},{
+		"shaderFile":"data/shader/source/unified.hlsl",
+		"entryPoint":"unified_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":11
+	},{
+		"shaderFile":"data/shader/source/cmdBuffer.hlsl",
+		"entryPoint":"genCmdBuf_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":12
+	},{
+		"shaderFile":"data/shader/source/gbuffer.hlsl",
+		"entryPoint":"gbufferIndirect_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":13
+	},{
+		"shaderFile":"data/shader/source/wireframe.hlsl",
+		"entryPoint":"wireframeAABB_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":14
+	},{
+		"shaderFile":"data/shader/source/wireframe.hlsl",
+		"entryPoint":"wireframeAABB_ps",
+		"target":"ps_6_5",
+		"shaderType":1,
+		"shaderIndex":15
+	},{
+		"shaderFile":"data/shader/source/terrain.hlsl",
+		"entryPoint":"genTerrainIndex_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":16
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"uploadLocalObj_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":17
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"cullCluster_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":18
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"initCluster_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":19
 	}
 ]

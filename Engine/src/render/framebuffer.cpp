@@ -1,4 +1,5 @@
 #include <render/framebuffer.hpp>
+#include <system/logger.hpp>
 
 #include <d3dx12.h>
 
@@ -41,7 +42,7 @@ void framebuffer::addFBOfromBuf(Microsoft::WRL::ComPtr<ID3D12Resource>& resource
 
 //open frame buffer and clear the buffer
 //TODO we will add extra features for not clear color or depth
-void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool clear)
 {
 	uint numFBO = FBOs.size();
 
@@ -61,14 +62,14 @@ void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdLi
 	{
 		rtvs.push_back(FBOs[i]->desc.getCPUHandle());
 
-		cmdList->ClearRenderTargetView(rtvs[i], &FBOs[i]->clearColor.x, 0, nullptr);
+		if(clear) cmdList->ClearRenderTargetView(rtvs[i], &FBOs[i]->clearColor.x, 0, nullptr);
 	}
 
 	if (isDepth)
 	{
 		D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(render::getHeap(render::DESCRIPTORHEAP_DEPTH)->getCPUPos(0));
 
-		cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, clearDepth, 0, 0, nullptr);
+		if(clear) cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, clearDepth, 0, 0, nullptr);
 		
 		cmdList->OMSetRenderTargets(numFBO, rtvs.data(), FALSE, &dsv);
 	}
@@ -96,9 +97,14 @@ void framebuffer::setDepthClear(float depth)
 	isDepth = true;
 }
 
-void framebuffer::setgraphicsDescHandle(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint pos, uint FBOIndex)
+D3D12_GPU_DESCRIPTOR_HANDLE framebuffer::getDescHandle(uint FBOIndex)
 {
-	assert(FBOIndex < FBOs.size());
+	TC_ASSERT(FBOIndex < FBOs.size());
 
-	cmdList->SetGraphicsRootDescriptorTable(pos, FBOs[FBOIndex]->textureDesc.getHandle());
+	return FBOs[FBOIndex]->textureDesc.getHandle();
+}
+
+imagebuffer* framebuffer::getImageBuffer(uint FBOIndex) const
+{
+	return FBOs[FBOIndex]->imageBuffer;
 }

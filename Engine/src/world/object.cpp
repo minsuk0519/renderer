@@ -3,9 +3,8 @@
 #include <render/pipelinestate.hpp>
 #include <render/camera.hpp>
 #include <render/descriptorheap.hpp>
-
-constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
-constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
+#include <render/commandqueue.hpp>
+#include <system/gui.hpp>
 
 namespace obj
 {
@@ -25,7 +24,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 	meshEnumIndex = meshIdx;
 	meshPtr = msh::getMesh(meshIdx);
 
-	cbv = buf::createConstantBuffer(CONST_OBJ_SIZE);
+	cbv = buf::createConstantBuffer(consts::CONST_OBJ_SIZE);
 
 	desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, cbv));
 
@@ -38,53 +37,103 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 
 
 
-void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool debugDraw)
+void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw)
 {
-	//cmdList->SetGraphicsRootDescriptorTable(1, desc.getHandle());
+	cmdQueue->sendData(CBV_OBJECT, desc.getHandle());
 
-	if (debugDraw)
-	{
-		float a[6] = { 0.5f, -0.5f, 0.5f, -0.5f, 0.5f, -0.5f };
-		cmdList->SetGraphicsRoot32BitConstants(2, 6, a, 0);
-	}
+	//if (debugDraw)
+	//{
+	//	float a[6] = { 0.5f, -0.5f, 0.5f, -0.5f, 0.5f, -0.5f };
+	//	cmdList->SetGraphicsRoot32BitConstants(2, 6, a, 0);
+	//}
 
-	meshPtr->setBuffer(cmdList, debugDraw);
-	meshPtr->draw(cmdList);
+	//meshPtr->setBuffer(cmdList, debugDraw);
+	//meshPtr->draw(cmdList);
 
-	if (debugDraw)
-	{
-		cmdList->SetGraphicsRoot32BitConstants(2, 6, meshPtr->getData()->AABB, 0);
+	//if (debugDraw)
+	//{
+	//	cmdList->SetGraphicsRoot32BitConstants(2, 6, meshPtr->getData()->AABB, 0);
 
-		mesh* AABBMesh = msh::getMesh(msh::MESH_CUBE);
-		AABBMesh->setBuffer(cmdList, true);
-		AABBMesh->draw(cmdList);
-	}
-	
+	//	mesh* AABBMesh = msh::getMesh(msh::MESH_CUBE);
+	//	AABBMesh->setBuffer(cmdList, true);
+	//	AABBMesh->draw(cmdList);
+	//}
 }
 
 void object::update(float dt)
 {
+	float* matPointer = trans->getMatPointer();
+
+	float a[] = {
+		albedo.x, albedo.y, albedo.z,
+		metal,
+		roughness,
+	};
+
+	memcpy(cbv->info.cbvDataBegin, matPointer, cbv->info.size);
+	memcpy(cbv->info.cbvDataBegin + sizeof(float) * 16, &a, cbv->info.size);
+}
+
+void object::submit(void* cbvLoc, uint& offset, uint localID)
+{
+	uint data;
+
+	data = (localID << 16) | (getMeshIdx() << 3) | lod;
+
+	memcpy(cbvLoc, &data, 4);
+
+	offset += 1 + (getMesh()->getData()->idx->view.SizeInBytes / (sizeof(uint) * 3)) / 64;
 }
 
 void object::sendMat(unsigned char* cbvdata)
 {
-	{
-		float* matPointer = trans->getMatPointer();
+	float* matPointer = trans->getMatPointer();
 
-		float a[] = {
-			albedo.x, albedo.y, albedo.z,
-			metal,
-			roughness,
-		};
+	float a[] = {
+		albedo.x, albedo.y, albedo.z,
+		metal,
+		roughness,
+	};
 
-		unsigned char* dataLoc;
+	unsigned char* dataLoc;
 		
-		if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
-		else dataLoc = cbvdata + CONST_OBJ_SIZE_ALLIGNMENT * id;
+	if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
+	else dataLoc = cbvdata + consts::CONST_OBJ_SIZE_ALLIGNMENT * id;
 
-		memcpy(dataLoc, matPointer, cbv->info.size);
-		memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
-	}
+	memcpy(dataLoc, matPointer, cbv->info.size);
+	memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
+}
+
+void object::uploadViewInfo(unsigned char* dataLoc)
+{
+	DirectX::XMVECTOR quat = trans->getQuaternion();
+	//translate
+	memcpy(dataLoc, trans->getPosPointer(), sizeof(uint) * 3);
+	//scale
+	memcpy(dataLoc + sizeof(uint) * 3, trans->getScalePointer(), sizeof(uint) * 3);
+	//rotate
+	memcpy(dataLoc + sizeof(uint) * 6, &quat, sizeof(uint) * 4);
+}
+
+void object::boundData(unsigned char* data)
+{
+	meshData* mshData = getMesh()->getData();
+
+	float aabbData[6];
+
+	float xScale = mshData->boundData.halfExtent[msh::AXIS_X];
+	float yScale = mshData->boundData.halfExtent[msh::AXIS_Y];
+	float zScale = mshData->boundData.halfExtent[msh::AXIS_Z];
+
+	aabbData[0] = xScale * trans->getScale().m128_f32[0];
+	aabbData[1] = yScale * trans->getScale().m128_f32[1];
+	aabbData[2] = zScale * trans->getScale().m128_f32[2];
+
+	aabbData[3] = trans->getPosition().m128_f32[0];
+	aabbData[4] = trans->getPosition().m128_f32[1];
+	aabbData[5] = trans->getPosition().m128_f32[2];
+
+	memcpy(data, aabbData, sizeof(float) * 6);
 }
 
 void object::close()
@@ -94,32 +143,30 @@ void object::close()
 
 void object::guiSetting()
 {
-	//if (displayUI)
-	//{
-	//	if (gui::collapsingHeader("Object" + std::to_string(id)))
-	//	{
-	//		gui::color("Albedo##" + std::to_string(id), &albedo.x);
-	//		gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
-	//		gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
+	gui::color("Albedo##" + std::to_string(id), &albedo.x);
+	gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
+	gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
 
-	//		gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
-	//		gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
+	gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
+	gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
 
-	//		int meshID = meshPtr->getId();
+	const int maxLOD = meshPtr->getData()->lodNum;
+	gui::editintwithrange("ForceLOD##" + std::to_string(id), reinterpret_cast<int *>(&lod), 0, maxLOD - 1);
 
-	//		if (meshID != -1)
-	//		{
-	//			uint currentMeshId = meshID;
+	meshEnumIndex = meshPtr->getId();
 
-	//			uint originalID = currentMeshId;
-	//			
-	//			gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
-	//			
-	//			if (originalID != currentMeshId) meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
-	//		}
-
-	//	}
-	//}
+	if (meshEnumIndex != -1)
+	{
+		uint currentMeshId = meshEnumIndex;
+				
+		gui::comboBox("Mesh##" + std::to_string(id), msh::MESHNAME, sizeof(msh::MESHNAME) / sizeof(const char*), currentMeshId);
+				
+		if (meshEnumIndex != currentMeshId)
+		{
+			meshPtr = msh::getMesh(static_cast<msh::MESH_INDEX>(currentMeshId));
+			meshEnumIndex = currentMeshId;
+		}
+	}
 }
 
 void object::disableWire()
@@ -153,95 +200,34 @@ uint object::getMeshIdx() const
 	return meshEnumIndex;
 }
 
-bool object::frustumCulling(camera* cam)
-{
-	frstumCulled = true;
-
-	DirectX::XMMATRIX objMat = trans->getMat();
-	DirectX::XMMATRIX camMat = cam->getMat();
-
-	DirectX::XMMATRIX mat = objMat * camMat;
-
-	float XMAX = getMesh()->getData()->AABB[msh::EDGE_XMAX];
-	float XMIN = getMesh()->getData()->AABB[msh::EDGE_XMIN];
-	float YMAX = getMesh()->getData()->AABB[msh::EDGE_YMAX];
-	float YMIN = getMesh()->getData()->AABB[msh::EDGE_YMIN];
-	float ZMAX = getMesh()->getData()->AABB[msh::EDGE_ZMAX];
-	float ZMIN = getMesh()->getData()->AABB[msh::EDGE_ZMIN];
-
-	DirectX::XMVECTOR cubeVert[] =
-	{
-		{ XMAX,  YMAX,  ZMAX, 1.0f},
-		{ XMAX,  YMIN,  ZMAX, 1.0f},
-		{ XMIN,  YMAX,  ZMAX, 1.0f},
-		{ XMIN,  YMIN,  ZMAX, 1.0f},
-		{ XMAX,  YMAX,  ZMIN, 1.0f},
-		{ XMAX,  YMIN,  ZMIN, 1.0f},
-		{ XMIN,  YMAX,  ZMIN, 1.0f},
-		{ XMIN,  YMIN,  ZMIN, 1.0f},
-	};
-
-	float x[8];
-	float y[8];
-	float z[8];
-
-	for (int i = 0; i < 8; ++i)
-	{
-		DirectX::XMVECTOR result = DirectX::XMVector4Transform(cubeVert[i], mat);
-
-		x[i] = result.m128_f32[0] / abs(result.m128_f32[3]);
-		y[i] = result.m128_f32[1] / abs(result.m128_f32[3]);
-		z[i] = result.m128_f32[2] / abs(result.m128_f32[3]);
-	}
-
-	int count = 0;
-	for (int i = 0; i < 8; ++i)
-	{
-		if (x[i] < -1) ++count;
-	}
-	if (count == 8) return true;
-
-	count = 0;
-	for (int i = 0; i < 8; ++i)
-	{
-		if (x[i] > 1) ++count;
-	}
-	if (count == 8) return true;
-
-	count = 0;
-	for (int i = 0; i < 8; ++i)
-	{
-		if (y[i] < -1) ++count;
-	}
-	if (count == 8) return true;
-
-	count = 0;
-	for (int i = 0; i < 8; ++i)
-	{
-		if (y[i] > 1) ++count;
-	}
-	if (count == 8) return true;
-
-	count = 0;
-	for (int i = 0; i < 8; ++i)
-	{
-		if (z[i] < -1) ++count;
-	}
-	if (count == 8) return true;
-
-	count = 0;
-	for (int i = 0; i < 8; ++i)
-	{
-		if (z[i] > 1) ++count;
-	}
-	if (count == 8) return true;
-
-	frstumCulled = false;
-
-	return false;
-}
-
 uint object::getObjID() const
 {
 	return id;
+}
+
+bool object::instanceCulling(DirectX::XMVECTOR* frustum)
+{
+	DirectX::XMVECTOR scale = trans->getScale();
+
+	float xExtent = scale.m128_f32[0] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_X];
+	float yExtent = scale.m128_f32[1] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_Y];
+	float zExtent = scale.m128_f32[2] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_Z];
+
+	float r = std::sqrt(xExtent * xExtent + yExtent * yExtent + zExtent * zExtent);
+
+	DirectX::XMVECTOR objCenter = trans->getPosition();
+	objCenter.m128_f32[3] = 1.0f;
+
+	//bound sphere vs frustum test
+	for (uint i = 0; i < 6; ++i)
+	{
+		bool isIn = DirectX::XMPlaneDot(frustum[i], objCenter).m128_f32[0] <= r;
+
+		if (!isIn)
+		{
+			return false;
+		}
+	}
+
+	return true;
 }

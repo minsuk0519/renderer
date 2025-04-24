@@ -1,5 +1,10 @@
 #include <system\gui.hpp>
 #include <render/shader.hpp>
+#include <render/renderer.hpp>
+#include <render/framebuffer.hpp>
+#include <render/pipelinestate.hpp>
+#include <render/mesh.hpp>
+#include <world/world.hpp>
 
 #include <dxgi1_6.h>
 
@@ -20,8 +25,14 @@ namespace gui
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
 };
 
+constantbuffer* debugProjectionBuffer;
+descriptor debugProjectionDesc;
+float meshDebugDrawCamArmLength_Default = 2.5f;
+DirectX::XMVECTOR meshDebugDrawCamPos_Default = DirectX::XMVECTOR{ 0.0f, 0.0f, meshDebugDrawCamArmLength_Default };
+float meshDebugDrawCamArmLength = meshDebugDrawCamArmLength_Default;
+DirectX::XMVECTOR meshDebugDrawCamPos = meshDebugDrawCamPos_Default;
 
-bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap)
+bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap, const descriptor& fontDesc)
 {
     gui::guiHeap = allocatedGuiHeap;
 
@@ -40,14 +51,20 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX12_Init(device, GUI_FRAMES_NUM,
         DXGI_FORMAT_R8G8B8A8_UNORM, gui::guiHeap.Get(),
-        gui::guiHeap->GetCPUDescriptorHandleForHeapStart(),
-        gui::guiHeap->GetGPUDescriptorHandleForHeapStart());
+        fontDesc.getCPUHandle(),
+        fontDesc.getHandle());
+
+    debugProjectionBuffer = buf::createConstantBuffer(consts::CONST_PROJ_SIZE);
+    debugProjectionDesc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, debugProjectionBuffer));
 
     return true;
 }
 
 static bool showWindow;
 static bool showShadersWindow = false;
+static bool showDebugWindow = false;
+
+#include <imgui/imgui_internal.h>
 
 void gui::render(ID3D12GraphicsCommandList* cmdList)
 {
@@ -61,7 +78,8 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     {
         if (ImGui::BeginMenu("Tools"))
         {
-            ImGui::MenuItem("Main menu bar", NULL, &showShadersWindow);
+            ImGui::MenuItem("ShaderViewer", NULL, &showShadersWindow);
+            ImGui::MenuItem("DebugWindow", NULL, &showDebugWindow);
             
             ImGui::EndMenu();
         }
@@ -71,8 +89,131 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
 
     ImGui::BeginTabBar("Category");
 
+    if (ImGui::BeginTabItem("Render"))
+    {
+        e_globRenderer.guiSetting();
+
+        ImGui::EndTabItem();
+    }
+
     if (ImGui::BeginTabItem("Shader"))
     {
+        shaders::guiShaderSetting();
+
+        ImGui::EndTabItem();
+    }
+
+    if (ImGui::BeginTabItem("PSO"))
+    {
+        render::guiPSOSetting();
+
+        ImGui::EndTabItem();
+    }
+
+    static bool openDebugWindow = false;
+    if (ImGui::BeginTabItem("Mesh"))
+    {
+        bool openDebugClick = false;
+        static uint meshID;
+
+        ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+
+        msh::guiMeshSetting(openDebugClick, meshID);
+
+        if (openDebugClick == true)
+        {
+            e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionDesc.getHandle().ptr);
+            openDebugWindow = true;
+        }
+
+        ImGui::EndChild();
+
+        ImGui::SameLine();
+
+        ImGui::BeginChild("Mesh view pane", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
+
+        if (openDebugWindow)
+        {
+            framebuffer* fbo = e_globRenderer.getDebugFrameBuffer();
+            ImGui::Image((ImTextureID)(fbo->getDescHandle(0).ptr), ImVec2(256.0f, 256.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+
+            static float x = 0;
+            static float y = PI / 2.0f;
+
+            bool changed = false;
+
+            ImGui::SameLine();
+            ImGui::BeginChild("ArrowButtons", ImVec2(70.0f, 70.0f));
+            ImGui::Columns(3, nullptr, false);
+            ImGui::PushButtonRepeat(true);
+            for (int i = 0; i < 9; i++)
+            {
+                if (i == 0) if (ImGui::Button("+##ZoomIn")) { meshDebugDrawCamArmLength -= 0.1f; changed = true; }
+                if (i == 1) if (ImGui::ArrowButton("meshView##Up", ImGuiDir_Up)) { y -= 0.1f; changed = true; }
+                if (i == 2) if (ImGui::Button("-##ZoomOut")) { meshDebugDrawCamArmLength += 0.1f; changed = true; }
+                if (i == 3) if (ImGui::ArrowButton("meshView##Left", ImGuiDir_Left)) { x -= 0.1f; changed = true; }
+                if (i == 5) if (ImGui::ArrowButton("meshView##Right", ImGuiDir_Right)) { x += 0.1f; changed = true; }
+                if (i == 7) if (ImGui::ArrowButton("meshView##Down", ImGuiDir_Down)) { y += 0.1f; changed = true; }
+                ImGui::NextColumn();
+            }
+            ImGui::PopButtonRepeat();
+
+            ImGui::EndChild();
+
+            if (ImGui::Button("Reset##MeshView"))
+            {
+                meshDebugDrawCamPos = meshDebugDrawCamPos_Default;
+                x = 0;
+                y = PI / 2.0f;
+            }
+
+            if (y > PI) y = PI - 0.01f;
+            if (y < 0.0f) y = 0.01f;
+
+            if(ImGui::Button("Close##MeshView"))
+            {
+                openDebugWindow = false;
+            }
+
+            if (changed || openDebugClick)
+            {
+                float xPos = std::sinf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
+                float yPos = std::cosf(y) * meshDebugDrawCamArmLength;
+                float zPos = std::cosf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
+                meshDebugDrawCamPos = DirectX::XMVECTOR{ xPos, yPos, zPos };
+                e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionDesc.getHandle().ptr);
+
+                DirectX::XMVECTOR forward = DirectX::XMVector3Normalize(DirectX::XMVectorNegate(meshDebugDrawCamPos));
+                DirectX::XMVECTOR globUp = DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };
+
+                DirectX::XMVECTOR right = DirectX::XMVector3Cross(forward, globUp);
+                DirectX::XMVECTOR up = DirectX::XMVector3Cross(right, forward);
+
+                DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(meshDebugDrawCamPos, forward, up);
+
+                DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), 1.0f, 0.1f, 10.0f);
+
+                DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, projection);
+
+                float* aabbSize = msh::getMesh(meshID)->getData()->boundData.halfExtent;
+
+                memcpy(debugProjectionBuffer->info.cbvDataBegin, &viewProj, sizeof(float) * 4 * 4);
+                memcpy(debugProjectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4, aabbSize, sizeof(float) * 3);
+            }
+        }
+
+        ImGui::EndChild();
+
+        ImGui::EndTabItem();
+    }
+    else
+    {
+        openDebugWindow = false;
+    }
+
+    if (ImGui::BeginTabItem("World"))
+    {
+        e_globWorld.guiSetting();
 
         ImGui::EndTabItem();
     }
@@ -85,7 +226,25 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     {
         ImGui::Begin("Shader", &showShadersWindow);
 
-        shaders::guiSetting();
+        shaders::guiShaderSourceSetting();
+
+        ImGui::End();
+    }
+
+    if (showDebugWindow)
+    {
+        ImGui::Begin("Debug", &showDebugWindow);
+
+        ImGui::Text("GbufferPosTex");
+        framebuffer* fbo = e_globRenderer.getFrameBuffer();
+        ImGui::Image((ImTextureID)(fbo->getDescHandle(0).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        ImGui::Text("GbufferNormTex");
+        ImGui::Image((ImTextureID)(fbo->getDescHandle(1).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        ImGui::Text("ObjectID");
+        ImGui::Image((ImTextureID)(fbo->getDescHandle(2).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        ImGui::Text("SSAOTex");
+        ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[0].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[2].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
 
         ImGui::End();
     }
@@ -152,6 +311,15 @@ void gui::edituint(std::string str, uint* data)
     if (ImGui::InputInt(str.c_str(), &integer))
     {
         *data = integer;
+    }
+}
+
+void gui::editintwithrange(std::string str, int* data, int min, int max)
+{
+    int integer = *data;
+    if (ImGui::InputInt(str.c_str(), &integer))
+    {
+        *data = std::clamp(integer, min, max);
     }
 }
 

@@ -17,6 +17,7 @@ namespace shaders
 	{
 		SHADER_VS = 0,
 		SHADER_PS,
+		SHADER_CS,
 	};
 
 	bool loadResources();
@@ -38,11 +39,14 @@ namespace shaders
 		std::vector<hlslBuf> outputContainer;
 
 		std::vector<hlslBuf> constantContainer;
-		std::vector<uint> textureContainer;
-		std::vector<uint> samplerContainer;
+		std::vector<hlslBuf> textureContainer;
+		std::vector<hlslBuf> samplerContainer;
 	};
 
-	void guiSetting();
+	void guiShaderSourceSetting();
+	void guiShaderSetting();
+
+	uint getShaderLocFromName(std::string name);
 };
 
 class shader
@@ -51,7 +55,7 @@ public:
 	void load(std::wstring filename);
 	void close();
 
-	void setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result, shaders::SHADER_TYPE shaderType);
+	void setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result, shaders::SHADER_TYPE shaderType, std::string shaderName);
 
 	void decipherHLSL();
 
@@ -61,8 +65,11 @@ public:
 	shaders::SHADER_TYPE getType() const;
 
 	shaders::hlslData bufData;
+	std::string getName() const;
 
 private:
 	Microsoft::WRL::ComPtr<IDxcBlob> shaderSource;
 	shaders::SHADER_TYPE type;
+
+	std::string name;
 };

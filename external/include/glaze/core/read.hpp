@@ -8,114 +8,133 @@
 #include "glaze/api/std/span.hpp"
 #include "glaze/core/common.hpp"
 #include "glaze/util/parse.hpp"
-#include "glaze/util/validate.hpp"
 
 namespace glz
 {
-   template <opts Opts>
-   inline decltype(auto) read_iterators(is_context auto&& ctx, detail::contiguous auto&& buffer) noexcept
+   template <opts Opts, bool Padded = false>
+   auto read_iterators(contiguous auto&& buffer) noexcept
    {
       static_assert(sizeof(decltype(*buffer.data())) == 1);
 
-      auto b = reinterpret_cast<const char*>(buffer.data());
-      auto e = reinterpret_cast<const char*>(buffer.data()); // to be incremented
+      auto it = reinterpret_cast<const char*>(buffer.data());
+      auto end = reinterpret_cast<const char*>(buffer.data()); // to be incremented
 
-      using Buffer = std::decay_t<decltype(buffer)>;
-      if constexpr (is_specialization_v<Buffer, std::basic_string> ||
-                    is_specialization_v<Buffer, std::basic_string_view> || span<Buffer> || Opts.format == binary) {
-         e += buffer.size();
-
-         if (b == e) {
-            ctx.error = error_code::no_read_input;
-         }
+      if constexpr (Padded) {
+         end += buffer.size() - padding_bytes;
       }
       else {
-         // if not a std::string or a std::string_view, check that the last character is a null character
-         // this is not required for binary specification reading, because we require the data to be properly formatted
-         if (buffer.empty()) {
-            ctx.error = error_code::no_read_input;
-         }
-         e += buffer.size() - 1;
-         if (*e != '\0') {
-            ctx.error = error_code::data_must_be_null_terminated;
-         }
+         end += buffer.size();
       }
 
-      return std::pair{b, e};
+      return std::pair{it, end};
    }
 
-   // For reading json from a std::vector<char>, std::deque<char> and the like
-   template <opts Opts>
-   [[nodiscard]] inline parse_error read(auto& value, detail::contiguous auto&& buffer, is_context auto&& ctx) noexcept
+   template <opts Opts, class T>
+      requires read_supported<Opts.format, T>
+   [[nodiscard]] error_ctx read(T& value, contiguous auto&& buffer, is_context auto&& ctx)
    {
       static_assert(sizeof(decltype(*buffer.data())) == 1);
+      using Buffer = std::remove_reference_t<decltype(buffer)>;
 
-      auto b = reinterpret_cast<const char*>(buffer.data());
-      auto e = reinterpret_cast<const char*>(buffer.data()); // to be incremented
-
-      auto start = b;
-
-      using Buffer = std::decay_t<decltype(buffer)>;
-      if constexpr (is_specialization_v<Buffer, std::basic_string> ||
-                    is_specialization_v<Buffer, std::basic_string_view> || span<Buffer> || Opts.format == binary) {
-         e += buffer.size();
-
-         if (b == e) {
+      if constexpr (Opts.format != NDJSON) {
+         if (buffer.empty()) [[unlikely]] {
             ctx.error = error_code::no_read_input;
-            return {ctx.error, 0};
+            return {ctx.error, ctx.custom_error_message, 0, ctx.includer_error};
          }
+      }
+
+      constexpr bool use_padded = resizable<Buffer> && non_const_buffer<Buffer> && !has_disable_padding(Opts);
+
+      if constexpr (use_padded) {
+         // Pad the buffer for SWAR
+         buffer.resize(buffer.size() + padding_bytes);
+      }
+
+      auto [it, end] = read_iterators<Opts, use_padded>(buffer);
+      auto start = it;
+      if (bool(ctx.error)) [[unlikely]] {
+         goto finish;
+      }
+
+      if constexpr (use_padded) {
+         detail::read<Opts.format>::template op<is_padded_on<Opts>()>(value, ctx, it, end);
       }
       else {
-         // if not a std::string or a std::string_view, check that the last character is a null character
-         // this is not required for binary specification reading, because we require the data to be properly formatted
-         if (buffer.empty()) {
-            ctx.error = error_code::no_read_input;
-            return {ctx.error, 0};
-         }
-         e += buffer.size() - 1;
-         if (*e != '\0') {
-            ctx.error = error_code::data_must_be_null_terminated;
-            return {ctx.error, 0};
-         }
+         detail::read<Opts.format>::template op<is_padded_off<Opts>()>(value, ctx, it, end);
       }
 
-      detail::read<Opts.format>::template op<Opts>(value, ctx, b, e);
+      if (bool(ctx.error)) [[unlikely]] {
+         goto finish;
+      }
 
-      if constexpr (Opts.force_conformance) {
-         if (b < e) {
-            detail::skip_ws<Opts>(ctx, b, e);
-            if (b != e) {
+      // The JSON RFC 8259 defines: JSON-text = ws value ws
+      // So, trailing whitespace is permitted and sometimes we want to
+      // validate this, even though this memory will not affect Glaze.
+      if constexpr (Opts.validate_trailing_whitespace) {
+         if (it < end) {
+            detail::skip_ws<Opts>(ctx, it, end);
+            if (bool(ctx.error)) [[unlikely]] {
+               goto finish;
+            }
+            if (it != end) [[unlikely]] {
                ctx.error = error_code::syntax_error;
             }
          }
       }
 
-      return {ctx.error, static_cast<size_t>(std::distance(start, b))};
+   finish:
+      // We don't do depth validation for partial reading
+      if constexpr (Opts.partial_read) {
+         if (ctx.error == error_code::partial_read_complete) [[likely]] {
+            ctx.error = error_code::none;
+         }
+         else if (ctx.error == error_code::end_reached && ctx.indentation_level == 0) {
+            ctx.error = error_code::none;
+         }
+      }
+      else {
+         if (ctx.error == error_code::end_reached && ctx.indentation_level == 0) {
+            ctx.error = error_code::none;
+         }
+      }
+
+      if constexpr (use_padded) {
+         // Restore the original buffer state
+         buffer.resize(buffer.size() - padding_bytes);
+      }
+
+      return {ctx.error, ctx.custom_error_message, size_t(it - start), ctx.includer_error};
    }
 
-   template <opts Opts>
-   [[nodiscard]] inline parse_error read(auto& value, detail::contiguous auto&& buffer) noexcept
+   template <opts Opts, class T>
+      requires read_supported<Opts.format, T>
+   [[nodiscard]] error_ctx read(T& value, contiguous auto&& buffer)
    {
       context ctx{};
       return read<Opts>(value, buffer, ctx);
    }
 
    template <class T>
-   concept string_viewable = std::convertible_to<std::decay_t<T>, std::string_view> && !detail::has_data<T>;
+   concept c_style_char_buffer = std::convertible_to<std::remove_cvref_t<T>, std::string_view> && !has_data<T>;
+
+   template <class T>
+   concept is_buffer = c_style_char_buffer<T> || contiguous<T>;
 
    // for char array input
-   template <opts Opts, class T, string_viewable Buffer>
-   [[nodiscard]] inline parse_error read(T& value, Buffer&& buffer, auto&& ctx) noexcept
+   template <opts Opts, class T, c_style_char_buffer Buffer>
+      requires read_supported<Opts.format, T>
+   [[nodiscard]] error_ctx read(T& value, Buffer&& buffer, auto&& ctx)
    {
       const auto str = std::string_view{std::forward<Buffer>(buffer)};
       if (str.empty()) {
-         return {error_code::no_read_input, 0};
+         return {error_code::no_read_input};
       }
       return read<Opts>(value, str, ctx);
    }
 
-   template <opts Opts, class T, string_viewable Buffer>
-   [[nodiscard]] inline parse_error read(T& value, Buffer&& buffer) noexcept
+   template <opts Opts, class T, c_style_char_buffer Buffer>
+      requires read_supported<Opts.format, T>
+   [[nodiscard]] error_ctx read(T& value, Buffer&& buffer)
    {
       context ctx{};
       return read<Opts>(value, std::forward<Buffer>(buffer), ctx);

@@ -11,7 +11,10 @@ class camera;
 class object;
 class world;
 
+constexpr uint THREADS_NUM_CLUSTERS = 64;
 constexpr uint MAX_OBJECTS = 256;
+constexpr uint MAX_CLUSTERS = 1024 * MAX_OBJECTS;
+constexpr uint MAX_LODS = 8;
 
 namespace game
 {
@@ -25,9 +28,12 @@ public:
 	void update(float dt);
 	void close();
 
-	void drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+	uint submitObjects(void* cbvLoc);
+	void uploadObjectViewInfo(void* cbvLoc);
+	void boundData(void* cbvLoc);
 
 	void setupScene();
+	void setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull);
 
 	void guiSetting();
 
@@ -48,16 +54,19 @@ public:
 
 	camera* getMainCam() const;
 
+	void instanceCulling();
+#if ENGINE_DEBUG_DEBUGCAM
+	void updateDebugCamera(float dt);
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 protected:
 	void setMainCamera(camera* cam);
 
 private:
-	std::vector<camera*> cameras;
 	camera* mainCamera = nullptr;
 
-	bool active = false;
-
-	void addObject(object* obj);
+#if ENGINE_DEBUG_DEBUGCAM
+	camera* debugCamera = nullptr;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 };
 
 extern world e_globWorld;

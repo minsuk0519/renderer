@@ -1,6 +1,7 @@
 #pragma once
 
 #include <system/defines.hpp>
+#include <render/pipelinestate.hpp>
 
 #include <wrl.h>
 #include <d3d12.h>
@@ -8,6 +9,7 @@
 #include <vector>
 
 class commandqueue;
+class pipelinestate;
 
 namespace render
 {
@@ -45,6 +47,8 @@ private:
 
 	D3D12_COMMAND_LIST_TYPE type;
 
+	pipelinestate* currentPSO = nullptr;
+
 private:
 	bool createCommandAllocator();
 	bool createFence();
@@ -61,4 +65,8 @@ public:
 
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> createCommandList(bool close);
 	void signalFence();
+
+	void bindPSO(render::PSO_INDEX psoIndex);
+	void sendData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
+	void sendData(uint pos, uint size, void* data);
 };

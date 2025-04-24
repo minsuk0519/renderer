@@ -26,7 +26,7 @@ namespace logger
 	void logger::add_msg(const std::string msg, const LOG_LEVEL& logLevel)
 	{
 		if (logLevel == LOG_LEVEL::LOG_INFO) spdlog::info(msg);
-		else if (logLevel == LOG_LEVEL::LOG_WARNING) spdlog::info(msg);
+		else if (logLevel == LOG_LEVEL::LOG_WARNING) spdlog::warn(msg);
 		else if (logLevel == LOG_LEVEL::LOG_ERROR) spdlog::error(msg);
 		//when loglevel is fatal
 		else spdlog::critical(msg);

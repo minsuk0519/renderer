@@ -3,308 +3,235 @@
 
 #pragma once
 
+#include <bit>
+#include <cstddef>
+#include <cstring>
 #include <span>
+#include <string_view>
 
-#include "glaze/core/write.hpp"
-// #include <bit>
+#include "glaze/concepts/container_concepts.hpp"
+#include "glaze/core/opts.hpp"
+#include "glaze/util/convert.hpp"
 
 namespace glz::detail
 {
-   GLZ_ALWAYS_INLINE void dump(const char c, vector_like auto& b, auto& ix) noexcept
-   {
-      assert(ix <= b.size());
-      if (ix == b.size()) [[unlikely]] {
-         b.resize(b.size() == 0 ? 128 : b.size() * 2);
-      }
+   template <class T, class V = std::remove_cvref_t<T>>
+   concept byte_sized = sizeof(T) == 1 && (std::same_as<V, char> || std::same_as<V, std::byte>);
 
-      b[ix] = c;
-      ++ix;
+   template <uint32_t N, class B>
+   GLZ_ALWAYS_INLINE void maybe_pad(B& b, size_t ix) noexcept(not vector_like<B>)
+   {
+      if constexpr (vector_like<B>) {
+         if (const auto k = ix + N; k > b.size()) [[unlikely]] {
+            b.resize(2 * k);
+         }
+      }
    }
 
-   GLZ_ALWAYS_INLINE void dump(const char c, char*& b) noexcept
+   template <class B>
+   GLZ_ALWAYS_INLINE void maybe_pad(const size_t n, B& b, size_t ix) noexcept(not vector_like<B>)
    {
-      *b = c;
-      ++b;
+      if constexpr (vector_like<B>) {
+         if (const auto k = ix + n; k > b.size()) [[unlikely]] {
+            b.resize(2 * k);
+         }
+      }
    }
 
-   template <char c>
-   GLZ_ALWAYS_INLINE void dump(vector_like auto& b, auto& ix) noexcept
+   template <auto c>
+   GLZ_ALWAYS_INLINE void assign_maybe_cast(auto& b, size_t& ix) noexcept
    {
-      assert(ix <= b.size());
-      if (ix == b.size()) [[unlikely]] {
-         b.resize(b.size() == 0 ? 128 : b.size() * 2);
-      }
-
       using V = std::decay_t<decltype(b[0])>;
-      if constexpr (std::same_as<V, char>) {
+      using C = std::decay_t<decltype(c)>;
+      if constexpr (std::same_as<V, C>) {
          b[ix] = c;
       }
       else {
          b[ix] = static_cast<V>(c);
       }
-      ++ix;
    }
 
-   template <char c>
-   GLZ_ALWAYS_INLINE void dump(auto* b, auto& ix) noexcept
-   {
-      b[ix] = c;
-      ++ix;
-   }
-
-   template <char c>
-   GLZ_ALWAYS_INLINE void dump_unchecked(vector_like auto& b, auto& ix) noexcept
+   GLZ_ALWAYS_INLINE void assign_maybe_cast(const byte_sized auto c, auto& b, size_t& ix) noexcept
    {
       using V = std::decay_t<decltype(b[0])>;
-      if constexpr (std::same_as<V, char>) {
+      using C = std::decay_t<decltype(c)>;
+      if constexpr (std::same_as<V, C>) {
          b[ix] = c;
       }
       else {
          b[ix] = static_cast<V>(c);
       }
-      ++ix;
    }
 
-   template <char c>
-   GLZ_ALWAYS_INLINE void dump_unchecked(auto* b, auto& ix) noexcept
+   template <bool Checked = true, class B>
+   GLZ_ALWAYS_INLINE void dump(const byte_sized auto c, B& b, size_t& ix) noexcept(not vector_like<B>)
    {
-      b[ix] = c;
+      if constexpr (Checked && vector_like<B>) {
+         if (ix == b.size()) [[unlikely]] {
+            b.resize(b.size() == 0 ? 128 : b.size() * 2);
+         }
+      }
+      assign_maybe_cast(c, b, ix);
       ++ix;
    }
 
-   GLZ_ALWAYS_INLINE void dump_unchecked(const sv str, vector_like auto& b, auto& ix) noexcept
+   template <auto c, bool Checked = true, class B>
+   GLZ_ALWAYS_INLINE void dump(B& b, size_t& ix) noexcept(not vector_like<B>)
+   {
+      if constexpr (Checked && vector_like<B>) {
+         if (ix == b.size()) [[unlikely]] {
+            b.resize(b.size() == 0 ? 128 : b.size() * 2);
+         }
+      }
+      assign_maybe_cast<c>(b, ix);
+      ++ix;
+   }
+
+   template <string_literal str, bool Checked = true, class B>
+   GLZ_ALWAYS_INLINE void dump(B& b, size_t& ix) noexcept(not vector_like<B>)
+   {
+      static constexpr auto s = str.sv();
+      static constexpr auto n = s.size();
+
+      if constexpr (vector_like<B>) {
+         if constexpr (Checked) {
+            const auto k = ix + n;
+            if (k > b.size()) [[unlikely]] {
+               b.resize(2 * k);
+            }
+         }
+      }
+      std::memcpy(&b[ix], s.data(), n);
+      ix += n;
+   }
+
+   template <bool Checked = true, class B>
+   GLZ_ALWAYS_INLINE void dump(const sv str, B& b, size_t& ix) noexcept(not vector_like<B>)
    {
       const auto n = str.size();
-      std::memcpy(b.data() + ix, str.data(), n);
+      if constexpr (vector_like<B>) {
+         if constexpr (Checked) {
+            const auto k = ix + n;
+            if (ix + n > b.size()) [[unlikely]] {
+               b.resize(2 * k);
+            }
+         }
+      }
+      std::memcpy(&b[ix], str.data(), n);
       ix += n;
    }
 
-   template <char c>
-   GLZ_ALWAYS_INLINE void dump(char*& b) noexcept
+   template <auto c, class B>
+   GLZ_ALWAYS_INLINE void dumpn(size_t n, B& b, size_t& ix) noexcept(not vector_like<B>)
    {
-      *b = c;
-      ++b;
+      if constexpr (vector_like<B>) {
+         const auto k = ix + n;
+         if (k > b.size()) [[unlikely]] {
+            b.resize(2 * k);
+         }
+      }
+      std::memset(&b[ix], c, n);
+      ix += n;
    }
 
-   template <string_literal str>
-   GLZ_ALWAYS_INLINE void dump(char*& b) noexcept
+   template <auto c, class B>
+   GLZ_ALWAYS_INLINE void dumpn_unchecked(size_t n, B& b, size_t& ix) noexcept
    {
-      static constexpr auto s = str.sv();
-      static constexpr auto n = s.size();
-      std::memcpy(b, s.data(), n);
-      b += n;
+      std::memset(&b[ix], c, n);
+      ix += n;
    }
 
-   template <char c>
-   GLZ_ALWAYS_INLINE void dumpn(size_t n, char*& b) noexcept
+   template <char IndentChar, class B>
+   GLZ_ALWAYS_INLINE void dump_newline_indent(size_t n, B& b, size_t& ix) noexcept(not vector_like<B>)
    {
-      std::fill_n(b, n, c);
-   }
-
-   template <string_literal str>
-   GLZ_ALWAYS_INLINE void dump(vector_like auto& b, auto& ix) noexcept
-   {
-      static constexpr auto s = str.sv();
-      static constexpr auto n = s.size();
-
-      if (ix + n > b.size()) [[unlikely]] {
-         b.resize((std::max)(b.size() * 2, ix + n));
+      if constexpr (vector_like<B>) {
+         if (const auto k = ix + n + write_padding_bytes; k > b.size()) [[unlikely]] {
+            b.resize(2 * k);
+         }
       }
 
-      std::memcpy(b.data() + ix, s.data(), n);
+      assign_maybe_cast<'\n'>(b, ix);
+      ++ix;
+      std::memset(&b[ix], IndentChar, n);
       ix += n;
    }
 
-   template <string_literal str>
-   GLZ_ALWAYS_INLINE void dump(auto* b, auto& ix) noexcept
-   {
-      static constexpr auto s = str.sv();
-      static constexpr auto n = s.size();
-
-      std::memcpy(b + ix, s.data(), n);
-      ix += n;
-   }
-
-   template <char c>
-   GLZ_ALWAYS_INLINE void dumpn(size_t n, vector_like auto& b, auto& ix) noexcept
-   {
-      if (ix + n > b.size()) [[unlikely]] {
-         b.resize((std::max)(b.size() * 2, ix + n));
-      }
-
-      std::fill_n(b.data() + ix, n, c);
-      ix += n;
-   }
-
-   template <const sv& str>
-   GLZ_ALWAYS_INLINE void dump(vector_like auto& b, auto& ix) noexcept
+   template <const sv& str, bool Checked = true, class B>
+   GLZ_ALWAYS_INLINE void dump(B& b, size_t& ix) noexcept(not vector_like<B> && not Checked)
    {
       static constexpr auto s = str;
       static constexpr auto n = s.size();
 
-      if (ix + n > b.size()) [[unlikely]] {
-         b.resize((std::max)(b.size() * 2, ix + n));
+      if constexpr (vector_like<B>) {
+         if constexpr (Checked) {
+            const auto k = ix + n;
+            if (k > b.size()) [[unlikely]] {
+               b.resize(2 * k);
+            }
+         }
       }
-
-      std::memcpy(b.data() + ix, s.data(), n);
+      std::memcpy(&b[ix], s.data(), n);
       ix += n;
    }
 
-   template <const sv& str>
-   GLZ_ALWAYS_INLINE void dump(auto* b, auto& ix) noexcept
-   {
-      static constexpr auto s = str;
-      static constexpr auto n = s.size();
-
-      std::memcpy(b + ix, s.data(), n);
-      ix += n;
-   }
-
-   GLZ_ALWAYS_INLINE void dump(const sv str, vector_like auto& b, auto& ix) noexcept
+   template <bool Checked = true, class B>
+   GLZ_ALWAYS_INLINE void dump_not_empty(const sv str, B& b, size_t& ix) noexcept(not vector_like<B> && not Checked)
    {
       const auto n = str.size();
-      if (ix + n > b.size()) [[unlikely]] {
-         b.resize((std::max)(b.size() * 2, ix + n));
+      if constexpr (vector_like<B>) {
+         if constexpr (Checked) {
+            const auto k = ix + n;
+            if (k > b.size()) [[unlikely]] {
+               b.resize(2 * k);
+            }
+         }
       }
-
-      std::memcpy(b.data() + ix, str.data(), n);
+      std::memcpy(&b[ix], str.data(), n);
       ix += n;
    }
 
-   GLZ_ALWAYS_INLINE void dump(const sv str, auto* b, auto& ix) noexcept
+   template <bool Checked = true, class B>
+   GLZ_ALWAYS_INLINE void dump_maybe_empty(const sv str, B& b, size_t& ix) noexcept(not vector_like<B> && not Checked)
    {
       const auto n = str.size();
-
-      std::memcpy(b + ix, str.data(), n);
-      ix += n;
-   }
-
-   GLZ_ALWAYS_INLINE void dump(const sv str, char*& b) noexcept
-   {
-      for (auto& c : str) {
-         *b = c;
-         ++b;
-      }
-   }
-
-   template <std::byte c, class B>
-   GLZ_ALWAYS_INLINE void dump(B&& b) noexcept
-   {
-      // TODO use std::bit_cast when apple clang supports it
-      using value_t = range_value_t<std::decay_t<B>>;
-      if constexpr (std::same_as<value_t, std::byte>) {
-         b.emplace_back(c);
-      }
-      else {
-         static constexpr std::byte chr = c;
-         static_assert(sizeof(value_t) == sizeof(std::byte));
-         b.push_back(*reinterpret_cast<value_t*>(const_cast<std::byte*>(&chr)));
-         // b.push_back(std::bit_cast<value_t>(c));
-      }
-   }
-
-   template <std::byte c, class B>
-   GLZ_ALWAYS_INLINE void dump(B&& b, auto& ix) noexcept
-   {
-      assert(ix <= b.size());
-      if (ix == b.size()) [[unlikely]] {
-         b.resize(b.size() == 0 ? 128 : b.size() * 2);
-      }
-
-      using value_t = range_value_t<std::decay_t<B>>;
-      if constexpr (std::same_as<value_t, std::byte>) {
-         b[ix] = c;
-      }
-      else {
-         static constexpr std::byte chr = c;
-         static_assert(sizeof(value_t) == sizeof(std::byte));
-         b[ix] = *reinterpret_cast<value_t*>(const_cast<std::byte*>(&chr));
-         // TODO use std::bit_cast when apple clang supports it
-         // b[ix] = std::bit_cast<value_t>(c);
-      }
-      ++ix;
-   }
-
-   template <class B>
-   GLZ_ALWAYS_INLINE void dump(std::byte c, B&& b) noexcept
-   {
-      // TODO use std::bit_cast when apple clang supports it
-      using value_t = range_value_t<std::decay_t<B>>;
-      if constexpr (std::same_as<value_t, std::byte>) {
-         b.emplace_back(c);
-      }
-      else {
-         static_assert(sizeof(value_t) == sizeof(std::byte));
-         b.push_back(*reinterpret_cast<value_t*>(const_cast<std::byte*>(&c)));
-         // b.push_back(std::bit_cast<value_t>(c));
+      if (n) {
+         if constexpr (vector_like<B>) {
+            if constexpr (Checked) {
+               const auto k = ix + n;
+               if (k > b.size()) [[unlikely]] {
+                  b.resize(2 * k);
+               }
+            }
+         }
+         std::memcpy(&b[ix], str.data(), n);
+         ix += n;
       }
    }
 
    template <class B>
-   GLZ_ALWAYS_INLINE void dump(std::byte c, auto&& b, auto& ix) noexcept
-   {
-      assert(ix <= b.size());
-      if (ix == b.size()) [[unlikely]] {
-         b.resize(b.size() == 0 ? 128 : b.size() * 2);
-      }
-
-      using value_t = range_value_t<std::decay_t<B>>;
-      if constexpr (std::same_as<value_t, std::byte>) {
-         b[ix] = c;
-      }
-      else {
-         static_assert(sizeof(value_t) == sizeof(std::byte));
-         b[ix] = *reinterpret_cast<value_t*>(const_cast<std::byte*>(&c));
-         // TODO use std::bit_cast when apple clang supports it
-         // b[ix] = std::bit_cast<value_t>(c);
-      }
-      ++ix;
-   }
-
-   template <class B>
-   GLZ_ALWAYS_INLINE void dump(const std::span<const std::byte> bytes, B&& b) noexcept
+   GLZ_ALWAYS_INLINE void dump(const vector_like auto& bytes, B& b, size_t& ix) noexcept(not vector_like<B>)
    {
       const auto n = bytes.size();
-      const auto b_start = b.size();
-      b.resize(b.size() + n);
-      std::memcpy(b.data() + b_start, bytes.data(), n);
-   }
-
-   template <class B>
-   GLZ_ALWAYS_INLINE void dump(const std::span<const std::byte> bytes, B&& b, auto& ix) noexcept
-   {
-      assert(ix <= b.size());
-      const auto n = bytes.size();
-      if (ix + n > b.size()) [[unlikely]] {
-         b.resize((std::max)(b.size() * 2, ix + n));
+      if constexpr (vector_like<B>) {
+         const auto k = ix + n;
+         if (k > b.size()) [[unlikely]] {
+            b.resize(2 * k);
+         }
       }
-
-      std::memcpy(b.data() + ix, bytes.data(), n);
+      std::memcpy(&b[ix], bytes.data(), n);
       ix += n;
    }
 
    template <size_t N, class B>
-   GLZ_ALWAYS_INLINE void dump(const std::array<uint8_t, N>& bytes, B&& b, auto& ix) noexcept
+   GLZ_ALWAYS_INLINE void dump(const std::array<uint8_t, N>& bytes, B& b, size_t& ix) noexcept(not vector_like<B>)
    {
-      assert(ix <= b.size());
-      if (ix + N > b.size()) [[unlikely]] {
-         b.resize((std::max)(b.size() * 2, ix + N));
+      if constexpr (vector_like<B>) {
+         const auto k = ix + N;
+         if (k > b.size()) [[unlikely]] {
+            b.resize(2 * k);
+         }
       }
-
-      std::memcpy(b.data() + ix, bytes.data(), N);
+      std::memcpy(&b[ix], bytes.data(), N);
       ix += N;
-   }
-
-   template <glaze_flags_t T>
-   consteval auto byte_length() noexcept
-   {
-      constexpr auto N = std::tuple_size_v<meta_t<T>>;
-
-      if constexpr (N % 8 == 0) {
-         return N / 8;
-      }
-      else {
-         return (N / 8) + 1;
-      }
    }
 }

@@ -2,6 +2,8 @@
 #include <world/object.hpp>
 #include <render/camera.hpp>
 #include <render/pipelinestate.hpp>
+#include <system/gui.hpp>
+#include <system/input.hpp>
 
 world e_globWorld;
 
@@ -24,12 +26,11 @@ object* world::getObjects()
 
 void world::sendInfo(unsigned char* cbv)
 {
-	world* world = game::getWorld();
-	uint* index = world->cameraObjectIndex;
-	uint objNum = world->cameraObjNum;
+	uint* index = cameraObjectIndex;
+	uint objNum = cameraObjNum;
 	for (uint i = 0; i < objNum; ++i)
 	{
-		object* obj = world->objects + index[i];
+		object* obj = objects + index[i];
 		obj->sendMat(cbv);
 	}
 
@@ -40,6 +41,31 @@ camera* world::getMainCam() const
 	return mainCamera;
 }
 
+void world::instanceCulling()
+{
+	mainCamera->updateView();
+
+	for (uint i = 0; i < objectNum; ++i)
+	{
+		object* obj = objects + i;
+
+		DirectX::XMVECTOR* frustum = mainCamera->getFrustum();
+
+		if (obj->instanceCulling(frustum))
+		{
+			cameraObjectIndex[cameraObjNum] = i;
+			++cameraObjNum;
+		}
+	}
+}
+
+#if ENGINE_DEBUG_DEBUGCAM
+void world::updateDebugCamera(float dt)
+{
+	debugCamera->update(dt);
+}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
+
 void world::setMainCamera(camera* cam)
 {
 	cam->setCamAsMain();
@@ -48,10 +74,24 @@ void world::setMainCamera(camera* cam)
 
 void world::guiSetting()
 {
+	static uint objectGUIIndex;
+	ImGui::BeginChild("left pane", ImVec2(50, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+
 	for (uint i = 0; i < objectNum; ++i)
 	{
-		objects[i].guiSetting();
+		if(ImGui::Button(("objects##" + std::to_string(i)).c_str()))
+		{
+			objectGUIIndex = i;
+		}
 	}
+
+	ImGui::EndChild();
+	ImGui::SameLine();
+	ImGui::BeginChild("object view pane", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
+
+	objects[objectGUIIndex].guiSetting();
+
+	ImGui::EndChild();
 }
 
 
@@ -60,11 +100,13 @@ bool world::init()
 	camera* camPtr = new camera();
 	camPtr->init();
 	setMainCamera(camPtr);
-	cameras.push_back(camPtr);
 
-	//camera* debugCamPtr = new camera();
-	//debugCamPtr->init();
-	//cameras.push_back(debugCamPtr);
+#if ENGINE_DEBUG_DEBUGCAM
+	camera* debugCamPtr = new camera();
+	debugCamPtr->init();
+	debugCamPtr->toggleDebugMode();
+	debugCamera = debugCamPtr;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	objects = new object[MAX_OBJECTS];
 
@@ -75,36 +117,23 @@ bool world::init()
 
 void world::update(float dt)
 {
-	for (uint i = 0; i < objectNum; ++i)
-	{
-		objects[i].update(dt);
-	}
-
-	//if (input::isTriggered(input::KEY_SPACE))
+	//for (uint i = 0; i < objectNum; ++i)
 	//{
-	//	for (auto cam : cameras)
-	//	{
-	//		cam->toggleDebugMode();
-	//	}
+	//	objects[i].update(dt);
 	//}
+
+#if ENGINE_DEBUG_DEBUGCAM
+	if (input::isTriggered(input::KEY_SPACE))
+	{
+		mainCamera->toggleDebugMode();
+		debugCamera->toggleDebugMode();
+	}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	cameraObjNum = 0;
 
-	//{
-	//	for (uint i = 0; i < objectNum; ++i)
-	//	{
-	//		if ((objects[i].drawThisPSO(pso::PSO_PBR) == false) || (objects[i].frustumCulling(mainCamera) == true)) continue;
-
-	//		cameraObjectIndex[cameraObjNum] = i;
-	//		++cameraObjNum;
-	//	}
-	//}
-
-	for (auto cam : cameras)
-	{
-		//debug camera should not be updated when it is not debug mode
-		cam->update(dt);
-	}
+	mainCamera->update(dt);
+	debugCamera->update(dt);
 }
 
 void world::close()
@@ -115,23 +144,46 @@ void world::close()
 	}
 	delete[]objects;
 
-	for (auto cam : cameras)
+	mainCamera->close();
+	delete mainCamera;
+
+#if ENGINE_DEBUG_DEBUGCAM
+	debugCamera->close();
+	delete debugCamera;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
+}
+
+uint world::submitObjects(void* cbvLoc)
+{
+	uint offset = 0;
+
+	uint* location = static_cast<uint*>(cbvLoc);
+	for (uint i = 0; i < cameraObjNum; ++i)
 	{
-		cam->close();
-		delete cam;
+		objects[cameraObjectIndex[i]].submit(static_cast<void*>(location), offset, i);
+		location += 1;
+	}
+
+	return cameraObjNum;
+}
+
+void world::uploadObjectViewInfo(void* cbvLoc)
+{
+	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
+	for (uint i = 0; i < cameraObjNum; ++i)
+	{
+		objects[cameraObjectIndex[i]].uploadViewInfo(gpuAddress);
+		gpuAddress += sizeof(uint) * 10;
 	}
 }
 
-void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void world::boundData(void* cbvLoc)
 {
-	for (auto cam : cameras)
+	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
+	for (uint i = 0; i < cameraObjNum; ++i)
 	{
-		cam->preDraw(cmdList);
-	}
-
-	for (uint i = 0; i < objectNum; ++i)
-	{
-		objects[i].draw(cmdList, false);
+		objects[cameraObjectIndex[i]].boundData(gpuAddress);
+		gpuAddress += 6 * sizeof(float);
 	}
 }
 
@@ -139,54 +191,46 @@ void world::setupScene()
 {
 	//TODO
 	{
-		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
-		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.0f,0.0f });
+		objects[objectNum].init(msh::MESH_CUBE, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -1.0f,-0.5f,0.0f });
 		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
 		++objectNum;
 	}
 
-	//{
-	//	objects[objectNum].init(msh::MESH_BUNNY, pso::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -0.4f,0.1f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.4f,0.4f,0.4f });
-	//
-	//	++objectNum;
-	//}
+	{
+		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 5.0f,5.0f,5.0f });
 
-	//for (int i = 0; i < 49; ++i)
-	//{
-	//	{
-	//		objects[objectNum].init(msh::MESH_BUNNY, pso::PSO_PBR, true);
-	//		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -1.5f + (i / 7) * 0.6f,0.1f + (i % 7) * 0.6f,-1.5f });
-	//		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.5f,0.5f,0.5f });
+		++objectNum;
+	}
 
-	//		++objectNum;
-	//	}
-	//}
+	{
+		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.005f,0.005f,0.005f });
 
-	//{
-	//	objects[objectNum].init(msh::MESH_ARMADILLO, pso::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.4f,0.1f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.4f,0.4f,0.4f });
-	//	objects[objectNum].getTransform()->setRotation(DirectX::XMVECTOR{ 0.0f,3.141592f,0.0f });
-	//		
-	//	++objectNum;
-	//}
-	//
-	//{
-	//	objects[objectNum].init(msh::MESH_ARMADILLO, pso::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,0.5f,-0.5f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 1.2f,1.2f,1.2f });
-	//	objects[objectNum].getTransform()->setRotation(DirectX::XMVECTOR{ 0.0f,3.141592f,0.0f });
-	//	
-	//	++objectNum;
-	//}
+		++objectNum;
+	}
 
-	//{
-	//	objects[objectNum].init(msh::MESH_CUBE_NONORM, pso::PSO_SKYBOX, false);
-	//	objects[objectNum].disableWire();
-	//	
-	//	++objectNum;
-	//}
+	{
+		objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-2.0f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+
+		++objectNum;
+	}
+}
+
+void world::setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull)
+{
+	if(forceMain) mainCamera->preDraw(cmdList, forceFull);
+#if ENGINE_DEBUG_DEBUGCAM
+	else
+	{
+		//debugCam will be always full
+		debugCamera->preDraw(cmdList, true);
+	}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 }

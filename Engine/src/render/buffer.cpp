@@ -6,6 +6,8 @@
 #include <render/mesh.hpp>
 #include <system/window.hpp>
 #include <system/logger.hpp>
+#include <system/jsonhelper.hpp>
+#include <system/mathhelper.hpp>
 
 #include <vector>
 
@@ -24,121 +26,6 @@ namespace meshloadhelper
         std::vector<uint> indices;
         std::vector<uint> indicesLine;
     };
-
-    //vertindex processMesh()//, float AABB[msh::EDGE_MAX])
-    //{
-    //    //vertindex data;
-
-    //    //float xMAX = -FLT_MAX;
-    //    //float yMAX = -FLT_MAX;
-    //    //float zMAX = -FLT_MAX;
-
-    //    //float xMIN = FLT_MAX;
-    //    //float yMIN = FLT_MAX;
-    //    //float zMIN = FLT_MAX;
-
-    //    //std::vector<std::pair<uint, uint>> overlappedVerts;
-
-    //    //for (unsigned int i = 0; i < mesh->mNumVertices; i++)
-    //    //{
-    //    //    float x = mesh->mVertices[i].x;
-    //    //    float y = mesh->mVertices[i].y;
-    //    //    float z = mesh->mVertices[i].z;
-
-    //    //    if (xMAX < x) xMAX = x;
-    //    //    if (yMAX < y) yMAX = y;
-    //    //    if (zMAX < z) zMAX = z;
-
-    //    //    if (xMIN > x) xMIN = x;
-    //    //    if (yMIN > y) yMIN = y;
-    //    //    if (zMIN > z) zMIN = z;
-
-    //    //    data.vertices.push_back(x);
-    //    //    data.vertices.push_back(y);
-    //    //    data.vertices.push_back(z);
-
-    //    //    if (mesh->HasNormals())
-    //    //    {
-    //    //        data.normals.push_back(mesh->mNormals[i].x);
-    //    //        data.normals.push_back(mesh->mNormals[i].y);
-    //    //        data.normals.push_back(mesh->mNormals[i].z);
-    //    //    }
-
-    //    //    //if (mesh->HasTextureCoords(i))
-    //    //    //{
-    //    //    //    data.vertices.push_back(mesh->mTextureCoords[i]->x);
-    //    //    //    data.vertices.push_back(mesh->mTextureCoords[i]->y);
-    //    //    //}
-    //    //    //else
-    //    //    //{
-    //    //    //    data.vertices.push_back(0.0f);
-    //    //    //    data.vertices.push_back(0.0f);
-    //    //    //}
-    //    //}
-
-    //    //float xDIM = xMAX - xMIN;
-    //    //float yDIM = yMAX - yMIN;
-    //    //float zDIM = zMAX - zMIN;
-
-    //    //float MAXDIM = (xDIM > yDIM) ? xDIM : yDIM;
-    //    //MAXDIM = (MAXDIM > zDIM) ? MAXDIM : zDIM;
-
-    //    //float xOFFSET = (xMAX + xMIN) / 2.0f;
-    //    //float yOFFSET = (yMAX + yMIN) / 2.0f;
-    //    //float zOFFSET = (zMAX + zMIN) / 2.0f;
-    //    //    
-    //    //for (uint i = 0; i < data.vertices.size(); i += 3)
-    //    //{
-    //    //    data.vertices[i] = (data.vertices[i] - xOFFSET) / (MAXDIM);
-    //    //    data.vertices[i + 1] = (data.vertices[i + 1] - yOFFSET) / (MAXDIM);
-    //    //    data.vertices[i + 2] = (data.vertices[i + 2] - zOFFSET) / (MAXDIM);
-    //    //}
-
-    //    //xMAX = (xMAX - xOFFSET) / (MAXDIM);
-    //    //xMIN = (xMIN - xOFFSET) / (MAXDIM);
-    //    //yMAX = (yMAX - yOFFSET) / (MAXDIM);
-    //    //yMIN = (yMIN - yOFFSET) / (MAXDIM);
-    //    //zMAX = (zMAX - zOFFSET) / (MAXDIM);
-    //    //zMIN = (zMIN - zOFFSET) / (MAXDIM);
-
-    //    ////AABB[msh::EDGE_XMAX] = xMAX;
-    //    ////AABB[msh::EDGE_XMIN] = xMIN;
-    //    ////AABB[msh::EDGE_YMAX] = yMAX;
-    //    ////AABB[msh::EDGE_YMIN] = yMIN;
-    //    ////AABB[msh::EDGE_ZMAX] = zMAX;
-    //    ////AABB[msh::EDGE_ZMIN] = zMIN;
-
-    //    //return data;
-    //}
-
-    //void processNode(aiNode* node, const aiScene* scene, std::vector<vertindex>& data, float AABB[msh::EDGE_MAX])
-    //{
-    //    for (unsigned int i = 0; i < node->mNumMeshes; i++)
-    //    {
-    //        aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-    //        //TODO
-    //        data.push_back(processMesh(mesh, scene, AABB));
-    //    }
-
-    //    for (unsigned int i = 0; i < node->mNumChildren; i++)
-    //    {
-    //        processNode(node->mChildren[i], scene, data, AABB);
-    //    }
-    //}
-
-    //std::vector<vertindex> readassimp(std::string file_path, float AABB[msh::EDGE_MAX])
-    //{
-    //    Assimp::Importer import;
-    //    const aiScene* scene = import.ReadFile(file_path.c_str(), aiProcess_Triangulate | aiProcess_GenSmoothNormals);
-
-    //    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) return {};
-
-    //    std::vector<vertindex> data;
-
-    //    processNode(scene->mRootNode, scene, data, AABB);
-
-    //    return data;
-    //}
 }
 
 namespace img
@@ -178,124 +65,42 @@ namespace img
     }
 }
 
-struct point
-{
-    float x;
-    float y;
-    float z;
-
-    point(float xValue, float yValue, float zValue) : x(xValue), y(yValue), z(zValue) {}
-    point() : x(0.0f), y(0.0f), z(0.0f) {}
-
-    point operator-(const point& target) const
-    {
-        point result;
-
-        result.x = x - target.x;
-        result.y = y - target.y;
-        result.z = z - target.z;
-
-        return result;
-    }
-
-    point& operator-=(const point& target)
-    {
-        x -= target.x;
-        y -= target.y;
-        z -= target.z;
-
-        return *this;
-    }
-
-    point& operator+=(const point& target)
-    {
-        x += target.x;
-        y += target.y;
-        z += target.z;
-
-        return *this;
-    }
-
-    point operator=(const point& target)
-    {
-        point result;
-
-        result.x = target.x;
-        result.y = target.y;
-        result.z = target.z;
-
-        return result;
-    }
-
-    point cross(const point& target) const
-    {
-        point result;
-
-        result.x = y * target.z - z * target.y;
-        result.y = z * target.x - x * target.z;
-        result.z = x * target.y - y * target.x;
-
-        return result;
-    }
-
-    point getAvg(uint num) const
-    {
-        point result;
-
-        float f_num = static_cast<float>(num);
-
-        result.x = x / f_num;
-        result.y = y / f_num;
-        result.z = z / f_num;
-
-        return result;
-    }
-
-    std::string to_string() const
-    {
-        std::string result = "";
-
-        result += std::to_string(x) + " ";
-        result += std::to_string(y) + " ";
-        result += std::to_string(z);
-
-        return result;
-    }
-
-    point getVec(point target) const
-    {
-        double xDiff = x - target.x;
-        double yDiff = y - target.y;
-        double zDiff = z - target.z;
-
-        double dLengthSquare = xDiff * xDiff + yDiff * yDiff + zDiff * zDiff;
-
-        double dLength = std::sqrt(dLengthSquare);
-
-        if (dLength == 0.0f)
-        {
-            auto a = 1;
-        }
-
-        double xUnit = xDiff / dLength;
-        double yUnit = yDiff / dLength;
-        double zUnit = zDiff / dLength;
-
-        point result;
-
-        result.x = xUnit;
-        result.y = yUnit;
-        result.z = zUnit;
-
-        return result;
-    }
-};
-
-#include <windows.h>
-
-
 namespace buf
 {
+    inline constexpr void TrimLeft(std::string& text)
+    {
+        size_t index = 0;
+        while (index < text.size() && (text[index] == ' ' || text[index] == '\t' || text[index] == ',' || text[index] == ')' || text[index] == '(' || text[index] == '\n')) ++index;
+        
+        text.erase(0, index);
+    }
+
+    inline constexpr void ParseReals(std::string& text, uint count, float* out)
+    {
+        uint parsedCount = 0;
+
+        TrimLeft(text);
+
+        while (!text.empty() && parsedCount < count) 
+        {
+            auto [ptr, rc] = fast_float::from_chars(text.data(), text.data() + text.size(), *out);
+            assert(rc == std::errc());
+            
+            auto num_parsed = static_cast<size_t>(ptr - text.data());
+            text.erase(0, num_parsed);
+
+            TrimLeft(text);
+
+            ++parsedCount;
+            ++out;
+        }
+
+        TrimLeft(text);
+
+        assert(parsedCount == count);
+    }
+
+
     //will be replaced in future
     std::array<buffer*, DEPTH_END> bufferContainer;
 
@@ -303,23 +108,121 @@ namespace buf
  
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
 
-    void loadFile(std::string fileName, const uint vertexIndex, const uint normalIndex, const uint indexIndex)
+    void loadMeshInfo(std::string fileName, meshData* meshData)
     {
-        //float AABB[msh::EDGE_MAX];
+        auto pos = fileName.find(".obj");
 
-        //std::vector<meshloadhelper::vertindex> data = meshloadhelper::readassimp(fileName, AABB);
+        fileName = fileName.substr(0, pos) + ".info";
 
-        ////TODO
-        //bufferContainer[vertexIndex] = createVertexBuffer(data[0].vertices.data(), static_cast<uint>(sizeof(float) * data[0].vertices.size()), sizeof(float) * 3);
-        //bufferContainer[normalIndex] = createVertexBuffer(data[0].normals.data(), static_cast<uint>(sizeof(float) * data[0].normals.size()), sizeof(float) * 3);
-        //bufferContainer[indexIndex] = createIndexBuffer(data[0].indices.data(), static_cast<uint>(sizeof(uint) * data[0].indices.size()));
+        char* data = nullptr;
+        int size = rawFileRead(fileName, &data);
+
+        TC_ASSERT(size >= 0);
+
+        if (size != -1)
+        {
+            std::string stringData = data;
+            auto pos = stringData.find("Number of LODs : ") + 16;
+
+            std::string subStr = stringData.substr(pos);
+            std::string lodNumString = subStr.substr(0, subStr.find('\n'));
+            meshData->lodNum = std::stoi(lodNumString);
+
+            subStr = subStr.substr(subStr.find("cluster Infos by LOD : \n") + 24);
+
+            meshData->lodData.resize(meshData->lodNum);
+
+            uint totalClusters = 0;
+            for (uint i = 0; i < meshData->lodNum; ++i)
+            {
+                uint nextPos = subStr.find(" : ");
+                std::string valueString = subStr.substr(0, nextPos);
+                TC_ASSERT(std::stoi(valueString) == i);
+                subStr = subStr.substr(nextPos + 3);
+                nextPos = subStr.find(", ");
+                valueString = subStr.substr(0, nextPos);
+                meshData->lodData[i].clusterNum = std::stoi(valueString);
+                totalClusters += meshData->lodData[i].clusterNum;
+                subStr = subStr.substr(nextPos + 2);
+                nextPos = subStr.find('\n');
+                valueString = subStr.substr(0, nextPos);
+                meshData->lodData[i].totalIndicesCount = std::stoi(valueString);
+
+                nextPos = subStr.find('\n');
+                subStr = subStr.substr(nextPos + 1);
+            }
+
+            uint nextPos = subStr.find("\n") + 1;
+            subStr = subStr.substr(nextPos);
+
+            {
+                uint count = 3;
+                float values[3];
+                ParseReals(subStr, count, values);
+
+                float value = values[0] / 2.0f;
+#if ENGINE_DEBUG_DATATEST
+                TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_X]));
+#endif // #if ENGINE_DEBUG_DATATEST
+                meshData->boundData.halfExtent[msh::AXIS_X] = value;
+
+                value = values[1] / 2.0f;
+#if ENGINE_DEBUG_DATATEST
+                TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_Y]));
+#endif // #if ENGINE_DEBUG_DATATEST
+                meshData->boundData.halfExtent[msh::AXIS_Y] = value;
+
+                value = values[2] / 2.0f;
+#if ENGINE_DEBUG_DATATEST
+                TC_ASSERT(math::compare_float(value, meshData->boundData.halfExtent[msh::AXIS_Z]));
+#endif // #if ENGINE_DEBUG_DATATEST
+                meshData->boundData.halfExtent[msh::AXIS_Z] = value;
+            }
+
+            for (uint i = 0; i < meshData->lodNum; ++i)
+            {
+                uint totalIndexCount = 0;
+
+                for (uint j = 0; j < meshData->lodData[i].clusterNum; ++j)
+                {
+                    uint count = 11;
+                    float values[11];
+                    ParseReals(subStr, count, values);
+
+                    meshData->lodData[i].indexSize.push_back(values[0]);
+
+                    spherebound sphere;
+
+                    sphere.center[0] = values[1];
+                    sphere.center[1] = values[2];
+                    sphere.center[2] = values[3];
+                    sphere.radius = values[4];
+
+                    aabbbound aabb;
+
+                    aabb.center[0] = values[5];
+                    aabb.center[1] = values[6];
+                    aabb.center[2] = values[7];
+                    aabb.hExtent[0] = values[8];
+                    aabb.hExtent[1] = values[9];
+                    aabb.hExtent[2] = values[10];
+
+                    meshData->clusterBounds.push_back({ sphere, aabb });
+                    totalIndexCount += values[0];
+                }
+
+                TC_ASSERT(totalIndexCount == meshData->lodData[i].totalIndicesCount);
+            }
+        }
+
+        delete[] data;
     }
 
     void loadFiletoMesh(std::string fileName, meshData* meshdata)
     {
         auto result = rapidobj::ParseFile(fileName);
 
-        if (result.error) 
+        if (result.error)
         {
             auto errorMsg = result.error.code.message();
             std::string errorLog = "Failed to load file : " + fileName + '\n' + errorMsg;
@@ -329,7 +232,7 @@ namespace buf
 
         rapidobj::Triangulate(result);
 
-        if (result.error) 
+        if (result.error)
         {
             auto errorMsg = result.error.code.message();
             std::string errorLog = "Failed to triangulate file : " + fileName + '\n' + errorMsg;
@@ -347,13 +250,57 @@ namespace buf
             }
         }
 
+        meshdata->boundData.halfExtent[msh::AXIS_X] = 0.0f;
+        meshdata->boundData.halfExtent[msh::AXIS_Y] = 0.0f;
+        meshdata->boundData.halfExtent[msh::AXIS_Z] = 0.0f;
+
+        //check if the mesh is centered correctly(0,0,0)
+#if ENGINE_DEBUG_DATATEST
+        float xMin = FLT_MAX;
+        float yMin = FLT_MAX;
+        float zMin = FLT_MAX;
+#endif // #if ENGINE_DEBUG_DATATEST
+
+        for (uint i = 0; i < result.attributes.positions.size(); i += 3)
+        {
+            float x = result.attributes.positions[i + 0];
+            float y = result.attributes.positions[i + 1];
+            float z = result.attributes.positions[i + 2];
+
+#if ENGINE_DEBUG_DATATEST
+            meshdata->boundData.halfExtent[msh::AXIS_X] = std::max(meshdata->boundData.halfExtent[msh::AXIS_X], x);
+            meshdata->boundData.halfExtent[msh::AXIS_Y] = std::max(meshdata->boundData.halfExtent[msh::AXIS_Y], y);
+            meshdata->boundData.halfExtent[msh::AXIS_Z] = std::max(meshdata->boundData.halfExtent[msh::AXIS_Z], z);
+
+            xMin = std::min(xMin, x);
+            yMin = std::min(yMin, y);
+            zMin = std::min(zMin, z);
+        }
+
+        math::compare_float(xMin + meshdata->boundData.halfExtent[msh::AXIS_X], 0.0f);
+        math::compare_float(yMin + meshdata->boundData.halfExtent[msh::AXIS_Y], 0.0f);
+        math::compare_float(zMin + meshdata->boundData.halfExtent[msh::AXIS_Z], 0.0f);
+#else // #if ENGINE_DEBUG_DATATEST
+        }   
+#endif // #else // #if ENGINE_DEBUG_DATATEST
+
         meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);
-        if (result.attributes.normals.size() != 0) meshdata->norm = createVertexBuffer(result.attributes.normals.data(), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3);
-        else meshdata->norm = nullptr;
+        //make sure that the model file contains normal data and it's vertex normal not face normal
+        if (result.attributes.normals.size() > 0)
+        {
+            meshdata->norm = createVertexBuffer(result.attributes.normals.data(), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3);
+            TC_ASSERT(result.attributes.normals.size() == result.attributes.positions.size());
+        }
+        else
+        {
+            meshdata->norm = nullptr;
+        }
         meshdata->idx = createIndexBuffer(indices.data(), static_cast<uint>(sizeof(uint) * indices.size()));
 
         //TODO : not support now
         //meshdata->idxLine = createIndexBuffer(result.shapes[0].lines.indices.data(), static_cast<uint>(sizeof(uint) * result.shapes[0].lines.indices.size()));
+
+        loadMeshInfo(fileName, meshdata);
     }
 
     imagebuffer* loadTextureFromFile(std::wstring filename, bool mip)
@@ -363,7 +310,6 @@ namespace buf
         DirectX::ScratchImage mipImage;
 
         DirectX::LoadFromHDRFile(filename.c_str(), &metadata, scratchImage);
-
 
         //we assume there will be only one image from one file
         const DirectX::Image* image = scratchImage.GetImages();
@@ -427,6 +373,18 @@ namespace buf
 
 namespace buf
 {
+    void copyResource(buffer* buf, void* data, uint offset, uint size)
+    {
+        if (data != nullptr)
+        {
+            UINT8* pVertexDataBegin;
+            CD3DX12_RANGE readRange(0, 0);
+            buf->resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+            memcpy(pVertexDataBegin, data, size);
+            buf->resource->Unmap(0, nullptr);
+        }
+    }
+
     bool createResource(buffer* buf, uint size, void* data)
     {
         CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
@@ -435,11 +393,7 @@ namespace buf
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buf->resource));
 
-        UINT8* pVertexDataBegin;
-        CD3DX12_RANGE readRange(0, 0);
-        buf->resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-        memcpy(pVertexDataBegin, data, size);
-        buf->resource->Unmap(0, nullptr);
+        copyResource(buf, data, 0, size);
 
         return true;
     }
@@ -452,7 +406,6 @@ namespace buf
         if (flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
         {
             heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-            //heap_property.CPUPageProperty |= 
             state = D3D12_RESOURCE_STATE_COMMON;
         }
         else
@@ -470,6 +423,29 @@ namespace buf
         return true;
     }
 
+    bool createNonTexture(buffer* buf, uint size, D3D12_RESOURCE_FLAGS flags)
+    {
+        CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+        CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
+        bufDesc.Flags |= flags;
+        D3D12_RESOURCE_STATES resourceStates = D3D12_RESOURCE_STATE_COMMON;
+
+        //TODO depth_write will be changed
+        e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
+            resourceStates, nullptr, IID_PPV_ARGS(&buf->resource));
+
+        imagebuffer* imgBuffer = dynamic_cast<imagebuffer*>(buf);
+        if (imgBuffer != nullptr)
+        {
+            imgBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            imgBuffer->view.Buffer.FirstElement = 0;
+            imgBuffer->view.Buffer.NumElements = size / 4;
+            imgBuffer->view.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+        }
+
+        return true;
+    }
+
     bool createTexture(buffer* buf, DXGI_FORMAT format, uint width, uint height, unsigned int mipLevel, D3D12_RESOURCE_FLAGS flags, CD3DX12_CLEAR_VALUE* clear, bool depth = false)
     {
         CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -477,11 +453,16 @@ namespace buf
         D3D12_RESOURCE_STATES resourceStates = D3D12_RESOURCE_STATE_COMMON;
         if (depth) resourceStates = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 
-
-
         //TODO depth_write will be changed
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
             resourceStates, clear, IID_PPV_ARGS(&buf->resource));
+
+        imagebuffer* imgBuffer = dynamic_cast<imagebuffer*>(buf);
+        if (imgBuffer != nullptr)
+        {
+            imgBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            imgBuffer->view.Texture2D.MipLevels = mipLevel;
+        }
 
         return true;
     }
@@ -665,13 +646,13 @@ namespace buf
         trackedBuffer.clear();
     }
 
-    vertexbuffer* createVertexBuffer(void* data, const uint size, const uint stride)
+    vertexbuffer* createVertexBuffer(void* vert, const uint size, const uint stride)
 	{
         vertexbuffer* newVertexBuffer = new vertexbuffer();
 
         trackedBuffer.push_back(newVertexBuffer);
 
-        createResource(newVertexBuffer, size, data);
+        createResource(newVertexBuffer, size, vert);
 
         // Initialize the vertex buffer view.
         newVertexBuffer->view.BufferLocation = newVertexBuffer->resource->GetGPUVirtualAddress();
@@ -699,7 +680,7 @@ namespace buf
 
     vertexbuffer* getVertexBuffer(int index)
 	{
-        //assert(index < VERTEX_END && index >= VERTEX_START);
+        //TC_ASSERT(index < VERTEX_END && index >= VERTEX_START);
 
 		return dynamic_cast<vertexbuffer*>(bufferContainer[index]);
 	}
@@ -767,7 +748,7 @@ namespace buf
 
     constantbuffer* getConstantBuffer(int index)
     {
-        assert(index < CONSTANT_END && index >= CONSTANT_START);
+        TC_ASSERT(index < CONSTANT_END && index >= CONSTANT_START);
 
         return dynamic_cast<constantbuffer*>(bufferContainer[index]);
     }
@@ -806,7 +787,7 @@ namespace buf
 
     indexbuffer* getIndexBuffer(int index)
     {
-        assert(index < INDEX_END && index >= INDEX_START);
+        TC_ASSERT(index < INDEX_END && index >= INDEX_START);
 
         return dynamic_cast<indexbuffer*>(bufferContainer[index]);
     }
@@ -832,7 +813,7 @@ namespace buf
 
     depthbuffer* getDepthBuffer(int index)
     {
-        assert(index < DEPTH_END && index >= DEPTH_START);
+        TC_ASSERT(index < DEPTH_END && index >= DEPTH_START);
 
         return dynamic_cast<depthbuffer*>(bufferContainer[index]);
     }
@@ -843,12 +824,17 @@ namespace buf
 
         trackedBuffer.push_back(newBuffer);
 
-        createTexture(newBuffer, format, width, height, mipLevel, flags, nullptr);
+        if (height == 0)
+        {
+            createNonTexture(newBuffer, width, flags);
+        }
+        else
+        {
+            createTexture(newBuffer, format, width, height, mipLevel, flags, nullptr);
+        }
 
         newBuffer->view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         newBuffer->view.Format = format;
-        newBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        newBuffer->view.Texture2D.MipLevels = mipLevel;
 
         return newBuffer;
     }
@@ -871,7 +857,7 @@ namespace buf
 
     imagebuffer* getImageBuffer(int index)
     {
-        assert(index < IMAGE_END && index >= IMAGE_START);
+        TC_ASSERT(index < IMAGE_END && index >= IMAGE_START);
 
         return dynamic_cast<imagebuffer*>(bufferContainer[index]);
     }
@@ -879,14 +865,11 @@ namespace buf
 
     uavbuffer* createUAVBuffer(const uint size)
     {
-        //cbv size should be multiplied by 256 bytes
-        uint paddingSize = size;
-
         uavbuffer* newBuffer = new uavbuffer();
 
         trackedBuffer.push_back(newBuffer);
 
-        createResource(newBuffer, paddingSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+        createResource(newBuffer, size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
         newBuffer->view.Format = DXGI_FORMAT_R32_FLOAT;
         newBuffer->view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
@@ -898,7 +881,7 @@ namespace buf
 
     uavbuffer* getUAVBuffer(int index)
     {
-        assert(index < UAV_END && index >= UAV_START);
+        TC_ASSERT(index < UAV_END && index >= UAV_START);
 
         return dynamic_cast<uavbuffer*>(bufferContainer[index]);
     }
@@ -935,3 +918,36 @@ namespace buf
         return newBuffer;
     }
 };
+
+void buffer::uploadBuffer(uint size, void* data)
+{
+    UINT8* pVertexDataBegin;
+    CD3DX12_RANGE readRange(0, 0);
+    resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+    memcpy(pVertexDataBegin, data, size);
+    resource->Unmap(0, nullptr);
+}
+
+void buffer::mapBuffer(unsigned char** dataPtr)
+{
+    CD3DX12_RANGE readRange(0, 0);
+    resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
+}
+
+void buffer::unmapBuffer()
+{
+    resource->Unmap(0, nullptr);
+}
+
+uint vertexbuffer::getElemSize() const
+{
+    return view.SizeInBytes / view.StrideInBytes;
+}
+
+uint indexbuffer::getElemSize() const
+{
+    uint elemByteSize = 4;
+
+    //TODO
+    return view.SizeInBytes / elemByteSize;
+}

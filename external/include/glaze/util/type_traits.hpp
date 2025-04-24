@@ -20,15 +20,15 @@ namespace glz
    {};
 
    template <class... Args>
-   inline constexpr bool false_v = false_t<Args...>::value;
+   constexpr bool false_v = false_t<Args...>::value;
 
    // from
    // https://stackoverflow.com/questions/16337610/how-to-know-if-a-type-is-a-specialization-of-stdvector
    template <class, template <class...> class>
-   inline constexpr bool is_specialization_v = false;
+   constexpr bool is_specialization_v = false;
 
    template <template <class...> class T, class... Args>
-   inline constexpr bool is_specialization_v<T<Args...>, T> = true;
+   constexpr bool is_specialization_v<T<Args...>, T> = true;
 
    template <class T>
    struct member_value;
@@ -170,7 +170,7 @@ namespace glz
    template <auto MemPtr, class T, class R, class... Args>
    struct arguments<MemPtr, R (T::*)(Args...)>
    {
-      static constexpr auto op(void* ptr, std::decay_t<Args>&&... args)
+      static constexpr auto op(void* ptr, Args&&... args)
          -> std::invoke_result_t<decltype(std::mem_fn(MemPtr)), T, Args...>
       {
          return (reinterpret_cast<T*>(ptr)->*MemPtr)(std::forward<Args>(args)...);
@@ -180,7 +180,7 @@ namespace glz
    template <auto MemPtr, class T, class R, class... Args>
    struct arguments<MemPtr, R (T::*)(Args...) const>
    {
-      static constexpr auto op(void* ptr, std::decay_t<Args>&&... args)
+      static constexpr auto op(void* ptr, Args&&... args)
          -> std::invoke_result_t<decltype(std::mem_fn(MemPtr)), T, Args...>
       {
          return (reinterpret_cast<T*>(ptr)->*MemPtr)(std::forward<Args>(args)...);
@@ -200,11 +200,11 @@ namespace glz
    }
 
    template <class>
-   struct lambda_traits : std::false_type
+   struct invocable_traits : std::false_type
    {};
 
    template <class R, class T, class... Args>
-   struct lambda_traits<R (T::*)(Args...) const> : std::true_type
+   struct invocable_traits<R (T::*)(Args...) const> : std::true_type
    {
       using result_type = R;
       using arguments = std::tuple<Args...>;
@@ -212,7 +212,7 @@ namespace glz
    };
 
    template <class R, class T, class... Args>
-   struct lambda_traits<R (T::*)(Args...)> : std::true_type
+   struct invocable_traits<R (T::*)(Args...)> : std::true_type
    {
       using result_type = R;
       using arguments = std::tuple<Args...>;
@@ -220,12 +220,41 @@ namespace glz
    };
 
    template <class T>
-   using lambda_args_t = typename lambda_traits<decltype(&T::operator())>::arguments;
+   using invocable_args_t = typename invocable_traits<decltype(&T::operator())>::arguments;
 
    template <class T>
-   using lambda_result_t = typename lambda_traits<decltype(&T::operator())>::result_type;
+   using invocable_result_t = typename invocable_traits<decltype(&T::operator())>::result_type;
 
    // checks if type is a lambda with all known arguments
    template <class T>
-   concept is_lambda_concrete = requires { typename lambda_traits<decltype(&T::operator())>::result_type; };
+   concept is_invocable_concrete = requires { typename invocable_traits<decltype(&T::operator())>::result_type; };
+
+   template <class T>
+   using decay_keep_volatile_t = std::remove_const_t<std::remove_reference_t<T>>;
+
+   template <class T>
+   concept is_memory_type = requires(T t) {
+      typename T::element_type;
+      *t;
+      bool(t);
+      t.reset();
+   };
+
+   namespace detail
+   {
+      template <class T>
+      struct memory_type_impl
+      {
+         using type = T;
+      };
+
+      template <is_memory_type T>
+      struct memory_type_impl<T>
+      {
+         using type = typename T::element_type;
+      };
+   }
+
+   template <class T>
+   using memory_type = typename detail::memory_type_impl<std::remove_cvref_t<T>>::type;
 }

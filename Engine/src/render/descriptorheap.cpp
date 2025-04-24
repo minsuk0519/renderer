@@ -140,6 +140,9 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 
 	occupiedDescriptor[heapIdx].push_back(result);
 
+	//we create buffer later
+	if (buf == nullptr) return result;
+
 	switch (type)
 	{
 	case buf::BUFFER_CONSTANT_TYPE:

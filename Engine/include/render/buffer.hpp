@@ -122,16 +122,25 @@ struct buffer
 {
 	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 	virtual ~buffer() {}
+
+	void uploadBuffer(uint size, void* data);
+
+	void mapBuffer(unsigned char** dataPtr);
+	void unmapBuffer();
 };
 
 struct vertexbuffer : public buffer
 {
 	D3D12_VERTEX_BUFFER_VIEW view = {};
+
+	uint getElemSize() const;
 };
 
 struct indexbuffer : public buffer
 {
 	D3D12_INDEX_BUFFER_VIEW view = {};
+
+	uint getElemSize() const;
 };
 
 struct uavbuffer : public buffer

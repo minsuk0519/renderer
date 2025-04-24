@@ -6,10 +6,10 @@
 #include <charconv>
 #include <type_traits>
 
-#include "common.hpp"
-#include "glaze/core/common.hpp"
+#include "glaze/concepts/container_concepts.hpp"
 #include "glaze/core/opts.hpp"
 #include "glaze/util/dtoa.hpp"
+#include "glaze/util/dump.hpp"
 #include "glaze/util/itoa.hpp"
 
 namespace glz::detail
@@ -46,7 +46,7 @@ namespace glz::detail
    struct write_chars
    {
       template <auto Opts, class B>
-      inline static void op(num_t auto&& value, is_context auto&&, B&& b, auto&& ix) noexcept
+      inline static void op(num_t auto&& value, is_context auto&& ctx, B&& b, auto&& ix) noexcept
       {
          /*if constexpr (std::same_as<std::decay_t<B>, std::string>) {
             // more efficient strings in C++23:
@@ -55,32 +55,62 @@ namespace glz::detail
 
          // https://stackoverflow.com/questions/1701055/what-is-the-maximum-length-in-chars-needed-to-represent-any-double-value
          // maximum length for a double should be 24 chars, we use 64 to be sufficient for float128_t
-         if constexpr (detail::resizeable<B>) {
-            if (ix + 64 > b.size()) [[unlikely]] {
-               b.resize((std::max)(b.size() * 2, ix + 64));
+         if constexpr (resizable<B> && not has_write_unchecked(Opts)) {
+            if (const auto k = ix + 64; k > b.size()) {
+               b.resize(2 * k);
             }
          }
 
          using V = std::decay_t<decltype(value)>;
 
-         if constexpr (is_any_of<V, float, double, int32_t, uint32_t, int64_t, uint64_t>) {
-            auto start = data_ptr(b) + ix;
-            auto end = glz::to_chars(start, value);
-            ix += std::distance(start, end);
-         }
-         else if constexpr (is_float128<V>) {
-            auto start = data_ptr(b) + ix;
-            auto [ptr, ec] = std::to_chars(start, data_ptr(b) + b.size(), value, std::chars_format::general);
-            if (ec != std::errc()) {
-               // TODO: Do we need to handle this error state?
+         if constexpr (std::floating_point<V>) {
+            if constexpr (uint8_t(Opts.float_max_write_precision) > 0 &&
+                          uint8_t(Opts.float_max_write_precision) < sizeof(V)) {
+               // we cast to a lower precision floating point value before writing out
+               if constexpr (uint8_t(Opts.float_max_write_precision) == 8) {
+                  const auto reduced = static_cast<double>(value);
+                  const auto start = reinterpret_cast<char*>(&b[ix]);
+                  const auto end = glz::to_chars(start, reduced);
+                  ix += size_t(end - start);
+               }
+               else if constexpr (uint8_t(Opts.float_max_write_precision) == 4) {
+                  const auto reduced = static_cast<float>(value);
+                  const auto start = reinterpret_cast<char*>(&b[ix]);
+                  const auto end = glz::to_chars(start, reduced);
+                  ix += size_t(end - start);
+               }
+               else {
+                  static_assert(false_v<V>, "invalid float_max_write_precision");
+               }
             }
-            ix += std::distance(start, ptr);
+            else if constexpr (is_any_of<V, float, double>) {
+               const auto start = reinterpret_cast<char*>(&b[ix]);
+               const auto end = glz::to_chars(start, value);
+               ix += size_t(end - start);
+            }
+            else if constexpr (is_float128<V>) {
+               const auto start = reinterpret_cast<char*>(&b[ix]);
+               const auto [ptr, ec] = std::to_chars(start, &b[0] + b.size(), value, std::chars_format::general);
+               if (ec != std::errc()) {
+                  ctx.error = error_code::unexpected_end;
+                  return;
+               }
+               ix += size_t(ptr - start);
+            }
+            else {
+               static_assert(false_v<V>, "type is not supported");
+            }
+         }
+         else if constexpr (is_any_of<V, int32_t, uint32_t, int64_t, uint64_t>) {
+            const auto start = reinterpret_cast<char*>(&b[ix]);
+            const auto end = glz::to_chars(start, value);
+            ix += size_t(end - start);
          }
          else if constexpr (std::integral<V>) {
             using X = std::decay_t<decltype(sized_integer_conversion<V>())>;
-            auto start = data_ptr(b) + ix;
-            auto end = glz::to_chars(start, static_cast<X>(value));
-            ix += std::distance(start, end);
+            const auto start = reinterpret_cast<char*>(&b[ix]);
+            const auto end = glz::to_chars(start, static_cast<X>(value));
+            ix += size_t(end - start);
          }
          else {
             static_assert(false_v<V>, "type is not supported");

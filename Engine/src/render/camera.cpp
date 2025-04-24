@@ -5,27 +5,23 @@
 #include <render\pipelinestate.hpp>
 #include <system/window.hpp>
 #include <system/input.hpp>
+#include <render/commandqueue.hpp>
+#include <render/shader_defines.hpp>
 
 #include <DirectXMath.h>
-
-constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
-constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
-constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 * 2 + 4);
+#include <cmath>
 
 constexpr float SPEED = 0.0003f;
 
 constexpr float NEAR_PLANE = 0.1f;
 constexpr float FAR_PLANE = 100.0f;
 
-constexpr float FOV = 45.0f;
+constexpr float FOV = 60.0f;
 
 constexpr uint MINI_VIEWPORT_WIDTH = 320;
 constexpr uint MINI_VIEWPORT_HEIGHT = 180;
 
 DirectX::XMFLOAT4 camBackgroundColor = DirectX::XMFLOAT4(0.8f, 0.9f, 0.9f, 1.0f);
-
-#define PI 3.14159265358979f
-#define PI_HALF PI / 2.0f
 
 bool camera::init()
 {
@@ -44,13 +40,13 @@ bool camera::init()
 	scissor.right = static_cast<long>(width);
 	scissor.bottom = static_cast<long>(height);
 
-	transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,1.0f });
+	transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,2.0f });
 
-	projectionBuffer = buf::createConstantBuffer(CONST_PROJ_SIZE);
+	projectionBuffer = buf::createConstantBuffer(consts::CONST_PROJ_SIZE);
 
 	desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, projectionBuffer));
 
-	objectBuffer = buf::createConstantBuffer(CONST_OBJ_SIZE);
+	objectBuffer = buf::createConstantBuffer(consts::CONST_OBJ_SIZE);
 
 	objectdesc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, objectBuffer));
 	
@@ -66,7 +62,7 @@ void camera::draw(uint psoIndex, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandLis
 {
 	//if(psoIndex == pso::PSO_DEBUG) 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 
-	cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
+	//cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
 
 	////TODO
 	//world* world = game::getWorld();
@@ -87,18 +83,21 @@ void camera::close()
 	delete transformPtr;
 }
 
-void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceFull)
 {
 	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ screenViewport.topLeftX, screenViewport.topLeftY, screenViewport.width, screenViewport.height };
 	CD3DX12_RECT scissorRect = CD3DX12_RECT{ scissor.left, scissor.top, scissor.right, scissor.bottom };
+	if (forceFull)
+	{
+		viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(e_globWindow.width()), static_cast<float>(e_globWindow.height()) };
+		scissorRect = CD3DX12_RECT{ 0, 0, static_cast<long>(e_globWindow.width()), static_cast<long>(e_globWindow.height()) };
+	}
 
 	cmdList->RSSetViewports(1, &viewport);
 	cmdList->RSSetScissorRects(1, &scissorRect);
-
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
 
-	cmdList->SetGraphicsRootDescriptorTable(0, desc.getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, desc.getHandle());
 }
 
 void camera::changeViewport(const cam::VIEWPORT_TYPE type)
@@ -136,6 +135,46 @@ void camera::changeViewport(const cam::VIEWPORT_TYPE type)
 	viewportType = type;
 }
 
+void camera::updateView()
+{
+	DirectX::XMVECTOR up = transformPtr->getUP();
+	DirectX::XMVECTOR right = transformPtr->getRIGHT();
+	DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);
+
+	DirectX::XMVECTOR camPos = transformPtr->getPosition();
+
+	const float upScale = std::tanf(DirectX::XMConvertToRadians(FOV) * 0.5f);
+	const float rightScale = upScale * (screenViewport.width / (float)screenViewport.height);
+
+	frustum[0] = DirectX::XMVectorNegate(forward);
+	frustum[0].m128_f32[3] = -DirectX::XMVector3Dot(frustum[0], DirectX::XMVectorMultiplyAdd(frustum[0], DirectX::XMVECTOR{ NEAR_PLANE, NEAR_PLANE, NEAR_PLANE }, camPos)).m128_f32[0];
+	frustum[1] = forward;
+	frustum[1].m128_f32[3] = -DirectX::XMVector3Dot(frustum[1], DirectX::XMVectorMultiplyAdd(frustum[1], DirectX::XMVECTOR{ FAR_PLANE, FAR_PLANE, FAR_PLANE }, camPos)).m128_f32[0];
+
+	DirectX::XMVECTOR scaledUp = DirectX::XMVectorMultiply(up, DirectX::XMVECTOR{ upScale, upScale, upScale });
+	DirectX::XMVECTOR scaledRight = DirectX::XMVectorMultiply(right, DirectX::XMVECTOR{ rightScale, rightScale, rightScale });
+
+	DirectX::XMVECTOR topright = DirectX::XMVectorAdd(DirectX::XMVectorAdd(scaledRight, scaledUp), forward);
+	DirectX::XMVECTOR bottomleft = DirectX::XMVectorAdd(DirectX::XMVectorNegate(DirectX::XMVectorAdd(scaledRight, scaledUp)), forward);
+
+	frustum[2] = DirectX::XMVector3Cross(topright, scaledUp);
+	frustum[2].m128_f32[3] = -DirectX::XMVector3Dot(frustum[2], camPos).m128_f32[0];
+
+	frustum[3] = DirectX::XMVector3Cross(scaledRight, topright);
+	frustum[3].m128_f32[3] = -DirectX::XMVector3Dot(frustum[3], camPos).m128_f32[0];
+
+	frustum[4] = DirectX::XMVector3Cross(scaledUp, bottomleft);
+	frustum[4].m128_f32[3] = -DirectX::XMVector3Dot(frustum[4], camPos).m128_f32[0];
+
+	frustum[5] = DirectX::XMVector3Cross(bottomleft, scaledRight);
+	frustum[5].m128_f32[3] = -DirectX::XMVector3Dot(frustum[5], camPos).m128_f32[0];
+}
+
+DirectX::XMVECTOR* camera::getFrustum()
+{
+	return frustum;
+}
+
 transform* camera::getTransform() const
 {
 	return transformPtr;
@@ -156,17 +195,17 @@ DirectX::XMMATRIX camera::getMat() const
 	return view * projection;
 }
 
+#if ENGINE_DEBUG_DEBUGCAM
 void camera::toggleDebugMode()
 {
 	debugMode = !(debugMode);
 	if (debugMode) changeViewport(cam::VIEWPORT_MINI);
 	else changeViewport(cam::VIEWPORT_FULL);
 }
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 void camera::update(float dt)
 {
-	//if (!(debugMode) && type == cam::CAMTYPE_DEBUG) return;
-
 	DirectX::XMVECTOR rotation = transformPtr->getQuaternion();
 
 	DirectX::XMVECTOR up = transformPtr->getUP();
@@ -180,11 +219,11 @@ void camera::update(float dt)
 
 	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, NEAR_PLANE, FAR_PLANE);
 
-	DirectX::XMMATRIX proj[2] = { projection, view };
+	DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, projection);
 
-	memcpy(projectionBuffer->info.cbvDataBegin, proj, sizeof(float) * 4 * 4 * 2);
-	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 * 2, &pos, sizeof(float) * 3);
-	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 * 2 + sizeof(float) * 3, &FAR_PLANE, sizeof(float));
+	memcpy(projectionBuffer->info.cbvDataBegin, &viewProj, sizeof(float) * 4 * 4);
+	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4, &pos, sizeof(float) * 3);
+	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 + sizeof(float) * 3, &FAR_PLANE, sizeof(float));
 	
 	if (viewportType == cam::VIEWPORT_MINI) return;
 

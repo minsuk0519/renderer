@@ -1,6 +1,8 @@
 #pragma once
 #include <system\defines.hpp>
+#include <render\descriptorheap.hpp>
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui\imgui.h>
 #include <imgui\imgui_impl_dx12.h>
 #include <imgui\imgui_impl_win32.h>
@@ -13,7 +15,7 @@
 
 namespace gui
 {
-	bool init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap);
+	bool init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap, const descriptor& fontDesc);
 
 	void render(ID3D12GraphicsCommandList* cmdList);
 
@@ -32,6 +34,7 @@ namespace gui
 
 	void editfloat(std::string str, uint floatNum, float* data, float min, float max);
 	void edituint(std::string str, uint* data);
+	void editintwithrange(std::string str, int* data, int min, int max);
 
 	bool button(std::string str);
 }
