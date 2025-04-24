@@ -259,6 +259,18 @@ bool renderer::createFrameResources()
 	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferFB->setDepthClear(1.0f);
 
+#if ENGINE_DEBUG_DEBUGCAM
+	//should be sync with gbufferFB
+	gbufferDebugFB = new framebuffer();
+	//position
+	gbufferDebugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	//normal
+	gbufferDebugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	//objInfo
+	gbufferDebugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferDebugFB->setDepthClear(1.0f);
+#endif // #if ENGINE_DEBUG_DEBUGCAM
+
 	debugFB = new framebuffer();
 	debugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	debugFB->setDepthClear(1.0f);
@@ -707,13 +719,44 @@ void renderer::draw(float dt)
 
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 
+#if ENGINE_DEBUG_DEBUGCAM
+	if (e_globWorld.getMainCam()->viewportType != cam::VIEWPORT_FULL)
+	{
+		auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFERINDIRECT);
+
+		gbufferDebugFB->openFB(cmdList, true);
+
+		e_globWorld.setupCam(cmdList, false, true);
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VERTEX, unifiedDesc[0].getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_NORM, unifiedDesc[1].getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VIEWINFO, viewInfoDesc.getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_MESHINFO, meshInfoDesc.getHandle());
+
+		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, localClusterSizeBuffer->resource.Get(), 5 * sizeof(uint), nullptr, 0);
+
+		gbufferDebugFB->closeFB(cmdList);
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
+	}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
+
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFERINDIRECT);
 
 	gbufferFB->openFB(cmdList, true);
 
-	e_globWorld.setupCam(cmdList, true);
+	e_globWorld.setupCam(cmdList, true, true);
 
 	{
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
@@ -789,13 +832,31 @@ void renderer::draw(float dt)
 
 	swapchainFB[frameIndex]->openFB(cmdList, true);
 
-	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
-	CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
+#if ENGINE_DEBUG_DEBUGCAM
+	if (e_globWorld.getMainCam()->viewportType != cam::VIEWPORT_FULL)
+	{
+		e_globWorld.setupCam(cmdList, false, false);
 
-	cmdList->RSSetViewports(1, &viewport);
-	cmdList->RSSetScissorRects(1, &scissorRect);
+		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
 
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferDebugFB->getDescHandle(0));
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferDebugFB->getDescHandle(1));
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferDebugFB->getDescHandle(2));
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->desc.getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoDesc[2].getHandle());
+		renderGuiSetting::guiSetting a;
+		a.features = 0;
+		a.debugDraw = false;
+		a.AABBDraw = false;
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &a);
+		uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_SCREEN, 2, screenSize);
+
+		cmdList->DrawInstanced(3, 1, 0, 0);
+	}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
+
+	e_globWorld.setupCam(cmdList, true, false);
 
 	cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_SCENE_TRIANGLE)->getData()->vbs->view);
 
@@ -834,7 +895,7 @@ void renderer::draw(float dt)
 
 		swapchainFB[frameIndex]->openFB(cmdList, false);
 
-		e_globWorld.setupCam(cmdList, true);
+		e_globWorld.setupCam(cmdList, true, false);
 
 		cmdList->IASetVertexBuffers(0, 1, &msh::getMesh(msh::MESH_CUBE)->getData()->vbs->view);
 		cmdList->IASetVertexBuffers(1, 1, &AABBwireframeBuffer->view);

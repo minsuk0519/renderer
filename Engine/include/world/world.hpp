@@ -33,7 +33,7 @@ public:
 	void boundData(void* cbvLoc);
 
 	void setupScene();
-	void setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain);
+	void setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull);
 
 	void guiSetting();
 

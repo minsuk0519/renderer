@@ -52,6 +52,9 @@ private:
 private:
 	framebuffer* swapchainFB[FRAME_COUNT];
 	framebuffer* gbufferFB;
+#if ENGINE_DEBUG_DEBUGCAM
+	framebuffer* gbufferDebugFB;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	framebuffer* debugFB;
 	bool debugFBRequest = false;
@@ -86,6 +89,8 @@ private:
 	constantbuffer* objectConstBuffer;
 
 	vertexbuffer* AABBwireframeBuffer;
+
+	bool debugCamMode = false;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;

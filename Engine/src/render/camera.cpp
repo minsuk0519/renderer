@@ -83,10 +83,15 @@ void camera::close()
 	delete transformPtr;
 }
 
-void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceFull)
 {
 	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ screenViewport.topLeftX, screenViewport.topLeftY, screenViewport.width, screenViewport.height };
 	CD3DX12_RECT scissorRect = CD3DX12_RECT{ scissor.left, scissor.top, scissor.right, scissor.bottom };
+	if (forceFull)
+	{
+		viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(e_globWindow.width()), static_cast<float>(e_globWindow.height()) };
+		scissorRect = CD3DX12_RECT{ 0, 0, static_cast<long>(e_globWindow.width()), static_cast<long>(e_globWindow.height()) };
+	}
 
 	cmdList->RSSetViewports(1, &viewport);
 	cmdList->RSSetScissorRects(1, &scissorRect);

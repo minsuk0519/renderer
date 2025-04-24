@@ -104,6 +104,7 @@ bool world::init()
 #if ENGINE_DEBUG_DEBUGCAM
 	camera* debugCamPtr = new camera();
 	debugCamPtr->init();
+	debugCamPtr->toggleDebugMode();
 	debugCamera = debugCamPtr;
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
@@ -132,7 +133,7 @@ void world::update(float dt)
 	cameraObjNum = 0;
 
 	mainCamera->update(dt);
-	//debugCamera->update(dt);
+	debugCamera->update(dt);
 }
 
 void world::close()
@@ -222,7 +223,14 @@ void world::setupScene()
 	}
 }
 
-void world::setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain)
+void world::setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull)
 {
-	if(forceMain) mainCamera->preDraw(cmdList);
+	if(forceMain) mainCamera->preDraw(cmdList, forceFull);
+#if ENGINE_DEBUG_DEBUGCAM
+	else
+	{
+		//debugCam will be always full
+		debugCamera->preDraw(cmdList, true);
+	}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 }
