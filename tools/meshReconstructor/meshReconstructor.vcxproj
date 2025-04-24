@@ -135,7 +135,28 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="external\allocator.cpp" />
+    <ClCompile Include="external\clusterizer.cpp" />
+    <ClCompile Include="external\indexcodec.cpp" />
+    <ClCompile Include="external\indexgenerator.cpp" />
+    <ClCompile Include="external\nanite.cpp" />
+    <ClCompile Include="external\overdrawanalyzer.cpp" />
+    <ClCompile Include="external\overdrawoptimizer.cpp" />
+    <ClCompile Include="external\quantization.cpp" />
+    <ClCompile Include="external\simplifier.cpp" />
+    <ClCompile Include="external\spatialorder.cpp" />
+    <ClCompile Include="external\stripifier.cpp" />
+    <ClCompile Include="external\vcacheanalyzer.cpp" />
+    <ClCompile Include="external\vcacheoptimizer.cpp" />
+    <ClCompile Include="external\vertexcodec.cpp" />
+    <ClCompile Include="external\vertexfilter.cpp" />
+    <ClCompile Include="external\vfetchanalyzer.cpp" />
+    <ClCompile Include="external\vfetchoptimizer.cpp" />
     <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="external\meshoptimizer.h" />
+    <ClInclude Include="settings.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

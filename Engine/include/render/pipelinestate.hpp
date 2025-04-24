@@ -32,6 +32,14 @@ namespace render
 		bool cs;
 		bool depth;
 	};
+
+	struct cmdSigData
+	{
+		D3D12_INDIRECT_ARGUMENT_TYPE type;
+		uint loc;
+		uint num;
+	};
+
 }
 
 class pipelinestate
@@ -49,13 +57,13 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdSignature;
 
 public:
-	bool init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType, D3D12_CULL_MODE cull, bool wireframe, bool depth);
+	bool init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_CULL_MODE cull, bool wireframe, bool depth);
 	bool initCS(std::string psoName, uint CS);
 
 	void sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
 	void sendConstantData(Microsoft::WRL::ComPtr< ID3D12GraphicsCommandList> cmdList, uint loc, uint dataSize, void* data);
 
-	void setCommandSignature();
+	void setCommandSignature(const std::vector<render::cmdSigData>& data);
 
 	void close();
 

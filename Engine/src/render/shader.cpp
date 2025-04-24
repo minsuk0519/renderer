@@ -898,11 +898,49 @@ void shader::decipherHLSL()
 	//set input signature
 	if (type == shaders::SHADER_VS)
 	{
-		for (auto& input : bufData.inputContainer)
+		uint inputContainerSize = bufData.inputContainer.size();
+		for (uint i = 0; i < inputContainerSize; ++i)
 		{
-			DXGI_FORMAT format = (DXGI_FORMAT)input.data;
+			DXGI_FORMAT format = (DXGI_FORMAT)bufData.inputContainer[i].data;
 
-			inputs.push_back({ input.name.c_str(), 0, format, input.loc, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
+			if (bufData.inputContainer[i].name[0] == 'V')
+			{
+				inputs.push_back({ bufData.inputContainer[i].name.c_str(), 0, format, bufData.inputContainer[i].loc, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0});
+			}
+			else
+			{
+				uint allignOffset = 0;
+				if (auto pos = bufData.inputContainer[i].name.find("_"); pos != std::string::npos)
+				{
+					std::string inputName = bufData.inputContainer[i].name.substr(0, pos);
+
+					for (uint j = 0; j < i; ++j)
+					{
+						if (bufData.inputContainer[j].name.find(inputName) != std::string::npos)
+						{
+							bufData.inputContainer[i].loc = bufData.inputContainer[j].loc;
+
+							if (format == DXGI_FORMAT_R32G32B32_FLOAT)
+							{
+								allignOffset += 12;
+							}
+							else if (format == DXGI_FORMAT_R32G32B32A32_FLOAT)
+							{
+								allignOffset += 16;
+							}
+							else if (format == DXGI_FORMAT_R32G32_FLOAT)
+							{
+								allignOffset += 8;
+							}
+							else if (format == DXGI_FORMAT_R32_FLOAT)
+							{
+								allignOffset += 4;
+							}
+						}
+					}
+				}
+				inputs.push_back({ bufData.inputContainer[i].name.c_str(), 0, format, bufData.inputContainer[i].loc, allignOffset, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1});
+			}
 		}
 	}
 }

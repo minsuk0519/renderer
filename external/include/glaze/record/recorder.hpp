@@ -1,15 +1,13 @@
 #pragma once
 
 #include <deque>
-#include <map>
 #include <string>
 #include <variant>
-#include <vector>
 
 #include "glaze/core/common.hpp"
 #include "glaze/csv.hpp" // TODO: split out recorder specializations so this isn't necessary
 #include "glaze/json.hpp" // TODO: split out recorder specializations so this isn't necessary
-#include "glaze/util/string_view.hpp"
+#include "glaze/util/string_literal.hpp"
 #include "glaze/util/type_traits.hpp"
 #include "glaze/util/variant.hpp"
 
@@ -70,10 +68,10 @@ namespace glz
       concept is_recorder = is_specialization_v<T, recorder>;
 
       template <is_recorder T>
-      struct to_json<T>
+      struct to<JSON, T>
       {
          template <auto Opts, class... Args>
-         static void op(auto&& value, is_context auto&& ctx, Args&&... args) noexcept
+         static void op(auto&& value, is_context auto&& ctx, Args&&... args)
          {
             dump<'{'>(std::forward<Args>(args)...);
 
@@ -86,14 +84,14 @@ namespace glz
             const size_t n = value.data.size();
             for (size_t i = 0; i < n; ++i) {
                auto& [name, v] = value.data[i];
-               write<json>::op<Opts>(name, ctx, std::forward<Args>(args)...); // write name as key
+               write<JSON>::op<Opts>(name, ctx, args...); // write name as key
 
-               dump<':'>(std::forward<Args>(args)...);
+               dump<':'>(args...);
                if constexpr (Opts.prettify) {
                   dump<' '>(args...);
                }
 
-               write<json>::op<Opts>(v.first, ctx, std::forward<Args>(args)...); // write deque
+               write<JSON>::op<Opts>(v.first, ctx, args...); // write deque
                if (i < n - 1) {
                   dump<','>(std::forward<Args>(args)...);
                }
@@ -109,28 +107,28 @@ namespace glz
                dump<'\n'>(args...);
                dumpn<Opts.indentation_char>(ctx.indentation_level, args...);
             }
-            dump<'}'>(std::forward<Args>(args)...);
+            dump<'}'>(args...);
          }
       };
 
       template <is_recorder T>
-      struct from_json<T>
+      struct from<JSON, T>
       {
          template <auto Options>
-         static void op(auto&& value, is_context auto&& ctx, auto&& it, auto&& end) noexcept
+         static void op(auto&& value, is_context auto&& ctx, auto&& it, auto&& end)
          {
             if (bool(ctx.error)) [[unlikely]] {
                return;
             }
 
-            if constexpr (!Options.opening_handled) {
-               skip_ws_no_pre_check<Options>(ctx, it, end);
-               match<'{'>(ctx, it);
+            constexpr auto Opts = opening_handled_off<ws_handled_off<Options>()>();
+
+            if constexpr (!has_opening_handled(Options)) {
+               GLZ_SKIP_WS();
+               GLZ_MATCH_OPEN_BRACE;
             }
 
-            skip_ws_no_pre_check<Options>(ctx, it, end);
-
-            static constexpr auto Opts = opening_handled_off<ws_handled_off<Options>()>();
+            GLZ_SKIP_WS();
 
             // we read into available containers, we do not intialize here
             const size_t n = value.data.size();
@@ -140,7 +138,7 @@ namespace glz
                }
 
                // find the string, escape characters are not supported for recorders
-               skip_ws<Opts>(ctx, it, end);
+               GLZ_SKIP_WS();
                const auto name = parse_key(ctx, it, end);
 
                auto& [str, v] = value.data[i];
@@ -149,41 +147,41 @@ namespace glz
                   return;
                }
 
-               skip_ws<Opts>(ctx, it, end);
-               match<':'>(ctx, it);
-               skip_ws<Opts>(ctx, it, end);
+               GLZ_SKIP_WS();
+               GLZ_MATCH_COLON();
+               GLZ_SKIP_WS();
 
-               std::visit([&](auto&& deq) { read<json>::op<Opts>(deq, ctx, it, end); }, v.first);
+               std::visit([&](auto&& deq) { read<JSON>::op<Opts>(deq, ctx, it, end); }, v.first);
 
                if (i < n - 1) {
-                  skip_ws<Opts>(ctx, it, end);
-                  match<','>(ctx, it);
-                  skip_ws<Opts>(ctx, it, end);
+                  GLZ_SKIP_WS();
+                  GLZ_MATCH_COMMA;
+                  GLZ_SKIP_WS();
                }
             }
 
-            skip_ws<Opts>(ctx, it, end);
+            GLZ_SKIP_WS();
             match<'}'>(ctx, it);
          }
       };
 
       template <is_recorder T>
-      struct to_csv<T>
+      struct to<CSV, T>
       {
          template <auto Opts>
-         static void op(auto&& value, is_context auto&& ctx, auto&&... args) noexcept
+         static void op(auto&& value, is_context auto&& ctx, auto&&... args)
          {
             if constexpr (Opts.layout == rowwise) {
                const size_t n = value.data.size();
                for (size_t i = 0; i < n; ++i) {
                   auto& [name, v] = value.data[i];
-                  dump(name, args...);
+                  dump_maybe_empty(name, args...);
 
                   dump<','>(args...);
 
                   std::visit(
                      [&](auto& x) {
-                        write<csv>::op<Opts>(x, ctx, args...); // write deque
+                        write<CSV>::op<Opts>(x, ctx, args...); // write deque
                      },
                      v.first);
 
@@ -197,7 +195,7 @@ namespace glz
                const auto n = value.data.size();
                size_t i = 0;
                for (auto& [name, data] : value.data) {
-                  dump(name, args...);
+                  dump_maybe_empty(name, args...);
                   ++i;
                   if (i < n) {
                      dump<','>(args...);
@@ -219,7 +217,7 @@ namespace glz
                               breakout = true;
                               return;
                            }
-                           write<csv>::op<Opts>(v[row], ctx, args...); // write deque
+                           write<CSV>::op<Opts>(v[row], ctx, args...); // write deque
                         },
                         data.first);
 

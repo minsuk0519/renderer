@@ -3,53 +3,96 @@
 
 #pragma once
 
-#include <stddef.h>
-
-#include <concepts>
-#include <glaze/core/meta.hpp>
-#include <glaze/util/expected.hpp>
+#include <cstddef>
 #include <map>
-#include <stdexcept>
 #include <variant>
 #include <vector>
+
+#include "glaze/api/std/string.hpp"
+#include "glaze/api/std/variant.hpp"
+#include "glaze/json/read.hpp"
+#include "glaze/json/write.hpp"
+#include "glaze/util/expected.hpp"
+
+#ifdef _MSC_VER
+// Turn off broken MSVC warning for "declaration of 'v' hides previous local declaration"
+#pragma warning(push)
+#pragma warning(disable : 4456)
+#endif
 
 namespace glz
 {
    // Generic json type.
    struct json_t
    {
+      virtual ~json_t() {}
+
       using array_t = std::vector<json_t>;
       using object_t = std::map<std::string, json_t, std::less<>>;
       using null_t = std::nullptr_t;
       using val_t = std::variant<null_t, double, std::string, bool, array_t, object_t>;
       val_t data{};
 
+      /**
+       * @brief Converts the JSON data to a string representation.
+       * @return An `expected` containing a JSON string if successful, or an error context.
+       */
+      expected<std::string, error_ctx> dump() const { return write_json(data); }
+
+      /**
+       * @brief Gets the value as the specified type.
+       * @tparam T The type to get the value as.
+       * @return Reference to the value of the specified type.
+       */
       template <class T>
-      T& get()
+      [[nodiscard]] T& get()
       {
          return std::get<T>(data);
       }
 
       template <class T>
-      const T& get() const
+      [[nodiscard]] const T& get() const
       {
          return std::get<T>(data);
       }
 
       template <class T>
-      T* get_if() noexcept
+      [[nodiscard]] T* get_if() noexcept
       {
          return std::get_if<T>(&data);
       }
 
       template <class T>
-      const T* get_if() const noexcept
+      [[nodiscard]] const T* get_if() const noexcept
       {
          return std::get_if<T>(&data);
       }
 
       template <class T>
-      bool holds() const noexcept
+      [[nodiscard]] T as() const
+      {
+         // Prefer get becuase it returns a reference
+         return get<T>();
+      }
+
+      template <class T>
+         requires std::convertible_to<double, T>
+      [[nodiscard]] T as() const
+      {
+         // Can be used for int and the like
+         return static_cast<T>(get<double>());
+      }
+
+      template <class T>
+         requires std::convertible_to<std::string, T>
+      [[nodiscard]] T as() const
+      {
+         // Can be used for string_view and the like
+         return get<std::string>();
+      }
+
+      template <class T>
+      [[nodiscard]] bool holds() const noexcept
       {
          return std::holds_alternative<T>(data);
       }
@@ -81,11 +124,61 @@ namespace glz
          return iter->second;
       }
 
-      json_t& at(std::convertible_to<std::string_view> auto&& key) { return operator[](key); }
+      json_t& operator=(const std::nullptr_t value)
+      {
+         data = value;
+         return *this;
+      }
 
-      const json_t& at(std::convertible_to<std::string_view> auto&& key) const { return operator[](key); }
+      json_t& operator=(const double value)
+      {
+         data = value;
+         return *this;
+      }
 
-      bool contains(std::convertible_to<std::string_view> auto&& key) const
+      // for integers
+      template <detail::int_t T>
+      json_t& operator=(const T value)
+      {
+         data = static_cast<double>(value);
+         return *this;
+      }
+
+      json_t& operator=(const std::string& value)
+      {
+         data = value;
+         return *this;
+      }
+
+      json_t& operator=(const std::string_view value)
+      {
+         data = std::string(value);
+         return *this;
+      }
+
+      json_t& operator=(const bool value)
+      {
+         data = value;
+         return *this;
+      }
+
+      json_t& operator=(const array_t& value)
+      {
+         data = value;
+         return *this;
+      }
+
+      json_t& operator=(const object_t& value)
+      {
+         data = value;
+         return *this;
+      }
+
+      [[nodiscard]] json_t& at(std::convertible_to<std::string_view> auto&& key) { return operator[](key); }
+
+      [[nodiscard]] const json_t& at(std::convertible_to<std::string_view> auto&& key) const { return operator[](key); }
+
+      [[nodiscard]] bool contains(std::convertible_to<std::string_view> auto&& key) const
       {
          if (!holds<object_t>()) return false;
          auto& object = std::get<object_t>(data);
@@ -93,7 +186,7 @@ namespace glz
          return iter != object.end();
       }
 
-      operator bool() const { return !std::holds_alternative<null_t>(data); }
+      explicit operator bool() const { return !std::holds_alternative<null_t>(data); }
 
       val_t* operator->() noexcept { return &data; }
 
@@ -104,34 +197,42 @@ namespace glz
       void reset() noexcept { data = null_t{}; }
 
       json_t() = default;
+      json_t(const json_t&) = default;
+      json_t& operator=(const json_t&) = default;
+      json_t(json_t&&) = default;
+      json_t& operator=(json_t&&) = default;
 
       template <class T>
-         requires std::convertible_to<T, val_t> && (!std::same_as<json_t, std::decay_t<T>>)
+         requires std::convertible_to<T, val_t> && (!std::derived_from<std::decay_t<T>, json_t>)
       json_t(T&& val)
       {
          data = val;
       }
 
       template <class T>
-         requires std::convertible_to<T, double> && (!std::same_as<json_t, std::decay_t<T>>) &&
+         requires std::convertible_to<T, double> && (!std::derived_from<std::decay_t<T>, json_t>) &&
                   (!std::convertible_to<T, val_t>)
       json_t(T&& val)
       {
          data = static_cast<double>(val);
       }
 
+      json_t(const std::string_view value) { data = std::string(value); }
+
       json_t(std::initializer_list<std::pair<const char*, json_t>>&& obj)
       {
-         // TODO try to see if there is a beter way to do this initialization withought copying the json_t
+         // TODO: Try to see if there is a beter way to do this initialization without copying the json_t
          // std::string in std::initializer_list<std::pair<const std::string, json_t>> would match with {"literal",
-         // "other_literal"} So we cant use std::string or std::string view. Luckily const char * will not match with
+         // "other_literal"} So we can't use std::string or std::string view. Luckily, `const char*` will not match with
          // {"literal", "other_literal"} but then we have to copy the data from the initializer list data =
          // object_t(obj); // This is what we would use if std::initializer_list<std::pair<const std::string, json_t>>
          // worked
-         data = object_t{};
+         data.emplace<object_t>();
          auto& data_obj = std::get<object_t>(data);
          for (auto&& pair : obj) {
-            data_obj.emplace(pair.first, pair.second);
+            // std::move here shows the desired behavior,
+            // but std::initializer_list holds const values that cannot be moved
+            data_obj.emplace(pair.first, std::move(pair.second));
          }
       }
 
@@ -139,32 +240,86 @@ namespace glz
       template <bool deprioritize = true>
       json_t(std::initializer_list<json_t>&& arr)
       {
-         data = array_t(arr);
+         data.emplace<array_t>(std::move(arr));
       }
 
-      template <class T>
-      T as() const
+      [[nodiscard]] bool is_array() const noexcept { return holds<json_t::array_t>(); }
+
+      [[nodiscard]] bool is_object() const noexcept { return holds<json_t::object_t>(); }
+
+      [[nodiscard]] bool is_number() const noexcept { return holds<double>(); }
+
+      [[nodiscard]] bool is_string() const noexcept { return holds<std::string>(); }
+
+      [[nodiscard]] bool is_boolean() const noexcept { return holds<bool>(); }
+
+      [[nodiscard]] bool is_null() const noexcept { return holds<std::nullptr_t>(); }
+
+      [[nodiscard]] array_t& get_array() { return get<array_t>(); }
+      [[nodiscard]] const array_t& get_array() const { return get<array_t>(); }
+
+      [[nodiscard]] object_t& get_object() { return get<object_t>(); }
+      [[nodiscard]] const object_t& get_object() const { return get<object_t>(); }
+
+      [[nodiscard]] double& get_number() { return get<double>(); }
+      [[nodiscard]] const double& get_number() const { return get<double>(); }
+
+      [[nodiscard]] std::string& get_string() { return get<std::string>(); }
+      [[nodiscard]] const std::string& get_string() const { return get<std::string>(); }
+
+      [[nodiscard]] bool& get_boolean() { return get<bool>(); }
+      [[nodiscard]] const bool& get_boolean() const { return get<bool>(); }
+
+      // empty() returns true if the value is an empty JSON object, array, or string, or a null value
+      // otherwise returns false
+      [[nodiscard]] bool empty() const noexcept
       {
-         // Prefer get becuase it returns a reference
-         return get<T>();
+         if (auto* v = get_if<object_t>()) {
+            return v->empty();
+         }
+         else if (auto* v = get_if<array_t>()) {
+            return v->empty();
+         }
+         else if (auto* v = get_if<std::string>()) {
+            return v->empty();
+         }
+         else if (is_null()) {
+            return true;
+         }
+         else {
+            return false;
+         }
       }
 
-      template <class T>
-         requires std::convertible_to<double, T>
-      T as() const
+      // returns the count of items in an object or an array, or the size of a string, otherwise returns zero
+      [[nodiscard]] size_t size() const noexcept
       {
-         // Can be used for int and the like
-         return static_cast<T>(get<double>());
-      }
-
-      template <class T>
-         requires std::convertible_to<std::string, T>
-      T as() const
-      {
-         // Can be used for string_view and the like
-         return get<std::string>();
+         if (auto* v = get_if<object_t>()) {
+            return v->size();
+         }
+         else if (auto* v = get_if<array_t>()) {
+            return v->size();
+         }
+         else if (auto* v = get_if<std::string>()) {
+            return v->size();
+         }
+         else {
+            return 0;
+         }
       }
    };
+
+   [[nodiscard]] inline bool is_array(const json_t& value) noexcept { return value.is_array(); }
+
+   [[nodiscard]] inline bool is_object(const json_t& value) noexcept { return value.is_object(); }
+
+   [[nodiscard]] inline bool is_number(const json_t& value) noexcept { return value.is_number(); }
+
+   [[nodiscard]] inline bool is_string(const json_t& value) noexcept { return value.is_string(); }
+
+   [[nodiscard]] inline bool is_boolean(const json_t& value) noexcept { return value.is_boolean(); }
+
+   [[nodiscard]] inline bool is_null(const json_t& value) noexcept { return value.is_null(); }
 }
 
 template <>
@@ -174,3 +329,51 @@ struct glz::meta<glz::json_t>
    using T = glz::json_t;
    static constexpr auto value = &T::data;
 };
+
+namespace glz
+{
+   // These functions allow a json_t value to be read/written to a C++ struct
+
+   template <opts Opts, class T>
+      requires read_supported<Opts.format, T>
+   [[nodiscard]] error_ctx read(T& value, const json_t& source)
+   {
+      auto buffer = source.dump();
+      if (buffer) {
+         context ctx{};
+         return read<Opts>(value, *buffer, ctx);
+      }
+      else {
+         return buffer.error();
+      }
+   }
+
+   template <read_json_supported T>
+   [[nodiscard]] error_ctx read_json(T& value, const json_t& source)
+   {
+      auto buffer = source.dump();
+      if (buffer) {
+         return read_json(value, *buffer);
+      }
+      else {
+         return buffer.error();
+      }
+   }
+
+   template <read_json_supported T>
+   [[nodiscard]] expected<T, error_ctx> read_json(const json_t& source)
+   {
+      auto buffer = source.dump();
+      if (buffer) {
+         return read_json<T>(*buffer);
+      }
+      else {
+         return unexpected(buffer.error());
+      }
+   }
+}
+
+#ifdef _MSC_VER
+// restore disabled warning
+#pragma warning(pop)
+#endif

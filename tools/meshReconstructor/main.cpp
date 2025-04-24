@@ -7,7 +7,10 @@
 #include <cassert>
 #include <charconv>
 
+#include "settings.hpp"
+
 typedef unsigned int uint;
+typedef unsigned char uchar;
 
 //
 // Code below is from: https://github.com/fastfloat/fast_float/releases/download/v3.5.1/fast_float.h
@@ -3002,6 +3005,20 @@ struct face
 
         return result;
     }
+
+    uint operator[](const uint& index)
+    {
+        if (index == 0) return i0;
+        else if (index == 1) return i1;
+        else return i2;
+    }
+
+    uint operator[](const uint& index) const
+    {
+        if (index == 0) return i0;
+        else if (index == 1) return i1;
+        else return i2;
+    }
 };
 
 struct point
@@ -3021,6 +3038,17 @@ struct point
         result.x = x - target.x;
         result.y = y - target.y;
         result.z = z - target.z;
+
+        return result;
+    }
+
+    point operator+(const point& target) const
+    {
+        point result;
+
+        result.x = x + target.x;
+        result.y = y + target.y;
+        result.z = z + target.z;
 
         return result;
     }
@@ -3054,6 +3082,55 @@ struct point
         return result;
     }
 
+    double operator[](const uint& index)
+    {
+        if (index == 0) return x;
+        else if (index == 1) return y;
+        else return z;
+    }
+
+    double operator[](const uint& index) const
+    {
+        if (index == 0) return x;
+        else if (index == 1) return y;
+        else return z;
+    }
+
+    point operator/(const double& value)
+    {
+        point result;
+
+        result.x = x / value;
+        result.y = y / value;
+        result.z = z / value;
+
+        return result;
+    }
+
+    point operator*(const double& value)
+    {
+        point result;
+
+        result.x = x * value;
+        result.y = y * value;
+        result.z = z * value;
+
+        return result;
+    }
+
+    point normalize(double& length) const
+    {
+        point result;
+
+        length = std::sqrt(result.x* result.x + result.y * result.y + result.z * result.z);
+
+        result.x = x / length;
+        result.y = y / length;
+        result.z = z / length;
+
+        return result;
+    }
+
     point cross(const point& target) const
     {
         point result;
@@ -3063,6 +3140,11 @@ struct point
         result.z = x * target.y - y * target.x;
 
         return result;
+    }
+
+    double dot(const point& target) const
+    {
+        return x * target.x + y * target.y + z * target.z;
     }
 
     point getAvg(uint num) const
@@ -3116,6 +3198,27 @@ struct point
 
         return result;
     }
+
+    double distanceSquared(const point& target) const
+    {
+        return (x - target.x) * (x - target.x) + (y - target.y) * (y - target.y) + (z - target.z) * (z - target.z);
+    }
+
+    double distance(const point& target) const
+    {
+        return sqrt((x - target.x) * (x - target.x) + (y - target.y) * (y - target.y) + (z - target.z) * (z - target.z));
+    }
+
+    point getMidPoint(const point& target) const
+    {
+        point result;
+
+        result.x = (target.x + x) / 2.0;
+        result.y = (target.y + y) / 2.0;
+        result.z = (target.z + z) / 2.0;
+
+        return result;
+    }
 };
 
 inline constexpr bool EndsWith(std::string_view text, char c) noexcept
@@ -3132,11 +3235,26 @@ inline constexpr void TrimLeft(std::string_view& text) noexcept
     text.remove_prefix(index);
 }
 
+std::string getStrFromFloat3(float f[3])
+{
+    return "(" + std::to_string(f[0]) + ", " + std::to_string(f[1]) + ", " + std::to_string(f[2]) + ")";
+}
+
+//referenced from zeux, meshoptimizer https://github.com/zeux/meshoptimizer/tree/master
+#include "external/meshoptimizer.h"
+
+void nanite(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, std::vector<Cluster>& clusters, std::vector<clusterInfo>& clusterSizes); // nanite.cpp
+
 constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
+
+const size_t VERTEXSIZE_PER_MESHLET = 126;
+const size_t TRISIZE_PER_MESHLET = 64;
+
+constexpr uint LOD_MAX = 7;
 
 int main(int argc, char** argv)
 {
-    std::string fileName = "sphere.ply";// argv[1];
+    std::string fileName = "bunny.ply";// argv[1];
 
     HANDLE hFile = CreateFileA(
         fileName.c_str(),
@@ -3209,6 +3327,7 @@ int main(int argc, char** argv)
     auto text = std::string_view();
 
     std::vector<face> indexBuffer;
+    std::vector<face> finalIndexBuffer;
     std::vector<point> vertexBuffer;
     std::vector<point> normalBuffer;
 
@@ -3401,6 +3520,23 @@ int main(int argc, char** argv)
             indexBuffer[i].i1 -= indexOffset[1];
             indexBuffer[i].i2 -= indexOffset[2];
         }
+
+        for (uint i = 0; i < changedVertexSize; ++i) isUsed[i] = false;
+
+        for (uint i = 0; i < indexSize; ++i)
+        {
+            isUsed[indexBuffer[i].i0] = true;
+            isUsed[indexBuffer[i].i1] = true;
+            isUsed[indexBuffer[i].i2] = true;
+        }
+
+        for (uint i = 0; i < changedVertexSize; ++i)
+        {
+            if (isUsed[i] == false)
+            {
+                auto a = 1;
+            }
+        }
     }
 
     for (uint i = 0; i < vertexSize; ++i)
@@ -3419,42 +3555,19 @@ int main(int argc, char** argv)
     double yMid = (extent[3] + extent[2]) / 2.0;
     double zLen = extent[5] - extent[4];
     double zMid = (extent[5] + extent[4]) / 2.0;
+	
+    double maxLen = (xLen > yLen) ? xLen : yLen;
+    maxLen = (maxLen > zLen) ? maxLen : zLen;
 
     for (uint i = 0; i < vertexSize; ++i)
     {
         vertexBuffer[i].x -= xMid;
-        vertexBuffer[i].x /= (xLen / 2.0);
+        //vertexBuffer[i].x /= (maxLen / 2.0);
         vertexBuffer[i].y -= yMid;
-        vertexBuffer[i].y /= (yLen / 2.0);
+        //vertexBuffer[i].y /= (maxLen / 2.0);
         vertexBuffer[i].z -= zMid;
-        vertexBuffer[i].z /= (zLen / 2.0);
+        //vertexBuffer[i].z /= (maxLen / 2.0);
     }
-
-
-
-    //extent[0] = DBL_MAX;
-    //extent[1] = -DBL_MAX;
-    //extent[2] = DBL_MAX;
-    //extent[3] = -DBL_MAX;
-    //extent[4] = DBL_MAX;
-    //extent[5] = -DBL_MAX;
-
-    //for (uint i = 0; i < vertexSize; ++i)
-    //{
-    //    extent[0] = std::fminl(extent[0], vertexBuffer[i].x);
-    //    extent[1] = std::fmaxl(extent[1], vertexBuffer[i].x);
-    //    extent[2] = std::fminl(extent[2], vertexBuffer[i].y);
-    //    extent[3] = std::fmaxl(extent[3], vertexBuffer[i].y);
-    //    extent[4] = std::fminl(extent[4], vertexBuffer[i].z);
-    //    extent[5] = std::fmaxl(extent[5], vertexBuffer[i].z);
-    //}
-
-    //std::cout << argc << std::endl;
-
-    //for (uint i = 0; i < argc; ++i)
-    //{
-    //    std::cout << argv[i] << std::endl;
-    //}
 
     std::vector<std::vector<point>> faceNormals;
 
@@ -3498,6 +3611,252 @@ int main(int argc, char** argv)
         normalBuffer[i].z = avg.z;
 
         //assert((avg.x* avg.x + avg.y * avg.y + avg.z * avg.z - 1.0) < 0.00001);
+    }
+
+    std::vector<Cluster> clusters;
+    std::vector<clusterInfo> clusterSizes;
+
+    //clusterize
+    {
+        std::vector<Vertex> vertices;
+        std::vector<uint> indices;
+        
+        vertices.resize(vertexSize);
+        indices.resize(indexSize * 3);
+
+        //TODO : implement for tex coordnate;
+        for (uint i = 0; i < vertexSize; ++i)
+        {
+            vertexBuffer[i];
+            normalBuffer[i];
+
+            vertices[i].px = vertexBuffer[i].x;
+            vertices[i].py = vertexBuffer[i].y;
+            vertices[i].pz = vertexBuffer[i].z;
+
+            vertices[i].nx = normalBuffer[i].x;
+            vertices[i].ny = normalBuffer[i].y;
+            vertices[i].nz = normalBuffer[i].z;
+        }
+
+        for (uint i = 0; i < indexSize; ++i)
+        {
+            indices[i * 3 + 0] = indexBuffer[i].i0;
+            indices[i * 3 + 1] = indexBuffer[i].i1;
+            indices[i * 3 + 2] = indexBuffer[i].i2;
+        }
+
+        nanite(vertices, indices, clusters, clusterSizes);
+
+        //LOD 0
+        uint lodIndex = 0;
+        unsigned int numberofClusters = clusterSizes[lodIndex].clusterNum;
+
+        uint k = 0;
+
+        std::vector<bool> isReside;
+        isReside.resize(vertexSize);
+
+        for (uint i = 0; i < vertexSize; ++i)
+        {
+            isReside[i] = false;
+        }
+
+        for (uint i = 0; i < numberofClusters; ++i)
+        {
+            uint clusterIndexSize = clusters[i].indices.size();
+
+            for (uint j = 0; j < clusterIndexSize; ++j)
+            {
+                uint clusterIndex = clusters[i].indices[j];
+                isReside.at(clusterIndex) = true;
+                ++k;
+            }
+        }
+
+        for (uint i = 0; i < vertexSize; ++i)
+        {
+            assert(isReside[i] == true);
+        }
+
+        assert(k == (indexSize * 3));
+
+        uint lodNums = LOD_MAX > clusterSizes.size() ? clusterSizes.size() : LOD_MAX;
+
+        indexSize = 0;
+
+        for (uint lodID = 0; lodID < lodNums; ++lodID)
+        {
+            uint clusterNums = clusterSizes[lodID].clusterNum;
+            uint indicesCount = clusterSizes[lodID].clusterSize;
+            uint clusterOffset = clusterSizes[lodID].clusterOffset;
+
+            uint indexSum = 0;
+            for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
+            {
+                uint clusterSize = clusters[clusterOffset + clusterID].indices.size();
+
+                indexSize += clusterSize;
+                indexSum += clusterSize;
+
+                assert(clusterSize % 3 == 0);
+            }
+            assert(indicesCount == indexSum);
+        }
+
+        assert(indexSize % 3 == 0);
+
+        indexSize /= 3;
+        finalIndexBuffer.resize(indexSize);
+
+        uint newIndexID = 0;
+
+        std::vector<bool> isUsed;
+        isUsed.resize(vertexSize);
+
+
+
+        for (uint lodID = 0; lodID < lodNums; ++lodID)
+        {
+            uint clusterNums = clusterSizes[lodID].clusterNum;
+            uint clusterOffset = clusterSizes[lodID].clusterOffset;
+
+            for (uint clusterID = 0; clusterID < clusterNums; ++clusterID)
+            {
+                clusters[clusterOffset + clusterID].parent.center[0] = clusters[clusterOffset + clusterID].self.center[0];
+                clusters[clusterOffset + clusterID].parent.center[1] = clusters[clusterOffset + clusterID].self.center[1];
+                clusters[clusterOffset + clusterID].parent.center[2] = clusters[clusterOffset + clusterID].self.center[2];
+                clusters[clusterOffset + clusterID].parent.radius = clusters[clusterOffset + clusterID].self.radius;
+
+                uint clusterSize = clusters[clusterOffset + clusterID].indices.size();
+
+                float center[3];
+                float radius;
+                center[0] = clusters[clusterOffset + clusterID].self.center[0];
+                center[1] = clusters[clusterOffset + clusterID].self.center[1];
+                center[2] = clusters[clusterOffset + clusterID].self.center[2];
+                radius = clusters[clusterOffset + clusterID].self.radius;
+
+                float parentCenter[3];
+                float parentRadius;
+                parentCenter[0] = clusters[clusterOffset + clusterID].parent.center[0];
+                parentCenter[1] = clusters[clusterOffset + clusterID].parent.center[1];
+                parentCenter[2] = clusters[clusterOffset + clusterID].parent.center[2];
+                parentRadius = clusters[clusterOffset + clusterID].parent.radius;
+
+                float mins[3] = { FLT_MAX, FLT_MAX , FLT_MAX };
+                float maxs[3] = { -FLT_MAX, -FLT_MAX , -FLT_MAX };
+
+                for (uint indexID = 0; indexID < clusterSize; indexID += 3)
+                {
+                    uint clusterIndex0 = clusters[clusterOffset + clusterID].indices[indexID + 0];
+                    uint clusterIndex1 = clusters[clusterOffset + clusterID].indices[indexID + 1];
+                    uint clusterIndex2 = clusters[clusterOffset + clusterID].indices[indexID + 2];
+
+                    finalIndexBuffer[newIndexID].i0 = clusterIndex0;
+                    finalIndexBuffer[newIndexID].i1 = clusterIndex1;
+                    finalIndexBuffer[newIndexID].i2 = clusterIndex2;
+                    
+                    isUsed[clusterIndex0] = true;
+                    isUsed[clusterIndex1] = true;
+                    isUsed[clusterIndex2] = true;
+
+                    ++newIndexID;
+
+                    float x = vertices[clusterIndex0].px;
+                    float y = vertices[clusterIndex0].py;
+                    float z = vertices[clusterIndex0].pz;
+
+                    float x2 = vertices[clusterIndex1].px;
+                    float y2 = vertices[clusterIndex1].py;
+                    float z2 = vertices[clusterIndex1].pz;
+
+                    float x3 = vertices[clusterIndex2].px;
+                    float y3 = vertices[clusterIndex2].py;
+                    float z3 = vertices[clusterIndex2].pz;
+
+                    float minx = (x < x2) ? x : x2;
+                    minx = (minx < x3) ? minx : x3;
+                    mins[0] = (mins[0] < minx) ? mins[0] : minx;
+                    float miny = (y < y2) ? y : y2;
+                    miny = (miny < y3) ? miny : y3;
+                    mins[1] = (mins[1] < miny) ? mins[1] : miny;
+                    float minz = (z < z2) ? z : z2;
+                    minz = (minz < z3) ? minz : z3;
+                    mins[2] = (mins[2] < minz) ? mins[2] : minz;
+                    float maxx = (x > x2) ? x : x2;
+                    maxx = (maxx > x3) ? maxx : x3;
+                    maxs[0] = (maxs[0] > maxx) ? maxs[0] : maxx;
+                    float maxy = (y > y2) ? y : y2;
+                    maxy = (maxy > y3) ? maxy : y3;
+                    maxs[1] = (maxs[1] > maxy) ? maxs[1] : maxy;
+                    float maxz = (z > z2) ? z : z2;
+                    maxz = (maxz > z3) ? maxz : z3;
+                    maxs[2] = (maxs[2] > maxz) ? maxs[2] : maxz;
+
+                    {
+                        float d2 = (x - center[0]) * (x - center[0]) + (y - center[1]) * (y - center[1]) + (z - center[2]) * (z - center[2]);
+
+                        assert((d2 - radius * radius) < 0.1f);
+
+                        d2 = (x2 - center[0]) * (x2 - center[0]) + (y2 - center[1]) * (y2 - center[1]) + (z2 - center[2]) * (z2 - center[2]);
+
+                        assert((d2 - radius * radius) < 0.1f);
+                        
+                        d2 = (x3 - center[0]) * (x3 - center[0]) + (y3 - center[1]) * (y3 - center[1]) + (z3 - center[2]) * (z3 - center[2]);
+
+                        assert((d2 - radius * radius) < 0.1f);
+
+                        d2 = (x - parentCenter[0]) * (x - parentCenter[0]) + (y - parentCenter[1]) * (y - parentCenter[1]) + (z - parentCenter[2]) * (z - parentCenter[2]);
+
+                        if ((d2 - parentRadius * parentRadius) >= 0.1f)
+                        {
+                            auto a = 1;
+                        }
+
+                        assert((d2 - parentRadius * parentRadius) < 0.1f);
+
+                        d2 = (x2 - parentCenter[0]) * (x2 - parentCenter[0]) + (y2 - parentCenter[1]) * (y2 - parentCenter[1]) + (z2 - parentCenter[2]) * (z2 - parentCenter[2]);
+
+                        if ((d2 - parentRadius * parentRadius) >= 0.1f)
+                        {
+                            auto a = 1;
+                        }
+
+                        assert((d2 - parentRadius * parentRadius) < 0.1f);
+                        
+                        d2 = (x3 - parentCenter[0]) * (x3 - parentCenter[0]) + (y3 - parentCenter[1]) * (y3 - parentCenter[1]) + (z3 - parentCenter[2]) * (z3 - parentCenter[2]);
+
+                        if ((d2 - parentRadius * parentRadius) >= 0.1f)
+                        {
+                            auto a = 1;
+                        }
+
+                        assert((d2 - parentRadius * parentRadius) < 0.1f);
+                    }
+                }
+
+                clusters[clusterOffset + clusterID].bound.center[0] = (mins[0] + maxs[0]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.center[1] = (mins[1] + maxs[1]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.center[2] = (mins[2] + maxs[2]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.halfextent[0] = (maxs[0] - mins[0]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.halfextent[1] = (maxs[1] - mins[1]) * 0.5f;
+                clusters[clusterOffset + clusterID].bound.halfextent[2] = (maxs[2] - mins[2]) * 0.5f;
+
+                //+center	0x0000002caf774528 {37.0000000, -13.5000000, 104.000000}	float[3]
+                //    radius	60.0687103	float
+
+            }
+        }
+
+        for (auto used : isUsed)
+        {
+            assert(used);
+        }
+
+        clusterSizes.resize(lodNums);
+
+        assert(newIndexID == indexSize);
     }
 
     {
@@ -3545,9 +3904,77 @@ int main(int argc, char** argv)
             dataBuffer += "vn " + normalBuffer[i].to_string() + "\n";
         }
 
-        for (auto face : indexBuffer)
+        for (uint i = 0; i < indexSize; ++i)
         {
-            dataBuffer += "f " + face.to_string() + "\n";
+            dataBuffer += "f " + finalIndexBuffer[i].to_string() + "\n";
+        }
+
+        DWORD dwBytesToWrite = (DWORD)(dataBuffer.size());
+        DWORD dwBytesWritten = 0;
+
+        BOOL bErrorFlag = WriteFile(
+            hFile,
+            dataBuffer.data(),
+            dwBytesToWrite,
+            &dwBytesWritten,
+            NULL);
+
+        CloseHandle(hFile);
+    }
+
+    {
+        auto extensionPos = fileName.find(".ply");
+        auto targetFileName = fileName.substr(0, extensionPos);
+        targetFileName += ".info";
+
+        HANDLE hFile = CreateFileA(
+            targetFileName.c_str(),
+            FILE_GENERIC_WRITE,
+            0,
+            nullptr,
+            OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            nullptr);
+
+        std::error_code errorCode;
+
+        if (hFile == INVALID_HANDLE_VALUE)
+        {
+            errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+            return -1;
+        }
+
+        auto size = LARGE_INTEGER{};
+        if (!GetFileSizeEx(hFile, &size))
+        {
+            errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+            CloseHandle(hFile);
+            return -1;
+        }
+
+        std::string dataBuffer = "";
+
+        //cluster infos
+        //TODO : put level of details info as well
+        dataBuffer += "Number of LODs : ";
+        dataBuffer += std::to_string(clusterSizes.size());
+        dataBuffer += "\n";
+
+        dataBuffer += "cluster Infos by LOD : \n";
+        for (uint i = 0; i < clusterSizes.size(); ++i)
+        {
+            dataBuffer += std::to_string(i) + " : ";
+            dataBuffer += std::to_string(clusterSizes[i].clusterNum);
+            dataBuffer += ", ";
+            dataBuffer += std::to_string(clusterSizes[i].clusterSize);
+            dataBuffer += "\n";
+        }
+        dataBuffer += "\n";
+
+        dataBuffer += "(" + std::to_string(xLen) + ", " + std::to_string(yLen) + ", " + std::to_string(zLen) + ")" + "\n";
+        for (uint i = 0; i < clusters.size(); ++i)
+        {
+            dataBuffer += std::to_string(clusters[i].indices.size()) + ", " + getStrFromFloat3(clusters[i].self.center) + ", " + std::to_string(clusters[i].self.radius) + ", " + getStrFromFloat3(clusters[i].bound.center) + ", " + getStrFromFloat3(clusters[i].bound.halfextent) + "\n";
         }
 
         DWORD dwBytesToWrite = (DWORD)(dataBuffer.size());

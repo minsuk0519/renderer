@@ -4,6 +4,7 @@
 
 #include <wrl.h>
 #include <d3d12.h>
+#include <vector>
 
 class mesh;
 
@@ -32,21 +33,53 @@ namespace msh
 
 	void setUpTerrain(vertexbuffer* vertex, vertexbuffer* n, indexbuffer* index);
 
+	mesh* getMesh(const uint& idx);
 	mesh* getMesh(const MESH_INDEX idx);
 
-	enum EDGE_ENUM
+	enum AXIS_ENUM
 	{
-		EDGE_XMAX = 0,
-		EDGE_XMIN,
-		EDGE_YMAX,
-		EDGE_YMIN,
-		EDGE_ZMAX,
-		EDGE_ZMIN,
-		EDGE_MAX,
+		AXIS_X = 0,
+		AXIS_Y,
+		AXIS_Z,
+		AXIS_MAX,
 	};
 
 	void guiMeshSetting(bool& meshWindow, uint& meshID);
 }
+
+struct lodInfos
+{
+	//how many clusters in lod
+	uint clusterNum;
+	//number of indices in lods
+	uint totalIndicesCount;
+	std::vector<uint> indexSize;
+};
+
+struct aabbbound
+{
+	float center[3];
+	float hExtent[3];
+};
+
+struct spherebound
+{
+	float radius;
+	float center[3];
+};
+
+struct clusterbounddata
+{
+	spherebound sphere;
+	aabbbound aabb;
+};
+
+struct bound
+{
+	float radius;
+	//half extent
+	float halfExtent[msh::AXIS_MAX];
+};
 
 struct meshData
 {
@@ -57,11 +90,12 @@ struct meshData
 	indexbuffer* idx;
 	indexbuffer* idxLine;
 
-	float AABB[msh::EDGE_MAX] = {
-		0.5f, -0.5f, 
-		0.5f, -0.5f, 
-		0.5f, -0.5f, 
-	};
+	uint lodNum = 1;
+	std::vector<lodInfos> lodData;
+
+	bound boundData;
+
+	std::vector<clusterbounddata> clusterBounds;
 };
 
 class mesh

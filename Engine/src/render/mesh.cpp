@@ -142,6 +142,29 @@ namespace msh
             newData->getData()->idx = buf::createIndexBuffer(cubeIndices, sizeof(cubeIndices));
             newData->getData()->idxLine = buf::createIndexBuffer(cubeIndicesLine, sizeof(cubeIndicesLine));
 
+            //no LOD
+            newData->getData()->lodNum = 1;
+            newData->getData()->lodData.push_back(lodInfos(1, 36, { 36 }));
+
+            newData->getData()->boundData.halfExtent[msh::AXIS_X] = 1.0f;
+            newData->getData()->boundData.halfExtent[msh::AXIS_Y] = 1.0f;
+            newData->getData()->boundData.halfExtent[msh::AXIS_Z] = 1.0f;
+
+            newData->getData()->boundData.radius = 1.0f;
+
+            clusterbounddata bound;
+            bound.sphere.center[0] = 0.0f;
+            bound.sphere.center[1] = 0.0f;
+            bound.sphere.center[2] = 0.0f;
+            bound.sphere.radius = std::sqrt(3.0f);
+            bound.aabb.center[0] = 0.0f;
+            bound.aabb.center[1] = 0.0f;
+            bound.aabb.center[2] = 0.0f;
+            bound.aabb.hExtent[0] = 1.0f;
+            bound.aabb.hExtent[1] = 1.0f;
+            bound.aabb.hExtent[2] = 1.0f;
+            newData->getData()->clusterBounds.push_back(bound);
+
             meshes[MESH_CUBE] = newData;
         }
 
@@ -173,6 +196,19 @@ namespace msh
         newMeshData->norm = n;
         newMeshData->idx = index;
 
+        newMeshData->lodNum = 1;
+        newMeshData->lodData.push_back(lodInfos(8192, index->view.SizeInBytes / sizeof(uint)));
+        for (uint i = 0; i < 8192; ++i)
+        {
+            newMeshData->lodData[0].indexSize.push_back(192);
+        }
+
+        newMeshData->boundData.halfExtent[msh::AXIS_X] = 256.0f;
+        newMeshData->boundData.halfExtent[msh::AXIS_Y] = 128.0f;
+        newMeshData->boundData.halfExtent[msh::AXIS_Z] = 256.0f;
+
+        newMeshData->boundData.radius = 256.0f;
+
         newData->init(newMeshData);
 
         meshes[MESH_TERRAIN] = newData;
@@ -186,6 +222,11 @@ namespace msh
             meshes[i]->close();
             delete meshes[i];
         }
+    }
+
+    mesh* getMesh(const uint& idx)
+    {
+        return meshes[idx];
     }
 
     mesh* getMesh(const MESH_INDEX idx)

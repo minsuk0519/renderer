@@ -5,7 +5,6 @@
 
 #include <type_traits>
 
-#include "glaze/core/format.hpp"
 #include "glaze/core/opts.hpp"
 #include "glaze/json/read.hpp"
 #include "glaze/json/write.hpp"
@@ -19,6 +18,7 @@ namespace glz
       T& val;
    };
 
+   // oposite of raw_string_t, turns off the option
    template <class T>
    struct escaped_t
    {
@@ -28,42 +28,44 @@ namespace glz
    namespace detail
    {
       template <class T>
-      struct from_json<raw_string_t<T>>
+      struct from<JSON, raw_string_t<T>>
       {
          template <auto Opts>
-         GLZ_ALWAYS_INLINE static void op(auto&& value, auto&&... args) noexcept
+         GLZ_ALWAYS_INLINE static void op(auto&& value, auto&&... args)
          {
-            read<json>::op<opt_true<Opts, &opts::raw_string>>(value.val, args...);
+            read<JSON>::op<opt_true<Opts, &opts::raw_string>>(value.val, args...);
          }
       };
 
       template <class T>
-      struct to_json<raw_string_t<T>>
+      struct to<JSON, raw_string_t<T>>
       {
          template <auto Opts>
-         GLZ_ALWAYS_INLINE static void op(auto&& value, is_context auto&& ctx, auto&&... args) noexcept
+         GLZ_ALWAYS_INLINE static void op(auto&& value, is_context auto&& ctx, auto&&... args)
          {
-            write<json>::op<opt_true<Opts, &opts::raw_string>>(value.val, ctx, args...);
+            using val_t = std::remove_cvref_t<decltype(value.val)>;
+            to<JSON, val_t>::template op<opt_true<Opts, &opts::raw_string>>(value.val, ctx, args...);
          }
       };
 
       template <class T>
-      struct from_json<escaped_t<T>>
+      struct from<JSON, escaped_t<T>>
       {
          template <auto Opts>
-         GLZ_ALWAYS_INLINE static void op(auto&& value, auto&&... args) noexcept
+         GLZ_ALWAYS_INLINE static void op(auto&& value, auto&&... args)
          {
-            read<json>::op<opt_false<Opts, &opts::raw_string>>(value.val, args...);
+            read<JSON>::op<opt_false<Opts, &opts::raw_string>>(value.val, args...);
          }
       };
 
       template <class T>
-      struct to_json<escaped_t<T>>
+      struct to<JSON, escaped_t<T>>
       {
          template <auto Opts>
-         GLZ_ALWAYS_INLINE static void op(auto&& value, is_context auto&& ctx, auto&&... args) noexcept
+         GLZ_ALWAYS_INLINE static void op(auto&& value, is_context auto&& ctx, auto&&... args)
          {
-            write<json>::op<opt_false<Opts, &opts::raw_string>>(value.val, ctx, args...);
+            using val_t = std::remove_cvref_t<decltype(value.val)>;
+            to<JSON, val_t>::template op<opt_false<Opts, &opts::raw_string>>(value.val, ctx, args...);
          }
       };
 

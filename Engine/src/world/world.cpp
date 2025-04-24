@@ -3,6 +3,7 @@
 #include <render/camera.hpp>
 #include <render/pipelinestate.hpp>
 #include <system/gui.hpp>
+#include <system/input.hpp>
 
 world e_globWorld;
 
@@ -25,12 +26,11 @@ object* world::getObjects()
 
 void world::sendInfo(unsigned char* cbv)
 {
-	world* world = game::getWorld();
-	uint* index = world->cameraObjectIndex;
-	uint objNum = world->cameraObjNum;
+	uint* index = cameraObjectIndex;
+	uint objNum = cameraObjNum;
 	for (uint i = 0; i < objNum; ++i)
 	{
-		object* obj = world->objects + index[i];
+		object* obj = objects + index[i];
 		obj->sendMat(cbv);
 	}
 
@@ -40,6 +40,31 @@ camera* world::getMainCam() const
 {
 	return mainCamera;
 }
+
+void world::instanceCulling()
+{
+	mainCamera->updateView();
+
+	for (uint i = 0; i < objectNum; ++i)
+	{
+		object* obj = objects + i;
+
+		DirectX::XMVECTOR* frustum = mainCamera->getFrustum();
+
+		if (obj->instanceCulling(frustum))
+		{
+			cameraObjectIndex[cameraObjNum] = i;
+			++cameraObjNum;
+		}
+	}
+}
+
+#if ENGINE_DEBUG_DEBUGCAM
+void world::updateDebugCamera(float dt)
+{
+	debugCamera->update(dt);
+}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 void world::setMainCamera(camera* cam)
 {
@@ -75,11 +100,13 @@ bool world::init()
 	camera* camPtr = new camera();
 	camPtr->init();
 	setMainCamera(camPtr);
-	cameras.push_back(camPtr);
 
-	//camera* debugCamPtr = new camera();
-	//debugCamPtr->init();
-	//cameras.push_back(debugCamPtr);
+#if ENGINE_DEBUG_DEBUGCAM
+	camera* debugCamPtr = new camera();
+	debugCamPtr->init();
+	debugCamPtr->toggleDebugMode();
+	debugCamera = debugCamPtr;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	objects = new object[MAX_OBJECTS];
 
@@ -90,36 +117,23 @@ bool world::init()
 
 void world::update(float dt)
 {
-	for (uint i = 0; i < objectNum; ++i)
-	{
-		objects[i].update(dt);
-	}
-
-	//if (input::isTriggered(input::KEY_SPACE))
+	//for (uint i = 0; i < objectNum; ++i)
 	//{
-	//	for (auto cam : cameras)
-	//	{
-	//		cam->toggleDebugMode();
-	//	}
+	//	objects[i].update(dt);
 	//}
+
+#if ENGINE_DEBUG_DEBUGCAM
+	if (input::isTriggered(input::KEY_SPACE))
+	{
+		mainCamera->toggleDebugMode();
+		debugCamera->toggleDebugMode();
+	}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	cameraObjNum = 0;
 
-	//{
-	//	for (uint i = 0; i < objectNum; ++i)
-	//	{
-	//		if ((objects[i].drawThisPSO(pso::PSO_PBR) == false) || (objects[i].frustumCulling(mainCamera) == true)) continue;
-
-	//		cameraObjectIndex[cameraObjNum] = i;
-	//		++cameraObjNum;
-	//	}
-	//}
-
-	for (auto cam : cameras)
-	{
-		//debug camera should not be updated when it is not debug mode
-		cam->update(dt);
-	}
+	mainCamera->update(dt);
+	debugCamera->update(dt);
 }
 
 void world::close()
@@ -130,61 +144,54 @@ void world::close()
 	}
 	delete[]objects;
 
-	for (auto cam : cameras)
-	{
-		cam->close();
-		delete cam;
-	}
+	mainCamera->close();
+	delete mainCamera;
+
+#if ENGINE_DEBUG_DEBUGCAM
+	debugCamera->close();
+	delete debugCamera;
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 }
 
-void world::drawWorld(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
-{
-	for (auto cam : cameras)
-	{
-		cam->preDraw(cmdList);
-	}
-
-	//for (uint i = 0; i < objectNum; ++i)
-	//{
-	//	objects[i].draw(cmdList, false);
-	//}
-}
-
-uint world::drawObject(void* cbvLoc)
+uint world::submitObjects(void* cbvLoc)
 {
 	uint offset = 0;
 
 	uint* location = static_cast<uint*>(cbvLoc);
-	for (uint i = 0; i < objectNum; ++i)
+	for (uint i = 0; i < cameraObjNum; ++i)
 	{
-		objects[i].submit(static_cast<void*>(location), offset);
-		location += 2;
+		objects[cameraObjectIndex[i]].submit(static_cast<void*>(location), offset, i);
+		location += 1;
 	}
 
-	return objectNum;
+	return cameraObjNum;
+}
+
+void world::uploadObjectViewInfo(void* cbvLoc)
+{
+	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
+	for (uint i = 0; i < cameraObjNum; ++i)
+	{
+		objects[cameraObjectIndex[i]].uploadViewInfo(gpuAddress);
+		gpuAddress += sizeof(uint) * 10;
+	}
+}
+
+void world::boundData(void* cbvLoc)
+{
+	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
+	for (uint i = 0; i < cameraObjNum; ++i)
+	{
+		objects[cameraObjectIndex[i]].boundData(gpuAddress);
+		gpuAddress += 6 * sizeof(float);
+	}
 }
 
 void world::setupScene()
 {
 	//TODO
 	{
-		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
-		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.5f,0.0f });
-		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
-
-		++objectNum;
-	}
-
-	{
-		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
-		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
-		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
-
-		++objectNum;
-	}
-
-	{
-		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
+		objects[objectNum].init(msh::MESH_CUBE, render::PSO_PBR, true);
 		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -1.0f,-0.5f,0.0f });
 		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
@@ -192,10 +199,38 @@ void world::setupScene()
 	}
 
 	{
-		objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR, true);
-		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -0.0f,-2.2f,0.0f });
-		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 20.2f,20.2f,20.2f });
+		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 5.0f,5.0f,5.0f });
 
 		++objectNum;
 	}
+
+	{
+		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.005f,0.005f,0.005f });
+
+		++objectNum;
+	}
+
+	{
+		objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR, true);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-2.0f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+
+		++objectNum;
+	}
+}
+
+void world::setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull)
+{
+	if(forceMain) mainCamera->preDraw(cmdList, forceFull);
+#if ENGINE_DEBUG_DEBUGCAM
+	else
+	{
+		//debugCam will be always full
+		debugCamera->preDraw(cmdList, true);
+	}
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 }
