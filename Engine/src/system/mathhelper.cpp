@@ -139,4 +139,25 @@ namespace math
     {
         return (std::abs(a - b) < TC_EPSILON);
     }
+
+    uint bitCounts[16] = { 
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4
+    };
+
+    uint count_bits(uint value)
+    {
+        uint count = 0;
+
+        for (uint i = 0; i < 4; ++i)
+        {
+            if (value == 0) break;
+
+            uint value_8 = value & 0xF;
+            value = value >> 4;
+
+            count += bitCounts[value_8];
+        }
+
+        return count;
+    }
 };

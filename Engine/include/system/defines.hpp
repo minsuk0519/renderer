@@ -1,6 +1,7 @@
 #pragma once
 
 typedef unsigned int uint;
+typedef unsigned __int8 uint_8;
 
 namespace shader_loc
 {
