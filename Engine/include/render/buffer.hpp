@@ -134,6 +134,7 @@ namespace buf
 
 	enum resourceFlags
 	{
+		RESOURCE_NONE		= 0,
 		RESOURCE_UPLOAD		= (1 << 0),
 		RESOURCE_READBACK	= (1 << 1),
 		RESOURCE_COPY		= (1 << 2),
@@ -174,13 +175,13 @@ private:
 	std::vector<std::pair<uint, uint>> freedMem;
 	std::vector<buffer*> memBlocks;
 
-	void freeInternal(char* data, uint index);
+	void freeInternal(uint startPos, uint size, uint bufferId);
 public:
 
 	void init();
 	void update();
-	char* alloc(char* bufferData = nullptr, uint size = 0, uint stride = 1, uint texture = 0, uint8_t flags = 0, uint lifeTime = 0, buf::resourceFlags = 0);
-	void free(char* data);
+	char* alloc(char* bufferData = nullptr, uint size = 0, uint stride = 1, uint texture = 0, uint8_t flags = 0, uint lifeTime = 0, buf::resourceFlags = buf::RESOURCE_NONE);
+	void free(char* bufferData);
 	void free(uint index);
 };
 

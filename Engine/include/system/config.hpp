@@ -12,4 +12,5 @@ namespace config
 	const std::string shaderBasePath = "data/shader/source";
 }
 
-#define BUFFER_MAX_SIZE 67108864
+#define BUFFER_MAX_SIZE		1048576
+#define BUFFER_MAX_COUNT	16384

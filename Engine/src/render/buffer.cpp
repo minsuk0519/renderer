@@ -1027,28 +1027,67 @@ void buffer::unmapBuffer()
     resource->Unmap(0, nullptr);
 }
 
-void buffer_allocator::freeInternal(char* data, uint index)
+void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
 {
-    uint startPos;
-    uint size;
+    uint memSize = freedMem.size();
 
-    for (auto iter = freedMem.begin(); iter < freedMem.end(); ++iter)
+    for (uint i = 0; i < (memSize - 1); ++i)
     {
-        if ()
+        auto& current = freedMem[i];
+        bool leftMerged = false;
+
+        if (startPos < current.first) continue;
+
+        //check left
+        if ((current.first + current.second) == startPos)
         {
-            freedMem.insert(iter, std::make_pair<uint, uint>(startPos, size));
+            current.second += size;
+            leftMerged = true;
         }
+
+        //check right
+        auto& next = freedMem[i + 1];
+        if (next.first == (startPos + size))
+        {
+            if (leftMerged)
+            {
+                current.second += next.second;
+
+                freedMem.erase(freedMem.begin() + i + 1);
+            }
+            else
+            {
+                next.first = startPos;
+            }
+        }
+        else if (next.first > (startPos + size))
+        {
+            if (!leftMerged)
+            {
+                freedMem.insert(freedMem.begin() + i + 1, std::make_pair(startPos, size));
+            }
+        }
+        else
+        {
+            TC_LOG_ERROR("freeInternal Error! something wrong with freedMem");
+        }
+
+        break;
     }
 
 
     for (auto iter = memBlocks.begin(); iter < memBlocks.end(); ++iter)
     {
-        if ()
+        auto& current = *iter;
+
+        if (current->header.packedData.bufferId == bufferId)
         {
             memBlocks.erase(iter);
-            break;
+            return;
         }
     }
+
+    TC_LOG_ERROR("freeInternal Error! something wrong with memBlocks");
 }
 
 void buffer_allocator::init()
@@ -1065,7 +1104,7 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint tex
 
     if(!bufferData) totalSize += size;
 
-    uint allocatedPos = -1;
+    int allocatedPos = -1;
 
     for (auto iter = freedMem.begin(); iter < freedMem.end(); ++iter)
     {
@@ -1141,4 +1180,32 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint tex
     memBlocks.push_back(buf);
 
     return allocatedData;
+}
+
+void buffer_allocator::free(char* bufferData)
+{
+    uint startPos;
+    uint size;
+    uint index;
+
+    buffer* buf = reinterpret_cast<buffer*>(bufferData);
+
+    freeInternal((data - bufferData), buf->header.totalSize, buf->header.packedData.bufferId);
+}
+
+void buffer_allocator::free(uint index)
+{
+    uint startPos;
+    uint size;
+
+    for (auto& mem : memBlocks)
+    {
+        if (mem->header.packedData.bufferId == index)
+        {
+            startPos = (data - mem->baseLoc);
+            size = mem->header.totalSize;
+        }
+    }
+
+    freeInternal(startPos, size, index);
 }
