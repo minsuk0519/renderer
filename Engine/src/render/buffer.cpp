@@ -106,8 +106,6 @@ namespace buf
     //will be replaced in future
     std::array<buffer*, DEPTH_END> bufferContainer;
 
-    std::vector<buffer*> trackedBuffer;
- 
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
 
     void loadMeshInfo(std::string fileName, meshData* meshData)
@@ -426,50 +424,6 @@ namespace buf
         return true;
     }
 
-    bool createNonTexture(buffer* buf, uint size, D3D12_RESOURCE_FLAGS flags)
-    {
-        CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-        CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
-        bufDesc.Flags |= flags;
-        D3D12_RESOURCE_STATES resourceStates = D3D12_RESOURCE_STATE_COMMON;
-
-        //TODO depth_write will be changed
-        e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
-            resourceStates, nullptr, IID_PPV_ARGS(&buf->resource));
-
-        imagebuffer* imgBuffer = dynamic_cast<imagebuffer*>(buf);
-        if (imgBuffer != nullptr)
-        {
-            imgBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-            imgBuffer->view.Buffer.FirstElement = 0;
-            imgBuffer->view.Buffer.NumElements = size / 4;
-            imgBuffer->view.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
-        }
-
-        return true;
-    }
-
-    bool createTexture(buffer* buf, DXGI_FORMAT format, uint width, uint height, unsigned int mipLevel, D3D12_RESOURCE_FLAGS flags, CD3DX12_CLEAR_VALUE* clear, bool depth = false)
-    {
-        CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-        CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, (UINT16)mipLevel, 1, 0, flags);
-        D3D12_RESOURCE_STATES resourceStates = D3D12_RESOURCE_STATE_COMMON;
-        if (depth) resourceStates = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-
-        //TODO depth_write will be changed
-        e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc,
-            resourceStates, clear, IID_PPV_ARGS(&buf->resource));
-
-        imagebuffer* imgBuffer = dynamic_cast<imagebuffer*>(buf);
-        if (imgBuffer != nullptr)
-        {
-            imgBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-            imgBuffer->view.Texture2D.MipLevels = mipLevel;
-        }
-
-        return true;
-    }
-
 	bool loadResources()
 	{
         ////create vertex buffer
@@ -642,157 +596,6 @@ namespace buf
 
     void cleanUp()
     {
-        for (auto buffer : trackedBuffer)
-        {
-            delete buffer;
-        }
-        trackedBuffer.clear();
-    }
-
-    vertexbuffer* createVertexBuffer(void* vert, const uint size, const uint stride)
-	{
-        vertexbuffer* newVertexBuffer = new vertexbuffer();
-
-        trackedBuffer.push_back(newVertexBuffer);
-
-        createResource(newVertexBuffer, size, vert);
-
-        // Initialize the vertex buffer view.
-        newVertexBuffer->view.BufferLocation = newVertexBuffer->resource->GetGPUVirtualAddress();
-        newVertexBuffer->view.StrideInBytes = stride;
-        newVertexBuffer->view.SizeInBytes = size;
-    
-		return newVertexBuffer;
-	}
-
-    vertexbuffer* createVertexBufferFromUAV(uavbuffer* uav, const uint stride)
-    {
-        vertexbuffer* newVertexBuffer = new vertexbuffer();
-
-        newVertexBuffer->resource = uav->resource;
-
-        trackedBuffer.push_back(newVertexBuffer);
-
-        // Initialize the vertex buffer view.
-        newVertexBuffer->view.BufferLocation = uav->resource->GetGPUVirtualAddress();
-        newVertexBuffer->view.StrideInBytes = stride;
-        newVertexBuffer->view.SizeInBytes = uav->view.Buffer.NumElements * sizeof(float);
-
-        return newVertexBuffer;
-    }
-
-    vertexbuffer* getVertexBuffer(int index)
-	{
-        //TC_ASSERT(index < VERTEX_END && index >= VERTEX_START);
-
-		return dynamic_cast<vertexbuffer*>(bufferContainer[index]);
-	}
-
-    constantbuffer* createConstantBuffer(const uint size)
-    {
-        //cbv size should be multiplied by 256 bytes
-        uint paddingSize = size;
-        if(size % CBVALLIGNMENT != 0) paddingSize  = ((size / CBVALLIGNMENT) + 1) * CBVALLIGNMENT;
-
-        constantbuffer* newBuffer = new constantbuffer();
-
-        trackedBuffer.push_back(newBuffer);
-
-        createResource(newBuffer, paddingSize, D3D12_RESOURCE_FLAG_NONE);
-
-        newBuffer->view.BufferLocation = newBuffer->resource->GetGPUVirtualAddress();
-        newBuffer->view.SizeInBytes = paddingSize;
-
-        CD3DX12_RANGE readRange(0, 0);
-        newBuffer->resource->Map(0, &readRange, reinterpret_cast<void**>(&newBuffer->info.cbvDataBegin));
-
-        newBuffer->info.size = size;
-
-        return newBuffer;
-    }
-
-    constantbuffer* createConstantBufferFromVertex(vertexbuffer* vert)
-    {
-        constantbuffer* newBuffer = new constantbuffer();
-
-        trackedBuffer.push_back(newBuffer);
-
-        newBuffer->resource = vert->resource;
-
-        newBuffer->view.BufferLocation = vert->resource->GetGPUVirtualAddress();
-        newBuffer->view.SizeInBytes = vert->view.SizeInBytes;
-
-        CD3DX12_RANGE readRange(0, 0);
-        newBuffer->resource->Map(0, &readRange, reinterpret_cast<void**>(&newBuffer->info.cbvDataBegin));
-
-        newBuffer->info.size = vert->view.SizeInBytes;
-
-        return newBuffer;
-    }
-
-    constantbuffer* createConstantBufferFromIndex(indexbuffer* index)
-    {
-        constantbuffer* newBuffer = new constantbuffer();
-
-        trackedBuffer.push_back(newBuffer);
-
-        newBuffer->resource = index->resource;
-
-        newBuffer->view.BufferLocation = index->resource->GetGPUVirtualAddress();
-        newBuffer->view.SizeInBytes = index->view.SizeInBytes;
-
-        CD3DX12_RANGE readRange(0, 0);
-        newBuffer->resource->Map(0, &readRange, reinterpret_cast<void**>(&newBuffer->info.cbvDataBegin));
-
-        newBuffer->info.size = index->view.SizeInBytes;
-
-        return newBuffer;
-    }
-
-    constantbuffer* getConstantBuffer(int index)
-    {
-        TC_ASSERT(index < CONSTANT_END && index >= CONSTANT_START);
-
-        return dynamic_cast<constantbuffer*>(bufferContainer[index]);
-    }
-
-    indexbuffer* createIndexBuffer(void* data, const uint size)
-    {
-        indexbuffer* newBuffer = new indexbuffer();
-
-        trackedBuffer.push_back(newBuffer);
-
-        createResource(newBuffer, size, data);
-
-        // Initialize the vertex buffer view.
-        newBuffer->view.BufferLocation = newBuffer->resource->GetGPUVirtualAddress();
-        newBuffer->view.SizeInBytes = size;
-        newBuffer->view.Format = DXGI_FORMAT_R32_UINT;
-
-        return newBuffer;
-    }
-
-    indexbuffer* createIndexBufferFromUAV(uavbuffer* uav)
-    {
-        indexbuffer* newBuffer = new indexbuffer();
-
-        newBuffer->resource = uav->resource;
-
-        trackedBuffer.push_back(newBuffer);
-
-        // Initialize the vertex buffer view.
-        newBuffer->view.BufferLocation = uav->resource->GetGPUVirtualAddress();
-        newBuffer->view.SizeInBytes = uav->view.Buffer.NumElements * sizeof(float);
-        newBuffer->view.Format = DXGI_FORMAT_R32_UINT;
-
-        return newBuffer;
-    }
-
-    indexbuffer* getIndexBuffer(int index)
-    {
-        TC_ASSERT(index < INDEX_END && index >= INDEX_START);
-
-        return dynamic_cast<indexbuffer*>(bufferContainer[index]);
     }
 
     depthbuffer* createDepthBuffer(const uint width, const uint height)
@@ -821,65 +624,11 @@ namespace buf
         return dynamic_cast<depthbuffer*>(bufferContainer[index]);
     }
 
-    imagebuffer* createImageBuffer(const uint width, const uint height, const uint mipLevel, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags)
-    {
-        imagebuffer* newBuffer = new imagebuffer();
-
-        trackedBuffer.push_back(newBuffer);
-
-        if (height == 0)
-        {
-            createNonTexture(newBuffer, width, flags);
-        }
-        else
-        {
-            createTexture(newBuffer, format, width, height, mipLevel, flags, nullptr);
-        }
-
-        newBuffer->view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        newBuffer->view.Format = format;
-
-        return newBuffer;
-    }
-
-    imagebuffer* createImageBufferFromBuffer(buffer* targetBuffer, D3D12_BUFFER_SRV desc)
-    {
-        imagebuffer* newBuffer = new imagebuffer();
-
-        trackedBuffer.push_back(newBuffer);
-
-        newBuffer->resource = targetBuffer->resource;
-
-        newBuffer->view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        newBuffer->view.Format = DXGI_FORMAT_UNKNOWN;
-        newBuffer->view.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        newBuffer->view.Buffer = desc;
-
-        return newBuffer;
-    }
-
     imagebuffer* getImageBuffer(int index)
     {
         TC_ASSERT(index < IMAGE_END && index >= IMAGE_START);
 
         return dynamic_cast<imagebuffer*>(bufferContainer[index]);
-    }
-
-
-    uavbuffer* createUAVBuffer(const uint size)
-    {
-        uavbuffer* newBuffer = new uavbuffer();
-
-        trackedBuffer.push_back(newBuffer);
-
-        createResource(newBuffer, size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-
-        newBuffer->view.Format = DXGI_FORMAT_R32_FLOAT;
-        newBuffer->view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-        newBuffer->view.Buffer.FirstElement = 0;
-        newBuffer->view.Buffer.NumElements = size / sizeof(float);
-
-        return newBuffer;
     }
 
     uavbuffer* getUAVBuffer(int index)
@@ -935,7 +684,7 @@ namespace buf
         return count;
     }
 
-    void viewAllocator::allocateUAVs(char* viewPos, buffer* buf)
+    void viewAllocator::allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_UNORDERED_ACCESS_VIEW_DESC* view = reinterpret_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC *>(viewPos);
         //we will forcely use R32 for UAVs since we will use our own packing unpacking for raw byte buffer
@@ -945,35 +694,44 @@ namespace buf
         view->Buffer.NumElements = buf->header.dataSize / sizeof(float);
     }
 
-    void viewAllocator::allocateCBVs(char* viewPos, buffer* buf)
+    void viewAllocator::allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_CONSTANT_BUFFER_VIEW_DESC* view = reinterpret_cast<D3D12_CONSTANT_BUFFER_VIEW_DESC*>(viewPos);
 
-        //cbv size should be multiplied by 256 bytes
-        uint paddingSize = 0;
         uint size = buf->header.dataSize;
-        if (size % CBVALLIGNMENT != 0) paddingSize = ((size / CBVALLIGNMENT) + 1) * CBVALLIGNMENT;
 
         view->BufferLocation = buf->resource->GetGPUVirtualAddress();
-        view->SizeInBytes = paddingSize;
+        view->SizeInBytes = size;
     }
 
-    void viewAllocator::allocateSRVs(char* viewPos, buffer* buf)
+    void viewAllocator::allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC* view = reinterpret_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(viewPos);
 
-        uint strideBytes = buf->header.packedData.stride / sizeof(float);
-        D3D12_BUFFER_SRV desc = {};
-        desc.NumElements = buf->header.dataSize / strideBytes;
-        desc.StructureByteStride = strideBytes;
-
         view->Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        view->Format = DXGI_FORMAT_UNKNOWN;
-        view->ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        view->Buffer = desc;
+        if (buf->header.packedData.texture)
+        {
+            view->ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+
+            view->Texture2D.MipLevels = bufDesc.MipLevels;
+            view->Format = bufDesc.Format;
+        }
+        else
+        {
+            uint strideBytes = buf->header.packedData.stride * sizeof(float);
+            D3D12_BUFFER_SRV desc = {};
+            desc.NumElements = buf->header.dataSize / strideBytes;
+            desc.StructureByteStride = strideBytes;
+            desc.FirstElement = 0;
+            desc.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+
+            view->ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            view->Format = DXGI_FORMAT_UNKNOWN;
+            view->Buffer = desc;
+        }
     }
 
-    void viewAllocator::allocateVertViews(char* viewPos, buffer* buf)
+    void viewAllocator::allocateVertViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_VERTEX_BUFFER_VIEW* view = reinterpret_cast<D3D12_VERTEX_BUFFER_VIEW*>(viewPos);
 
@@ -982,7 +740,7 @@ namespace buf
         view->SizeInBytes = buf->header.dataSize;
     }
 
-    void viewAllocator::allocateIndexViews(char* viewPos, buffer* buf)
+    void viewAllocator::allocateIndexViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_INDEX_BUFFER_VIEW* view = reinterpret_cast<D3D12_INDEX_BUFFER_VIEW*>(viewPos);
 
@@ -991,7 +749,7 @@ namespace buf
         view->Format = DXGI_FORMAT_R32_UINT;
     }
 
-    void viewAllocator::allocateDepthViews(char* viewPos, buffer* buf)
+    void viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_DEPTH_STENCIL_VIEW_DESC* view = reinterpret_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>(viewPos);
 
@@ -1098,8 +856,14 @@ void buffer_allocator::init()
     freedMem.push_back(std::make_pair(0, BUFFER_MAX_SIZE - 1));
 }
 
-char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint texture, uint8_t viewFlags, uint lifeTime, buf::resourceFlags flag)
+char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t viewFlags, buf::resourceFlags flag)
 {
+    //cbv size should be multiplied by 256 bytes
+    if (viewFlags & (1 << buf::graphicBufferFlags::GBF_CBV))
+    {
+        size = ((size / CBVALLIGNMENT) + 1) * CBVALLIGNMENT;
+    }
+
     uint totalSize = buf::estimateBufferSize(viewFlags);
 
     if(!bufferData) totalSize += size;
@@ -1129,9 +893,14 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint tex
     buf->header.totalSize = totalSize;
     buf->header.packedData.bufferId = nextID++;
     buf->header.packedData.allocated = 1;
-    buf->header.packedData.lifetime = lifeTime;
     buf->header.packedData.viewFlags = viewFlags;
     buf->header.packedData.stride = stride;
+
+    buf->header.packedData.lifetime = (flag & buf::RESOURCE_ONETIME);
+    //srvs?
+    buf->header.packedData.texture = (flag & buf::RESOURCE_TEXTURE);
+    buf->header.packedData.depth = (flag & buf::RESOURCE_DEPTH);
+    buf->header.packedData.clear = (flag & buf::RESOURCE_CLEAR);
 
     D3D12_RESOURCE_FLAGS resourceFlag = D3D12_RESOURCE_FLAG_NONE;
 
@@ -1152,8 +921,12 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint tex
         resourceFlag |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
     }
 
-    CD3DX12_RESOURCE_DESC bufDesc;
-    buf::createResource(buf->resource, &bufDesc, size, bufferData, flag);
+    CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
+
+    CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, (UINT16)mipLevel, 1, 0, flags);
+    CD3DX12_CLEAR_VALUE clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
+
+    buf::createResource(buf->resource, &bufDesc, size, bufferData, &clearValue, flag);
 
     //views
     char* viewPos = allocatedData + BUFFER_HEADER_SIZE;
@@ -1161,7 +934,7 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint tex
     {
         if (viewFlags & (1 << i))
         {
-            buf::allocateViews[i](viewPos, buf);
+            buf::allocateViews[i](viewPos, buf, bufDesc);
             viewPos += buf::viewSizeTable[i];
         }
     }
