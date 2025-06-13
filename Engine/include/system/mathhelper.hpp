@@ -42,4 +42,6 @@ namespace math
     };
 
     bool compare_float(float a, float b);
+
+    uint count_bits(uint value);
 };

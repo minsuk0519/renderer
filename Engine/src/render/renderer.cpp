@@ -566,10 +566,10 @@ void renderer::setUp()
 		lodInfoBuffer = buf::createImageBuffer(lodInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
 		clusterInfoBuffer = buf::createImageBuffer(clusterInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
 		clusterBoundBuffer = buf::createImageBuffer(MAX_CLUSTERS * sizeof(clusterbounddata), 0, 0, DXGI_FORMAT_R32_TYPELESS);
-		meshInfoBuffer->uploadBuffer(meshInfoSize, meshInfos);
-		lodInfoBuffer->uploadBuffer(lodInfoSize, lodInfos);
-		clusterInfoBuffer->uploadBuffer(clusterInfoSize, clusterInfos);
-		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(clusterbounddata), clusterBounds);
+		meshInfoBuffer->uploadBuffer(meshInfoSize, 0, meshInfos);
+		lodInfoBuffer->uploadBuffer(lodInfoSize, 0, lodInfos);
+		clusterInfoBuffer->uploadBuffer(clusterInfoSize, 0, clusterInfos);
+		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(clusterbounddata), 0, clusterBounds);
 
 
 		delete[] clusterBounds;
