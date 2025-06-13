@@ -90,29 +90,6 @@ namespace buf
 
 	void loadFiletoMesh(std::string fileName, meshData* meshdata);
 
-	vertexbuffer* createVertexBuffer(void* data, const uint size, const uint stride);
-	vertexbuffer* createVertexBufferFromUAV(uavbuffer* uav, const uint stride);
-	vertexbuffer* getVertexBuffer(int index);
-
-	constantbuffer* createConstantBuffer(const uint size);
-	constantbuffer* createConstantBufferFromVertex(vertexbuffer* vertex);
-	constantbuffer* createConstantBufferFromIndex(indexbuffer* index);
-	constantbuffer* getConstantBuffer(int index);
-
-	indexbuffer* createIndexBuffer(void* data, const uint size);
-	indexbuffer* createIndexBufferFromUAV(uavbuffer* uav);
-	indexbuffer* getIndexBuffer(int index);
-
-	depthbuffer* createDepthBuffer(const uint width, const uint height);
-	depthbuffer* getDepthBuffer(int index);
-
-	imagebuffer* createImageBuffer(const uint width, const uint height, uint mipLevel, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
-	imagebuffer* createImageBufferFromBuffer(buffer* targetBuffer, D3D12_BUFFER_SRV desc);
-	imagebuffer* getImageBuffer(int index);
-
-	uavbuffer* createUAVBuffer(const uint size);
-	uavbuffer* getUAVBuffer(int index);
-
 	imagebuffer* loadTextureFromFile(std::wstring filename, bool mip);
 
 	BUFFER_TYPE typeFromIndex(const uint index);
@@ -185,7 +162,8 @@ public:
 
 	void init();
 	void update();
-	char* alloc(char* bufferData = nullptr, uint size = 0, uint stride = 1, uint8_t flags = 0, buf::resourceFlags = buf::RESOURCE_NONE);
+	char* alloc(char* bufferData = nullptr, uint size = 0, uint stride = 1, uint8_t flags = 0, buf::resourceFlags = buf::RESOURCE_NONE,
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 0);
 	void free(char* bufferData);
 	void free(uint index);
 };
@@ -197,11 +175,13 @@ struct buffer_header
 
 	union packed_data
 	{
-		uint bufferId : 16;
-		uint allocated : 1;
-		uint viewFlags : 8;
-		uint stride : 2;
-		uint pad : 5;
+		uint bufferId	: 16;
+		uint allocated	: 1;
+		uint viewFlags	: 8;
+		uint stride		: 2;
+		uint texture	: 1;
+		uint lifetime	: 1;
+		uint pad		: 3;
 	} packedData;
 
 	//D3D12_VERTEX_BUFFER_VIEW

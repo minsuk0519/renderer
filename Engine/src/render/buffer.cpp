@@ -102,10 +102,6 @@ namespace buf
         assert(parsedCount == count);
     }
 
-
-    //will be replaced in future
-    std::array<buffer*, DEPTH_END> bufferContainer;
-
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
 
     void loadMeshInfo(std::string fileName, meshData* meshData)
@@ -385,7 +381,7 @@ namespace buf
         }
     }
 
-    bool createResource(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, CD3DX12_RESOURCE_DESC* bufDesc, uint size, void* data, resourceFlags flags)
+    bool createResource(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, CD3DX12_RESOURCE_DESC* bufDesc, uint size, void* data, CD3DX12_CLEAR_VALUE* clear, resourceFlags flags)
     {
         CD3DX12_HEAP_PROPERTIES heap_property;
         D3D12_RESOURCE_STATES state;
@@ -417,7 +413,7 @@ namespace buf
         }
 
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, bufDesc,
-            state, nullptr, IID_PPV_ARGS(&resource));
+            state, clear, IID_PPV_ARGS(&resource));
 
         if (!data) copyResource(resource, data, 0, size);
 
@@ -596,46 +592,6 @@ namespace buf
 
     void cleanUp()
     {
-    }
-
-    depthbuffer* createDepthBuffer(const uint width, const uint height)
-    {
-        depthbuffer* newBuffer = new depthbuffer();
-
-        trackedBuffer.push_back(newBuffer);
-
-        DXGI_FORMAT format = DXGI_FORMAT_D32_FLOAT;
-
-        CD3DX12_CLEAR_VALUE clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
-
-        createTexture(newBuffer, format, width, height, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE, &clearValue, true);
-
-        newBuffer->view.Format = format;
-        newBuffer->view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-        newBuffer->view.Flags = D3D12_DSV_FLAG_NONE;
-
-        return newBuffer;
-    }
-
-    depthbuffer* getDepthBuffer(int index)
-    {
-        TC_ASSERT(index < DEPTH_END && index >= DEPTH_START);
-
-        return dynamic_cast<depthbuffer*>(bufferContainer[index]);
-    }
-
-    imagebuffer* getImageBuffer(int index)
-    {
-        TC_ASSERT(index < IMAGE_END && index >= IMAGE_START);
-
-        return dynamic_cast<imagebuffer*>(bufferContainer[index]);
-    }
-
-    uavbuffer* getUAVBuffer(int index)
-    {
-        TC_ASSERT(index < UAV_END && index >= UAV_START);
-
-        return dynamic_cast<uavbuffer*>(bufferContainer[index]);
     }
 
     BUFFER_TYPE typeFromIndex(const uint index)
@@ -856,7 +812,8 @@ void buffer_allocator::init()
     freedMem.push_back(std::make_pair(0, BUFFER_MAX_SIZE - 1));
 }
 
-char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t viewFlags, buf::resourceFlags flag)
+char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t viewFlags, 
+    buf::resourceFlags flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels )
 {
     //cbv size should be multiplied by 256 bytes
     if (viewFlags & (1 << buf::graphicBufferFlags::GBF_CBV))
@@ -895,12 +852,8 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t 
     buf->header.packedData.allocated = 1;
     buf->header.packedData.viewFlags = viewFlags;
     buf->header.packedData.stride = stride;
-
     buf->header.packedData.lifetime = (flag & buf::RESOURCE_ONETIME);
-    //srvs?
     buf->header.packedData.texture = (flag & buf::RESOURCE_TEXTURE);
-    buf->header.packedData.depth = (flag & buf::RESOURCE_DEPTH);
-    buf->header.packedData.clear = (flag & buf::RESOURCE_CLEAR);
 
     D3D12_RESOURCE_FLAGS resourceFlag = D3D12_RESOURCE_FLAG_NONE;
 
@@ -921,12 +874,42 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t 
         resourceFlag |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
     }
 
-    CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
+    CD3DX12_RESOURCE_DESC bufDesc;
+    
+    if (flag & buf::RESOURCE_TEXTURE)
+    {
+        bufDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, (UINT16)mipLevels, 1, 0);
+    }
+    else
+    {
+        bufDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
+    }
 
-    CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, (UINT16)mipLevel, 1, 0, flags);
-    CD3DX12_CLEAR_VALUE clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
+    CD3DX12_CLEAR_VALUE clearValue;
 
-    buf::createResource(buf->resource, &bufDesc, size, bufferData, &clearValue, flag);
+    if (flag & buf::RESOURCE_CLEAR)
+    {
+        if ((flag & buf::RESOURCE_DEPTH))
+        {
+            clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
+        }
+        else if(flag & buf::RESOURCE_TEXTURE)
+        {
+            float col[4];
+            col[0] = 0.0f;
+            col[1] = 0.0f;
+            col[2] = 0.0f;
+            col[3] = 0.0f;
+
+            clearValue = CD3DX12_CLEAR_VALUE(format, col);
+        }
+
+        buf::createResource(buf->resource, &bufDesc, size, bufferData, &clearValue, flag);
+    }
+    else
+    {
+        buf::createResource(buf->resource, &bufDesc, size, bufferData, nullptr, flag);
+    }
 
     //views
     char* viewPos = allocatedData + BUFFER_HEADER_SIZE;
