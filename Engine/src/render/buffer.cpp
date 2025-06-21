@@ -280,23 +280,29 @@ namespace buf
         }   
 #endif // #else // #if ENGINE_DEBUG_DATATEST
 
-        meshdata->vbs = createVertexBuffer(result.attributes.positions.data(), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3);
+        buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.positions.data()), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3,
+            GBF_VERTEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+        buffer* norm = nullptr;
         //make sure that the model file contains normal data and it's vertex normal not face normal
         if (result.attributes.normals.size() > 0)
         {
-            meshdata->norm = createVertexBuffer(result.attributes.normals.data(), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3);
+            norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.normals.data()), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3,
+                GBF_VERTEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
             TC_ASSERT(result.attributes.normals.size() == result.attributes.positions.size());
         }
         else
         {
-            meshdata->norm = nullptr;
+            norm = nullptr;
         }
-        meshdata->idx = createIndexBuffer(indices.data(), static_cast<uint>(sizeof(uint) * indices.size()));
+        buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(indices.data()), static_cast<uint>(sizeof(uint) * indices.size()), sizeof(uint),
+            GBF_INDEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
 
         //TODO : not support now
         //meshdata->idxLine = createIndexBuffer(result.shapes[0].lines.indices.data(), static_cast<uint>(sizeof(uint) * result.shapes[0].lines.indices.size()));
 
         loadMeshInfo(fileName, meshdata);
+
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata);
     }
 
     imagebuffer* loadTextureFromFile(std::wstring filename, bool mip)
@@ -381,7 +387,7 @@ namespace buf
         }
     }
 
-    bool createResource(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, CD3DX12_RESOURCE_DESC* bufDesc, uint size, void* data, CD3DX12_CLEAR_VALUE* clear, resourceFlags flags)
+    bool createResource(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, CD3DX12_RESOURCE_DESC* bufDesc, uint size, void* data, CD3DX12_CLEAR_VALUE* clear, uint flags)
     {
         CD3DX12_HEAP_PROPERTIES heap_property;
         D3D12_RESOURCE_STATES state;
@@ -609,7 +615,8 @@ namespace buf
     }
 
     uint viewSizeTable[] = {
-        sizeof(D3D12_VERTEX_BUFFER_VIEW),
+        0,
+        sizeof(D3D12_VERTEX_BUFFER_VIEW) + sizeof(uint),
         sizeof(D3D12_INDEX_BUFFER_VIEW),
         sizeof(D3D12_UNORDERED_ACCESS_VIEW_DESC),
         sizeof(D3D12_CONSTANT_BUFFER_VIEW_DESC),
@@ -619,7 +626,7 @@ namespace buf
 
     static_assert(graphicBufferFlags::GBF_COUNT <= (sizeof(viewSizeTable) / sizeof(uint)));
     //uint_8
-    static_assert(graphicBufferFlags::GBF_COUNT <= 8);
+    static_assert(graphicBufferFlags::GBF_COUNT < 8);
     static_assert((sizeof(viewSizeTable) / sizeof(uint)) <= 8);
 
     uint estimateBufferSize(uint_8 flags)
@@ -648,6 +655,10 @@ namespace buf
         view->ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
         view->Buffer.FirstElement = 0;
         view->Buffer.NumElements = buf->header.dataSize / sizeof(float);
+
+        viewPos += sizeof(D3D12_UNORDERED_ACCESS_VIEW_DESC);
+
+        descriptor normSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, normBuffer);
     }
 
     void viewAllocator::allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
@@ -719,6 +730,24 @@ namespace buf
 uint buffer::getElemSize() const
 {
     return header.dataSize / (header.packedData.stride * sizeof(float));
+}
+
+ID3D12Resource* buffer::getResource() const
+{
+    return resource.Get();
+}
+
+char* buffer::getView(const buf::graphicBufferFlags& index)
+{
+    char* viewLoc = reinterpret_cast<char*>(this) + BUFFER_HEADER_SIZE;
+    for (uint i = 0; i < index; ++i)
+    {
+        if (header.packedData.viewFlags & (1 << i))
+        {
+            viewLoc += buf::viewSizeTable[i];
+        }
+    }
+    return viewLoc;
 }
 
 void buffer::uploadBuffer(uint size, uint offset, void* data)
@@ -812,8 +841,8 @@ void buffer_allocator::init()
     freedMem.push_back(std::make_pair(0, BUFFER_MAX_SIZE - 1));
 }
 
-char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t viewFlags, 
-    buf::resourceFlags flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels )
+buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::graphicBufferFlags viewFlags,
+    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels )
 {
     //cbv size should be multiplied by 256 bytes
     if (viewFlags & (1 << buf::graphicBufferFlags::GBF_CBV))
@@ -845,7 +874,6 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t 
 
     buffer* buf = reinterpret_cast<buffer*>(allocatedData);
 
-    buf->baseLoc = allocatedData;
     buf->header.dataSize = size;
     buf->header.totalSize = totalSize;
     buf->header.packedData.bufferId = nextID++;
@@ -921,7 +949,9 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t 
             viewPos += buf::viewSizeTable[i];
         }
     }
-    
+
+    buf->baseLoc = viewPos;
+
     //cpu data
     if (!bufferData)
     {
@@ -935,7 +965,7 @@ char* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint8_t 
 
     memBlocks.push_back(buf);
 
-    return allocatedData;
+    return buf;
 }
 
 void buffer_allocator::free(char* bufferData)

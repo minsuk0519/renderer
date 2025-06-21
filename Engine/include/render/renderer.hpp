@@ -22,6 +22,14 @@ struct meshInfo
 	uint flags = 0;
 };
 
+class renderBuf
+{
+public:
+//put GPU buffer
+	buffer* UVB;
+	buffer* UIB;
+};
+
 class renderer
 {
 public:
@@ -91,6 +99,10 @@ private:
 	vertexbuffer* AABBwireframeBuffer;
 
 	bool debugCamMode = false;
+
+	uint curVertexOffset = 0;
+	uint curLodOffset = 0;
+	uint curClusterOffset = 0;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
@@ -98,6 +110,8 @@ public:
 	void debugFrameBufferRequest(uint debugMeshID, UINT64 ptr);
 
 	void guiSetting();
+
+	void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata);
 
 	descriptor ssaoDesc[3];
 	descriptor terrainDesc[3];
@@ -120,3 +134,4 @@ private:
 };
 
 extern renderer e_globRenderer;
+extern renderBuf e_globGPUBuffer;

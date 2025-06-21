@@ -98,8 +98,9 @@ namespace buf
 
 	uint estimateBufferSize(uint_8 flags);
 
-	enum graphicBufferFlags
+	enum graphicBufferFlags : uint_8
 	{
+		GBF_NONE,
 		GBF_UAV,
 		GBF_CBV,
 		GBF_SRV,
@@ -110,7 +111,7 @@ namespace buf
 		GBF_FBO = GBF_COUNT,
 	};
 
-	enum resourceFlags
+	enum resourceFlags : uint
 	{
 		RESOURCE_NONE		= 0,
 		RESOURCE_UPLOAD		= (1 << 0),
@@ -162,7 +163,7 @@ public:
 
 	void init();
 	void update();
-	char* alloc(char* bufferData = nullptr, uint size = 0, uint stride = 1, uint8_t flags = 0, buf::resourceFlags = buf::RESOURCE_NONE,
+	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), buf::graphicBufferFlags viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
 		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 0);
 	void free(char* bufferData);
 	void free(uint index);
@@ -196,6 +197,24 @@ struct buffer
 {
 public:
 	uint getElemSize() const;
+
+	char* getView(const buf::graphicBufferFlags& index);
+
+	template<typename T>
+	T* getView(const buf::graphicBufferFlags& index)
+	{
+		char* viewLoc = reinterpret_cast<char*>(this) + BUFFER_HEADER_SIZE;
+		for (uint i = 0; i < index; ++i)
+		{
+			if (header.packedData.viewFlags & (1 << i))
+			{
+				viewLoc += buf::viewSizeTable[i];
+			}
+		}
+		return reinterpret_cast<T*>(viewLoc);
+	}
+	
+	ID3D12Resource* getResource() const;
 
 private:
 	friend struct buffer_allocator;

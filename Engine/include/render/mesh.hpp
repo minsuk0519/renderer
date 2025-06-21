@@ -83,13 +83,6 @@ struct bound
 
 struct meshData
 {
-	vertexbuffer* vbs;
-	//can be null
-	vertexbuffer* norm;
-
-	indexbuffer* idx;
-	indexbuffer* idxLine;
-
 	uint lodNum = 1;
 	std::vector<lodInfos> lodData;
 
