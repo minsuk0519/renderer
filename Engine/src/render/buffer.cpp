@@ -614,20 +614,8 @@ namespace buf
         return BUFFER_TYPE();
     }
 
-    uint viewSizeTable[] = {
-        0,
-        sizeof(D3D12_VERTEX_BUFFER_VIEW) + sizeof(uint),
-        sizeof(D3D12_INDEX_BUFFER_VIEW),
-        sizeof(D3D12_UNORDERED_ACCESS_VIEW_DESC),
-        sizeof(D3D12_CONSTANT_BUFFER_VIEW_DESC),
-        sizeof(D3D12_DEPTH_STENCIL_VIEW_DESC),
-        sizeof(D3D12_SHADER_RESOURCE_VIEW_DESC),
-    };
-
-    static_assert(graphicBufferFlags::GBF_COUNT <= (sizeof(viewSizeTable) / sizeof(uint)));
     //uint_8
     static_assert(graphicBufferFlags::GBF_COUNT < 8);
-    static_assert((sizeof(viewSizeTable) / sizeof(uint)) <= 8);
 
     uint estimateBufferSize(uint_8 flags)
     {
