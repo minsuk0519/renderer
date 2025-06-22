@@ -36,7 +36,7 @@ namespace render
 			descriptorheap* newHeap = new descriptorheap();
 			newHeap->init(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, MAX_DESCRIPTOR_SIZE, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 
-			e_globRenderer.device->CreateDepthStencilView(buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->resource.Get(), &buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->view, D3D12_CPU_DESCRIPTOR_HANDLE(newHeap->getCPUPos(0)));
+			//e_globRenderer.device->CreateDepthStencilView(buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->resource.Get(), &buf::getDepthBuffer(buf::DEPTH_SWAPCHAIN)->view, D3D12_CPU_DESCRIPTOR_HANDLE(newHeap->getCPUPos(0)));
 
 			descriptorHeaps[DESCRIPTORHEAP_DEPTH] = newHeap;
 		}
@@ -135,7 +135,8 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 
 	uint pos = getRemainPos(heapIdx);
 
-	descriptor result = { pos };
+	descriptor result;
+	result.heapOffset = pos;
 	result.heapIndex = heapIdx;
 
 	occupiedDescriptor[heapIdx].push_back(result);
@@ -146,40 +147,33 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 	switch (type)
 	{
 	case buf::BUFFER_CONSTANT_TYPE:
-	{
-		constantbuffer* constantBuffer = dynamic_cast<constantbuffer*>(buf);
-		e_globRenderer.device->CreateConstantBufferView(&constantBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+	{	
+		e_globRenderer.device->CreateConstantBufferView(buf->getView<D3D12_CONSTANT_BUFFER_VIEW_DESC>(buf::GBF_CBV), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_DEPTH_TYPE:
 	{
-		depthbuffer* depthBuffer = dynamic_cast<depthbuffer*>(buf);
-		e_globRenderer.device->CreateDepthStencilView(depthBuffer->resource.Get(), &depthBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateDepthStencilView(buf->getResource(), buf->getView<D3D12_DEPTH_STENCIL_VIEW_DESC>(buf::GBF_DEPTH_STENCIL), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_IMAGE_TYPE:
 	{
-		imagebuffer* imageBuffer = dynamic_cast<imagebuffer*>(buf);
-		e_globRenderer.device->CreateShaderResourceView(imageBuffer->resource.Get(), &imageBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateShaderResourceView(buf->getResource(), buf->getView<D3D12_SHADER_RESOURCE_VIEW_DESC>(buf::GBF_SRV), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_UAV_TYPE:
 	{
-		uavbuffer* uavBuffer = dynamic_cast<uavbuffer*>(buf);
-
-		e_globRenderer.device->CreateUnorderedAccessView(uavBuffer->resource.Get(), nullptr, &uavBuffer->view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateUnorderedAccessView(buf->getResource(), nullptr, buf->getView<D3D12_UNORDERED_ACCESS_VIEW_DESC>(buf::GBF_UAV), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_RT_TYPE:
 	{
-		imagebuffer* imageBuffer = dynamic_cast<imagebuffer*>(buf);
-
 		D3D12_RENDER_TARGET_VIEW_DESC view = {};
-		view.Format = imageBuffer->view.Format;
+		view.Format = buf->getView<D3D12_UNORDERED_ACCESS_VIEW_DESC>(buf::GBF_SRV)->Format;
 		//force render target to texture2d
 		view.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
-		e_globRenderer.device->CreateRenderTargetView(imageBuffer->resource.Get(), &view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateRenderTargetView(buf->getResource(), &view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	default:

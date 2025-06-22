@@ -23,6 +23,7 @@ uint vsync = 0;
 uint frameIndex = 0;
 
 renderer e_globRenderer;
+renderBuf e_globGPUBuffer;
 
 namespace renderGuiSetting
 {
@@ -335,6 +336,167 @@ void renderer::guiSetting()
 	}
 }
 
+void renderer::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata)
+{
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Upload MeshInfo to UB", sizeof("Upload MeshInfo to UB"));
+	
+	{
+		meshInfo meshinfo;
+		uint totalClusterCount = 0;
+
+		uint lodNum = meshdata->lodNum;
+		meshinfo.numLod = lodNum;
+		meshinfo.lodOffset = curLodOffset;
+		meshinfo.vertexOffset = curVertexOffset;
+		if (i == msh::MESH_TERRAIN) meshinfo.flags |= MESH_INFO_FLAGS_TERRAIN;
+		for (uint j = 0; j < lodNum; ++j)
+		{
+			uint curClusterCount = meshdata->lodData[j].clusterNum;
+
+			curClusterOffset += curClusterCount;
+			totalClusterCount += curClusterCount;
+		}
+		curLodOffset += lodNum;
+		uint vertexSize = vertex->getElemSize();
+		curVertexOffset += vertexSize;
+
+		struct lodInfo
+		{
+			uint clusterCount;
+			uint clusterOffset;
+			uint indexSize;
+		};
+
+		struct clusterInfo
+		{
+			uint indexCount;
+			uint indexOffset;
+		};
+
+		lodInfo* lodInfos = new lodInfo[lodNum];
+		clusterbounddata* clusterBounds = new clusterbounddata[totalClusterCount];
+		clusterInfo* clusterInfos = new clusterInfo[totalClusterCount];
+		uint lodIndex = 0;
+		uint clusterIndex = 0;
+		uint clusterInfoSize = curClusterOffset * sizeof(clusterInfo);
+		curClusterOffset = 0;
+		uint indexOffset = 0;
+		uint vertexOffset = 0;
+
+		uint lodNum = meshdata->lodNum;
+		uint meshClusterIndex = 0;
+		for (uint j = 0; j < lodNum; ++j)
+		{
+			uint curClusterCount = meshdata->lodData[j].clusterNum;
+			lodInfos[lodIndex].clusterCount = curClusterCount;
+			uint totalIndexSize = 0;
+
+			for (uint k = 0; k < curClusterCount; ++k)
+			{
+				uint indexCount = meshdata->lodData[j].indexSize[k];
+				clusterInfos[clusterIndex].indexCount = indexCount;
+				clusterInfos[clusterIndex].indexOffset = indexOffset;
+
+				if (!(meshInfos[i].flags & MESH_INFO_FLAGS_TERRAIN))
+				{
+					clusterBounds[clusterIndex].sphere.center[0] = meshdata->clusterBounds[meshClusterIndex].sphere.center[0];
+					clusterBounds[clusterIndex].sphere.center[1] = meshdata->clusterBounds[meshClusterIndex].sphere.center[1];
+					clusterBounds[clusterIndex].sphere.center[2] = meshdata->clusterBounds[meshClusterIndex].sphere.center[2];
+					clusterBounds[clusterIndex].sphere.radius = meshdata->clusterBounds[meshClusterIndex].sphere.radius;
+
+					clusterBounds[clusterIndex].aabb.center[0] = meshdata->clusterBounds[meshClusterIndex].aabb.center[0];
+					clusterBounds[clusterIndex].aabb.center[1] = meshdata->clusterBounds[meshClusterIndex].aabb.center[1];
+					clusterBounds[clusterIndex].aabb.center[2] = meshdata->clusterBounds[meshClusterIndex].aabb.center[2];
+					clusterBounds[clusterIndex].aabb.hExtent[0] = meshdata->clusterBounds[meshClusterIndex].aabb.hExtent[0];
+					clusterBounds[clusterIndex].aabb.hExtent[1] = meshdata->clusterBounds[meshClusterIndex].aabb.hExtent[1];
+					clusterBounds[clusterIndex].aabb.hExtent[2] = meshdata->clusterBounds[meshClusterIndex].aabb.hExtent[2];
+
+					++meshClusterIndex;
+				}
+
+				indexOffset += indexCount;
+				totalIndexSize += indexCount;
+				++clusterIndex;
+			}
+			lodInfos[lodIndex].clusterOffset = curClusterOffset;
+			lodInfos[lodIndex].indexSize = totalIndexSize;
+			curClusterOffset += curClusterCount;
+			++lodIndex;
+		}
+		
+		//uint meshInfoSize = msh::MESH_END * sizeof(meshInfo);
+		//meshInfoBuffer = buf::createImageBuffer(MAX_MESHES, 0, 1, DXGI_FORMAT_R32_TYPELESS);
+		//uint lodInfoSize = curLodOffset * sizeof(lodInfo);
+		//lodInfoBuffer = buf::createImageBuffer(MAX_MESHES_LOD, 0, 1, DXGI_FORMAT_R32_TYPELESS);
+		//clusterInfoBuffer = buf::createImageBuffer(MAX_MESHES_CLUSTERS, 0, 1, DXGI_FORMAT_R32_TYPELESS);
+		//clusterBoundBuffer = buf::createImageBuffer(MAX_MESHES_CLUSTERS * sizeof(clusterbounddata), 0, 0, DXGI_FORMAT_R32_TYPELESS);
+		
+		meshInfoBuffer->uploadBuffer(meshInfoSize, 0, meshInfos);
+		lodInfoBuffer->uploadBuffer(lodInfoSize, 0, lodInfos);
+		clusterInfoBuffer->uploadBuffer(clusterInfoSize, 0, clusterInfos);
+		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(clusterbounddata), 0, clusterBounds);
+
+		delete[] clusterBounds;
+		delete[] lodInfos;
+		delete[] clusterInfos;
+
+		indexOffset = 0;
+
+		{
+			D3D12_BUFFER_SRV vertexDesc = {};
+			vertexDesc.NumElements = meshdata->vbs->view.SizeInBytes / (sizeof(float) * 3);
+			vertexDesc.StructureByteStride = sizeof(float) * 3;
+			D3D12_BUFFER_SRV indexDesc = {};
+			indexDesc.NumElements = meshdata->idx->view.SizeInBytes / (sizeof(uint) * 3);
+			indexDesc.StructureByteStride = sizeof(uint) * 3;
+			D3D12_BUFFER_SRV normDesc = {};
+			normDesc.NumElements = meshdata->norm->view.SizeInBytes / (sizeof(float) * 3);
+			normDesc.StructureByteStride = sizeof(float) * 3;
+
+			imagebuffer* vbsBuffer = buf::createImageBufferFromBuffer(meshdata->vbs, vertexDesc);
+			imagebuffer* normBuffer = buf::createImageBufferFromBuffer(meshdata->norm, normDesc);
+			imagebuffer* idxBuffer = buf::createImageBufferFromBuffer(meshdata->idx, indexDesc);
+
+			descriptor vertexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, vbsBuffer);
+			descriptor indexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, idxBuffer);
+			descriptor normSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, normBuffer);
+
+			auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_NORMAL_BUFFER, normSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_UNIFIED_MESHINFO_BUFFER, meshInfoDesc.getHandle());
+
+			unifiedConsts unifiedconst;
+
+			uint indexSize = indexDesc.NumElements * 3;
+
+			unifiedconst.meshID = i;
+			unifiedconst.indexCount = indexSize;
+			unifiedconst.indexOffset = indexOffset;
+			unifiedconst.vertexCount = meshdata->vbs->view.SizeInBytes / (sizeof(float) * 3);
+
+			indexOffset += indexSize;
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+
+			computeCmdList->Dispatch(1, 1, 1);
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+		}
+	}
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+}
+
 void renderer::preDraw(float dt)
 {
 	if (debugFBRequest)
@@ -458,188 +620,6 @@ void renderer::setUp()
 
 	setUpTerrain();
 	
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
-
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Universal Buffer", sizeof("Generate Universal Buffer"));
-
-	//setup infos
-	{
-		meshInfos = new meshInfo[msh::MESH_END];
-
-		uint curVertexOffset = 0;
-		uint curLodOffset = 0;
-		uint curClusterOffset = 0;
-
-		for (uint i = 0; i < msh::MESH_END; ++i)
-		{
-			meshData* data = msh::getMesh(i)->getData();
-			if (data == nullptr) continue;
-			uint lodNum = data->lodNum;
-			meshInfos[i].numLod = lodNum;
-			meshInfos[i].lodOffset = curLodOffset;
-			meshInfos[i].vertexOffset = curVertexOffset;
-			if (i == msh::MESH_TERRAIN) meshInfos[i].flags |= MESH_INFO_FLAGS_TERRAIN;
-			for (uint j = 0; j < lodNum; ++j)
-			{
-				uint curClusterCount = data->lodData[j].clusterNum;
-
-				curClusterOffset += curClusterCount;
-			}
-			curLodOffset += lodNum;
-			uint vertexSize = data->vbs->view.SizeInBytes / (sizeof(float) * 3);
-			curVertexOffset += vertexSize;
-		}
-
-		struct lodInfo
-		{
-			uint clusterCount;
-			uint clusterOffset;
-			uint indexSize;
-		};
-
-		struct clusterInfo
-		{
-			uint indexCount;
-			uint indexOffset;
-		};
-
-		lodInfo* lodInfos = new lodInfo[curLodOffset];
-		clusterbounddata* clusterBounds = new clusterbounddata[curClusterOffset];
-		clusterInfo* clusterInfos = new clusterInfo[curClusterOffset];
-		uint lodIndex = 0;
-		uint clusterIndex = 0;
-		uint clusterInfoSize = curClusterOffset * sizeof(clusterInfo);
-		curClusterOffset = 0;
-		uint indexOffset = 0;
-		uint vertexOffset = 0;
-
-		for (uint i = 0; i < msh::MESH_END; ++i)
-		{
-			TC_ASSERT(meshInfos[i].lodOffset == lodIndex);
-
-			meshData* data = msh::getMesh(i)->getData();
-			uint lodNum = data->lodNum;
-			uint meshClusterIndex = 0;
-			for (uint j = 0; j < lodNum; ++j)
-			{
-				uint curClusterCount = data->lodData[j].clusterNum;
-				lodInfos[lodIndex].clusterCount = curClusterCount;
-				uint totalIndexSize = 0;
-
-				for (uint k = 0; k < curClusterCount; ++k)
-				{
-					uint indexCount = data->lodData[j].indexSize[k];
-					clusterInfos[clusterIndex].indexCount = indexCount;
-					clusterInfos[clusterIndex].indexOffset = indexOffset;
-
-					if (!(meshInfos[i].flags & MESH_INFO_FLAGS_TERRAIN))
-					{
-						clusterBounds[clusterIndex].sphere.center[0] = data->clusterBounds[meshClusterIndex].sphere.center[0];
-						clusterBounds[clusterIndex].sphere.center[1] = data->clusterBounds[meshClusterIndex].sphere.center[1];
-						clusterBounds[clusterIndex].sphere.center[2] = data->clusterBounds[meshClusterIndex].sphere.center[2];
-						clusterBounds[clusterIndex].sphere.radius = data->clusterBounds[meshClusterIndex].sphere.radius;
-
-						clusterBounds[clusterIndex].aabb.center[0] = data->clusterBounds[meshClusterIndex].aabb.center[0];
-						clusterBounds[clusterIndex].aabb.center[1] = data->clusterBounds[meshClusterIndex].aabb.center[1];
-						clusterBounds[clusterIndex].aabb.center[2] = data->clusterBounds[meshClusterIndex].aabb.center[2];
-						clusterBounds[clusterIndex].aabb.hExtent[0] = data->clusterBounds[meshClusterIndex].aabb.hExtent[0];
-						clusterBounds[clusterIndex].aabb.hExtent[1] = data->clusterBounds[meshClusterIndex].aabb.hExtent[1];
-						clusterBounds[clusterIndex].aabb.hExtent[2] = data->clusterBounds[meshClusterIndex].aabb.hExtent[2];
-
-						++meshClusterIndex;
-					}
-
-					indexOffset += indexCount;
-					totalIndexSize += indexCount;
-					++clusterIndex;
-				}
-				lodInfos[lodIndex].clusterOffset = curClusterOffset;
-				lodInfos[lodIndex].indexSize = totalIndexSize;
-				curClusterOffset += curClusterCount;
-				++lodIndex;
-			}
-		}
-
-		uint meshInfoSize = msh::MESH_END * sizeof(meshInfo);
-		meshInfoBuffer = buf::createImageBuffer(meshInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
-		uint lodInfoSize = curLodOffset * sizeof(lodInfo);
-		lodInfoBuffer = buf::createImageBuffer(lodInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
-		clusterInfoBuffer = buf::createImageBuffer(clusterInfoSize, 0, 1, DXGI_FORMAT_R32_TYPELESS);
-		clusterBoundBuffer = buf::createImageBuffer(MAX_CLUSTERS * sizeof(clusterbounddata), 0, 0, DXGI_FORMAT_R32_TYPELESS);
-		meshInfoBuffer->uploadBuffer(meshInfoSize, 0, meshInfos);
-		lodInfoBuffer->uploadBuffer(lodInfoSize, 0, lodInfos);
-		clusterInfoBuffer->uploadBuffer(clusterInfoSize, 0, clusterInfos);
-		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(clusterbounddata), 0, clusterBounds);
-
-
-		delete[] clusterBounds;
-		delete[] lodInfos;
-		delete[] clusterInfos;
-
-		meshInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, meshInfoBuffer);
-		lodInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, lodInfoBuffer);
-		clusterInfoDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, clusterInfoBuffer);
-		clusterBoundDesc = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, clusterBoundBuffer);
-
-		indexOffset = 0;
-
-		for (uint i = 0; i < msh::MESH_END; ++i)
-		{
-			meshData* meshdata = msh::getMesh(msh::MESH_INDEX(i))->getData();
-
-			if (meshdata == nullptr) continue;
-
-			D3D12_BUFFER_SRV vertexDesc = {};
-			vertexDesc.NumElements = meshdata->vbs->view.SizeInBytes / (sizeof(float) * 3);
-			vertexDesc.StructureByteStride = sizeof(float) * 3;
-			D3D12_BUFFER_SRV indexDesc = {};
-			indexDesc.NumElements = meshdata->idx->view.SizeInBytes / (sizeof(uint) * 3);
-			indexDesc.StructureByteStride = sizeof(uint) * 3;
-			D3D12_BUFFER_SRV normDesc = {};
-			normDesc.NumElements = meshdata->norm->view.SizeInBytes / (sizeof(float) * 3);
-			normDesc.StructureByteStride = sizeof(float) * 3;
-
-			imagebuffer* vbsBuffer = buf::createImageBufferFromBuffer(meshdata->vbs, vertexDesc);
-			imagebuffer* normBuffer = buf::createImageBufferFromBuffer(meshdata->norm, normDesc);
-			imagebuffer* idxBuffer = buf::createImageBufferFromBuffer(meshdata->idx, indexDesc);
-
-			descriptor vertexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, vbsBuffer);
-			descriptor indexSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, idxBuffer);
-			descriptor normSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, normBuffer);
-
-			auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENUNIFIED);
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_NORMAL_BUFFER, normSRV.getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_UNIFIED_MESHINFO_BUFFER, meshInfoDesc.getHandle());
-
-			unifiedConsts unifiedconst;
-
-			uint indexSize = indexDesc.NumElements * 3;
-
-			unifiedconst.meshID = i;
-			unifiedconst.indexCount = indexSize;
-			unifiedconst.indexOffset = indexOffset;
-			unifiedconst.vertexCount = meshdata->vbs->view.SizeInBytes / (sizeof(float) * 3);
-
-			indexOffset += indexSize;
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
-
-			computeCmdList->Dispatch(1, 1, 1);
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
-		}
-	}
-
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 
 	{
