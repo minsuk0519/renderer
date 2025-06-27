@@ -104,9 +104,8 @@ namespace buf
 		GBF_UAV,
 		GBF_CBV,
 		GBF_SRV,
-		GBF_VERTEX_VIEW,
-		GBF_INDEX_VIEW,
 		GBF_DEPTH_STENCIL,
+		GBF_RT,
 		GBF_COUNT,
 		GBF_FBO = GBF_COUNT,
 	};
@@ -127,14 +126,13 @@ namespace buf
 	class viewAllocator
 	{
 	public:
-		typedef void (*allocateViewFunc)(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		typedef char* (*allocateViewFunc)(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
 
-		static void allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateVertViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateIndexViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
 	};
 
 
@@ -142,9 +140,8 @@ namespace buf
 		viewAllocator::allocateUAVs,
 		viewAllocator::allocateCBVs,
 		viewAllocator::allocateSRVs,
-		viewAllocator::allocateVertViews,
-		viewAllocator::allocateIndexViews,
 		viewAllocator::allocateDepthViews,
+		viewAllocator::allocateRenderTarget,
 	};
 }
 

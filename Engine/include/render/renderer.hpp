@@ -111,6 +111,7 @@ public:
 
 	void guiSetting();
 
+	bool createUB();
 	void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata);
 
 	descriptor ssaoDesc[3];

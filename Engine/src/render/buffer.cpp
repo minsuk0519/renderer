@@ -281,13 +281,13 @@ namespace buf
 #endif // #else // #if ENGINE_DEBUG_DATATEST
 
         buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.positions.data()), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3,
-            GBF_VERTEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+            GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
         buffer* norm = nullptr;
         //make sure that the model file contains normal data and it's vertex normal not face normal
         if (result.attributes.normals.size() > 0)
         {
             norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.normals.data()), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3,
-                GBF_VERTEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+                GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
             TC_ASSERT(result.attributes.normals.size() == result.attributes.positions.size());
         }
         else
@@ -295,7 +295,7 @@ namespace buf
             norm = nullptr;
         }
         buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(indices.data()), static_cast<uint>(sizeof(uint) * indices.size()), sizeof(uint),
-            GBF_INDEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+            GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
 
         //TODO : not support now
         //meshdata->idxLine = createIndexBuffer(result.shapes[0].lines.indices.data(), static_cast<uint>(sizeof(uint) * result.shapes[0].lines.indices.size()));
@@ -617,13 +617,15 @@ namespace buf
     //uint_8
     static_assert(graphicBufferFlags::GBF_COUNT < 8);
 
+    constexpr uint DESCRIPTOR_SIZE = sizeof(descriptor);
+
     uint estimateBufferSize(uint_8 flags)
     {
         uint count = 0;
 
         for (uint i = 0; i < graphicBufferFlags::GBF_COUNT; ++i)
         {
-            if(flags & (1 << i)) count += viewSizeTable[i];
+            if(flags & (1 << i)) count += DESCRIPTOR_SIZE;
         }
 
         //header
@@ -635,41 +637,49 @@ namespace buf
         return count;
     }
 
-    void viewAllocator::allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
-        D3D12_UNORDERED_ACCESS_VIEW_DESC* view = reinterpret_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC *>(viewPos);
+        D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
         //we will forcely use R32 for UAVs since we will use our own packing unpacking for raw byte buffer
-        view->Format = DXGI_FORMAT_R32_FLOAT;
-        view->ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-        view->Buffer.FirstElement = 0;
-        view->Buffer.NumElements = buf->header.dataSize / sizeof(float);
+        view.Format = DXGI_FORMAT_R32_FLOAT;
+        view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+        view.Buffer.FirstElement = 0;
+        view.Buffer.NumElements = buf->header.dataSize / sizeof(float);
+        
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
 
-        viewPos += sizeof(D3D12_UNORDERED_ACCESS_VIEW_DESC);
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, buf, &view);
 
-        descriptor normSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, normBuffer);
+        return viewPos + sizeof(descriptor);
     }
 
-    void viewAllocator::allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
-        D3D12_CONSTANT_BUFFER_VIEW_DESC* view = reinterpret_cast<D3D12_CONSTANT_BUFFER_VIEW_DESC*>(viewPos);
+        D3D12_CONSTANT_BUFFER_VIEW_DESC view = {};
 
         uint size = buf->header.dataSize;
 
-        view->BufferLocation = buf->resource->GetGPUVirtualAddress();
-        view->SizeInBytes = size;
+        view.BufferLocation = buf->resource->GetGPUVirtualAddress();
+        view.SizeInBytes = size;
+
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
+
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, buf, &view);
+
+        return viewPos + sizeof(descriptor);
     }
 
-    void viewAllocator::allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
-        D3D12_SHADER_RESOURCE_VIEW_DESC* view = reinterpret_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(viewPos);
+        D3D12_SHADER_RESOURCE_VIEW_DESC view = {};
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
 
-        view->Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         if (buf->header.packedData.texture)
         {
-            view->ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-
-            view->Texture2D.MipLevels = bufDesc.MipLevels;
-            view->Format = bufDesc.Format;
+            view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            view.Texture2D.MipLevels = bufDesc.MipLevels;
+            view.Format = bufDesc.Format;
         }
         else
         {
@@ -680,38 +690,44 @@ namespace buf
             desc.FirstElement = 0;
             desc.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
 
-            view->ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-            view->Format = DXGI_FORMAT_UNKNOWN;
-            view->Buffer = desc;
+            view.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            view.Format = DXGI_FORMAT_UNKNOWN;
+            view.Buffer = desc;
         }
+
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, buf, &view);
+
+        return viewPos + sizeof(descriptor);
     }
 
-    void viewAllocator::allocateVertViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
-        D3D12_VERTEX_BUFFER_VIEW* view = reinterpret_cast<D3D12_VERTEX_BUFFER_VIEW*>(viewPos);
-
-        view->BufferLocation = buf->resource->GetGPUVirtualAddress();
-        view->StrideInBytes = buf->header.packedData.stride;
-        view->SizeInBytes = buf->header.dataSize;
-    }
-
-    void viewAllocator::allocateIndexViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
-    {
-        D3D12_INDEX_BUFFER_VIEW* view = reinterpret_cast<D3D12_INDEX_BUFFER_VIEW*>(viewPos);
-
-        view->BufferLocation = buf->resource->GetGPUVirtualAddress();
-        view->SizeInBytes = buf->header.dataSize;
-        view->Format = DXGI_FORMAT_R32_UINT;
-    }
-
-    void viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
-    {
-        D3D12_DEPTH_STENCIL_VIEW_DESC* view = reinterpret_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>(viewPos);
+        D3D12_DEPTH_STENCIL_VIEW_DESC view = {};
 
         //TODO : pass the value for format size
-        view->Format = DXGI_FORMAT_D32_FLOAT;
-        view->ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-        view->Flags = D3D12_DSV_FLAG_NONE;
+        view.Format = DXGI_FORMAT_D32_FLOAT;
+        view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+        view.Flags = D3D12_DSV_FLAG_NONE;
+
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
+
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_DEPTH)->requestdescriptor(buf::BUFFER_DEPTH_TYPE, buf, &view);
+
+        return viewPos + sizeof(descriptor);
+    }
+
+    char* viewAllocator::allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    {
+        D3D12_RENDER_TARGET_VIEW_DESC view = {};
+        view.Format = buf->getView<D3D12_UNORDERED_ACCESS_VIEW_DESC>(buf::GBF_SRV)->Format;
+        //force render target to texture2d
+        view.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
+
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_RENDERTARGET)->requestdescriptor(buf::BUFFER_RT_TYPE, buf, &view);
+
+        return viewPos + sizeof(descriptor);
     }
 };
 
@@ -732,7 +748,7 @@ char* buffer::getView(const buf::graphicBufferFlags& index)
     {
         if (header.packedData.viewFlags & (1 << i))
         {
-            viewLoc += buf::viewSizeTable[i];
+            viewLoc += buf::DESCRIPTOR_SIZE;
         }
     }
     return viewLoc;
@@ -933,8 +949,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::g
     {
         if (viewFlags & (1 << i))
         {
-            buf::allocateViews[i](viewPos, buf, bufDesc);
-            viewPos += buf::viewSizeTable[i];
+            viewPos = buf::allocateViews[i](viewPos, buf, bufDesc);
         }
     }
 

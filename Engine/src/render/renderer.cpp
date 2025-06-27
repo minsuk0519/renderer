@@ -78,6 +78,7 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	TC_CONDITIONB(createSwapChain() == true, "Failed to create swapchain");
 	TC_INIT(buf::loadResources());
 	TC_INIT(render::initDescHeap());
+	TC_INIT(createUB());
 	TC_INIT(createFrameResources());
 	TC_INIT(msh::loadResources());
 
@@ -334,6 +335,25 @@ void renderer::guiSetting()
 			ImGui::DragInt("Num##SSAO", &renderGuiSetting::aoConstants.num, 1.0f, 1, 100);
 		}
 	}
+}
+
+
+
+bool renderer::createUB()
+{
+	meshInfoBuffer->uploadBuffer(meshInfoSize, 0, meshInfos);
+	lodInfoBuffer->uploadBuffer(lodInfoSize, 0, lodInfos);
+	clusterInfoBuffer->uploadBuffer(clusterInfoSize, 0, clusterInfos);
+	clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(clusterbounddata), 0, clusterBounds);
+
+	//uvb
+	unifiedBuffer[0] = buf::createUAVBuffer(16777216 * 3 * 2 * sizeof(float));
+	//uib
+	unifiedBuffer[1] = buf::createUAVBuffer(16777216 * (sizeof(uint) * 3 + 3));
+	//clusterIDs
+	vertexIDBufferUAV = buf::createUAVBuffer(16777216 * sizeof(uint) * 3 * 2);
+
+	return false;
 }
 
 void renderer::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata)

@@ -14,3 +14,8 @@ namespace config
 
 #define BUFFER_MAX_SIZE		1048576
 #define BUFFER_MAX_COUNT	16384
+
+
+#define UVB_MAX_SIZE		402653184
+#define UNB_MAX_SIZE		251658240
+#define UIB_MAX_SIZE		402653184
