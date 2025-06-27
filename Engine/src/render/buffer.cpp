@@ -741,17 +741,9 @@ ID3D12Resource* buffer::getResource() const
     return resource.Get();
 }
 
-char* buffer::getView(const buf::graphicBufferFlags& index)
+buffer_header* buffer::getHeader()
 {
-    char* viewLoc = reinterpret_cast<char*>(this) + BUFFER_HEADER_SIZE;
-    for (uint i = 0; i < index; ++i)
-    {
-        if (header.packedData.viewFlags & (1 << i))
-        {
-            viewLoc += buf::DESCRIPTOR_SIZE;
-        }
-    }
-    return viewLoc;
+    return &header;
 }
 
 void buffer::uploadBuffer(uint size, uint offset, void* data)
@@ -845,7 +837,7 @@ void buffer_allocator::init()
     freedMem.push_back(std::make_pair(0, BUFFER_MAX_SIZE - 1));
 }
 
-buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::graphicBufferFlags viewFlags,
+buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint viewFlags,
     uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels )
 {
     //cbv size should be multiplied by 256 bytes

@@ -74,6 +74,9 @@
     <ClInclude Include="include\system\mathhelper.hpp">
       <Filter>system</Filter>
     </ClInclude>
+    <ClInclude Include="include\render\render_UB.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
@@ -133,6 +136,9 @@
     </ClCompile>
     <ClCompile Include="src\system\mathhelper.cpp">
       <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\render_UB.cpp">
+      <Filter>render</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

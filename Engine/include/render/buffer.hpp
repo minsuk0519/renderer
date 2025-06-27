@@ -20,6 +20,9 @@ struct uavbuffer;
 
 struct meshData;
 
+//buffer_header + buffer
+#define BUFFER_HEADER_SIZE ((4 + 4 + 4) + (4 + 8));
+
 namespace buf
 {
 	enum BUFFER_TYPE
@@ -160,7 +163,7 @@ public:
 
 	void init();
 	void update();
-	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), buf::graphicBufferFlags viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
+	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), uint viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
 		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 0);
 	void free(char* bufferData);
 	void free(uint index);
@@ -194,24 +197,9 @@ struct buffer
 {
 public:
 	uint getElemSize() const;
-
-	char* getView(const buf::graphicBufferFlags& index);
-
-	template<typename T>
-	T* getView(const buf::graphicBufferFlags& index)
-	{
-		char* viewLoc = reinterpret_cast<char*>(this) + BUFFER_HEADER_SIZE;
-		for (uint i = 0; i < index; ++i)
-		{
-			if (header.packedData.viewFlags & (1 << i))
-			{
-				viewLoc += buf::viewSizeTable[i];
-			}
-		}
-		return reinterpret_cast<T*>(viewLoc);
-	}
 	
 	ID3D12Resource* getResource() const;
+	buffer_header* getHeader();
 
 private:
 	friend struct buffer_allocator;
@@ -231,5 +219,4 @@ private:
 	void unmapBuffer();
 };
 
-//buffer_header + buffer
-#define BUFFER_HEADER_SIZE ((4 + 4 + 4) + (4 + 8))
+extern buffer_allocator e_globBufAllocator;
