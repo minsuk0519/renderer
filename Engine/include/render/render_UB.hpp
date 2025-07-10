@@ -5,7 +5,7 @@
 
 namespace render
 {
-	class UBManger
+	class UBManager
 	{
 	public:
 		friend class renderer;
@@ -14,6 +14,11 @@ namespace render
 		buffer* unifiedVertexBuffer;
 		buffer* unifiedNormalBuffer;
 		buffer* unifiedIndexBuffer;
+
+		buffer* meshInfoBuffer;
+		buffer* lodInfoBuffer;
+		buffer* clusterInfoBuffer;
+		buffer* clusterBoundBuffer;
 
 		uint curVertexOffset = 0;
 		uint curLodOffset = 0;

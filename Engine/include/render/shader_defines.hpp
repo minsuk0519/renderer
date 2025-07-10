@@ -73,7 +73,7 @@
 //u0 uvb buffer output
 #define UAV_UNIFIED_VERTEX_BUFFER	GET_HLSL_LOC_UAV(0)
 //u1 uib buffer output
-#define UAV_UNIFIED_INDDEX_BUFFER	GET_HLSL_LOC_UAV(1)
+#define UAV_UNIFIED_INDEX_BUFFER	GET_HLSL_LOC_UAV(1)
 //t0 vertex buffer input
 #define SRV_VERTEX_BUFFER			GET_HLSL_LOC_SRV(0)
 //t1 index buffer input

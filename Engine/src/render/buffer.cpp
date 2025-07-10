@@ -600,19 +600,6 @@ namespace buf
     {
     }
 
-    BUFFER_TYPE typeFromIndex(const uint index)
-    {
-        if (index < VERTEX_END && index >= VERTEX_START) return BUFFER_VERTEX_TYPE;
-        else if (index < CONSTANT_END && index >= CONSTANT_START) return BUFFER_CONSTANT_TYPE;
-        else if (index < UAV_END && index >= UAV_START) return BUFFER_UAV_TYPE;
-        else if (index < IMAGE_END && index >= IMAGE_START) return BUFFER_IMAGE_TYPE;
-        else if (index < INDEX_END && index >= INDEX_START) return BUFFER_INDEX_TYPE;
-        else if (index < DEPTH_END && index >= DEPTH_START) return BUFFER_DEPTH_TYPE;
-
-        //this should not happen
-        
-        return BUFFER_TYPE();
-    }
 
     //uint_8
     static_assert(graphicBufferFlags::GBF_COUNT < 8);
@@ -627,9 +614,6 @@ namespace buf
         {
             if(flags & (1 << i)) count += DESCRIPTOR_SIZE;
         }
-
-        //header
-        count += sizeof(buffer_header);
 
         //buffer struct
         count += sizeof(buffer);
@@ -753,6 +737,24 @@ void buffer::uploadBuffer(uint size, uint offset, void* data)
     resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
     memcpy(pVertexDataBegin + offset, data, size);
     resource->Unmap(0, nullptr);
+}
+
+descriptor* buffer::getDesc(buf::graphicBufferFlags flag)
+{
+    uint offset = 0;
+    for (uint i = 0; i < flag; ++i)
+    {
+        if (header.packedData.viewFlags & (1 << i))
+        {
+            offset += buf::DESCRIPTOR_SIZE;
+        }
+    }
+
+    TC_ASSERT(header.packedData.viewFlags & (1 << flag));
+
+    char* loc = baseLoc + offset + BUFFER_VIEW_OFFSET;
+
+    return reinterpret_cast<descriptor*>(loc);
 }
 
 void buffer::mapBuffer(unsigned char** dataPtr)
@@ -936,7 +938,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint v
     }
 
     //views
-    char* viewPos = allocatedData + BUFFER_HEADER_SIZE;
+    char* viewPos = allocatedData + BUFFER_VIEW_OFFSET;
     for (uint i = 0; i < buf::graphicBufferFlags::GBF_COUNT; ++i)
     {
         if (viewFlags & (1 << i))

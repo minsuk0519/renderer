@@ -8,26 +8,21 @@ StructuredBuffer<float3> vertexBuffer : register(t0);
 StructuredBuffer<uint3> indexBuffer : register(t1);
 StructuredBuffer<float3> normalBuffer : register(t2);
 
-ByteAddressBuffer meshInfos : register(t3);
-
 cbuffer cb_unifiedConstant : register(b0)
 {
 	uint vertexCount;
 	uint indexCount;
     uint indexOffset;
-    uint meshID;
+    uint vertexOffset;
 }
 
 [numthreads(1, 1, 1)]
 void unified_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
 {
-    meshInfo mesh;
-    getMeshInfoFromBuffer(meshInfos, meshID, mesh);
-
     for(uint vertIndex = 0; vertIndex < vertexCount; ++vertIndex)
     {
-        UVB[mesh.vertexOffset + vertIndex] = vertexBuffer[vertIndex];
-        if(!(mesh.flags & GPU_MESH_INFO_FLAGS_NONORM)) UVB[vertexMax + mesh.vertexOffset + vertIndex] = normalBuffer[vertIndex];
+        UVB[vertexOffset + vertIndex] = vertexBuffer[vertIndex];
+        UVB[vertexMax + vertexOffset + vertIndex] = normalBuffer[vertIndex];
     }
 
     for(uint id = 0; id < indexCount; ++id)

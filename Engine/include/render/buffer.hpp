@@ -19,9 +19,11 @@ struct imagebuffer;
 struct uavbuffer;
 
 struct meshData;
+struct descriptor;
 
 //buffer_header + buffer
-#define BUFFER_HEADER_SIZE ((4 + 4 + 4) + (4 + 8));
+#define BUFFER_HEADER_SIZE ((4 + 4 + 4) + (4 + 8))
+#define BUFFER_VIEW_OFFSET (BUFFER_HEADER_SIZE + 4)
 
 namespace buf
 {
@@ -201,6 +203,10 @@ public:
 	ID3D12Resource* getResource() const;
 	buffer_header* getHeader();
 
+	void uploadBuffer(uint size, uint offset, void* data);
+
+	descriptor* getDesc(buf::graphicBufferFlags flag);
+
 private:
 	friend struct buffer_allocator;
 	friend class buf::viewAllocator;
@@ -212,8 +218,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 
 	virtual ~buffer() {}
-
-	void uploadBuffer(uint size, uint offset, void* data);
 
 	void mapBuffer(unsigned char** dataPtr);
 	void unmapBuffer();

@@ -12,11 +12,11 @@ struct unifiedConsts
 	uint vertexCount = 0;
 	uint indexCount = 0;
 	uint indexOffset = 0;
-	uint meshID;
+	uint vertexOffset = 0;
 };
 
 
-bool UBManger::init()
+bool UBManager::init()
 {
 	curVertexOffset = 0;
 	curLodOffset = 0;
@@ -25,9 +25,15 @@ bool UBManger::init()
 	unifiedVertexBuffer = e_globBufAllocator.alloc(nullptr, UVB_MAX_SIZE, 3, buf::GBF_UAV | buf::GBF_SRV);
 	unifiedNormalBuffer = e_globBufAllocator.alloc(nullptr, UNB_MAX_SIZE, 3, buf::GBF_UAV | buf::GBF_SRV);
 	unifiedIndexBuffer = e_globBufAllocator.alloc(nullptr, UIB_MAX_SIZE, 1, buf::GBF_UAV | buf::GBF_SRV);
+
+	//TODO : we can make seperate upload buffer
+	meshInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES, 1, buf::GBF_UAV);
+	lodInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_LOD, 1, buf::GBF_UAV);
+	clusterInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS, 1, buf::GBF_UAV);
+	clusterBoundBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS * sizeof(clusterbounddata), 1, buf::GBF_UAV);
 }
 
-void UBManger::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID)
+void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID)
 {
 	getCmdQueue(QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Upload MeshInfo to UB", sizeof("Upload MeshInfo to UB"));
 
@@ -47,7 +53,6 @@ void UBManger::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshD
 			curClusterOffset += curClusterCount;
 			totalClusterCount += curClusterCount;
 		}
-		curLodOffset += lodNum;
 		uint vertexSize = vertex->getElemSize();
 		curVertexOffset += vertexSize;
 
@@ -115,15 +120,9 @@ void UBManger::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshD
 			++lodIndex;
 		}
 
-		//uint meshInfoSize = msh::MESH_END * sizeof(meshInfo);
-		//meshInfoBuffer = buf::createImageBuffer(MAX_MESHES, 0, 1, DXGI_FORMAT_R32_TYPELESS);
-		//uint lodInfoSize = curLodOffset * sizeof(lodInfo);
-		//lodInfoBuffer = buf::createImageBuffer(MAX_MESHES_LOD, 0, 1, DXGI_FORMAT_R32_TYPELESS);
-		//clusterInfoBuffer = buf::createImageBuffer(MAX_MESHES_CLUSTERS, 0, 1, DXGI_FORMAT_R32_TYPELESS);
-		//clusterBoundBuffer = buf::createImageBuffer(MAX_MESHES_CLUSTERS * sizeof(clusterbounddata), 0, 0, DXGI_FORMAT_R32_TYPELESS);
-
-		meshInfoBuffer->uploadBuffer(meshInfoSize, 0, meshInfos);
-		lodInfoBuffer->uploadBuffer(lodInfoSize, 0, lodInfos);
+		meshInfoBuffer->uploadBuffer(sizeof(meshInfo), meshID, &meshinfo);
+		lodInfoBuffer->uploadBuffer(lodNum, curLodOffset, lodInfos);
+		curLodOffset += lodNum;
 		clusterInfoBuffer->uploadBuffer(clusterInfoSize, 0, clusterInfos);
 		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(clusterbounddata), 0, clusterBounds);
 
@@ -144,31 +143,24 @@ void UBManger::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshD
 			normDesc.NumElements = norm->getElemSize();
 			normDesc.StructureByteStride = sizeof(float) * 3;
 
-			imagebuffer* vbsBuffer = buf::createImageBufferFromBuffer(meshdata->vbs, vertexDesc);
-			imagebuffer* normBuffer = buf::createImageBufferFromBuffer(meshdata->norm, normDesc);
-			imagebuffer* idxBuffer = buf::createImageBufferFromBuffer(meshdata->idx, indexDesc);
-
-			descriptor vertexSRV = getHeap(DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, vbsBuffer);
-			descriptor indexSRV = getHeap(DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, idxBuffer);
-			descriptor normSRV = getHeap(DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, normBuffer);
-
 			auto computeCmdList = getCmdQueue(QUEUE_COMPUTE)->getCmdList();
 
 			getCmdQueue(QUEUE_COMPUTE)->bindPSO(PSO_GENUNIFIED);
 
-			getCmdQueue(QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedDesc[0].getHandle());
-			getCmdQueue(QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDDEX_BUFFER, unifiedDesc[1].getHandle());
+			unifiedVertexBuffer->getDesc(buf::GBF_UAV);
+			getCmdQueue(QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedVertexBuffer->getDesc(buf::GBF_UAV)->getHandle());
+			getCmdQueue(QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDEX_BUFFER, unifiedIndexBuffer->getDesc(buf::GBF_UAV)->getHandle());
 
-			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertexSRV.getHandle());
-			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, indexSRV.getHandle());
-			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_NORMAL_BUFFER, normSRV.getHandle());
-			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_UNIFIED_MESHINFO_BUFFER, meshInfoDesc.getHandle());
+			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertex->getDesc(buf::GBF_SRV)->getHandle());
+			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, index->getDesc(buf::GBF_SRV)->getHandle());
+			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_NORMAL_BUFFER, norm->getDesc(buf::GBF_SRV)->getHandle());
+			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_UNIFIED_MESHINFO_BUFFER, meshInfoBuffer->getDesc(buf::GBF_SRV)->getHandle());
 
 			unifiedConsts unifiedconst;
 
 			uint indexSize = indexDesc.NumElements * 3;
 
-			unifiedconst.meshID = meshID;
+			unifiedconst.vertexOffset = meshinfo.vertexOffset;
 			unifiedconst.indexCount = indexSize;
 			unifiedconst.indexOffset = indexOffset;
 			unifiedconst.vertexCount = vertex->getElemSize();
