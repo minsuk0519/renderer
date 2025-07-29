@@ -31,6 +31,16 @@ bool UBManager::init()
 	lodInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_LOD, 1, buf::GBF_UAV);
 	clusterInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS, 1, buf::GBF_UAV);
 	clusterBoundBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS * sizeof(clusterbounddata), 1, buf::GBF_UAV);
+
+	if (!unifiedVertexBuffer) return false;
+	if (!unifiedNormalBuffer) return false;
+	if (!unifiedIndexBuffer) return false;
+	if (!meshInfoBuffer) return false;
+	if (!lodInfoBuffer) return false;
+	if (!clusterInfoBuffer) return false;
+	if (!clusterBoundBuffer) return false;
+
+	return true;
 }
 
 void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID)
@@ -79,7 +89,6 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		uint indexOffset = 0;
 		uint vertexOffset = 0;
 
-		uint lodNum = meshdata->lodNum;
 		uint meshClusterIndex = 0;
 		for (uint j = 0; j < lodNum; ++j)
 		{
