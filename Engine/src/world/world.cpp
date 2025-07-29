@@ -155,12 +155,10 @@ void world::close()
 
 uint world::submitObjects(void* cbvLoc)
 {
-	uint offset = 0;
-
 	uint* location = static_cast<uint*>(cbvLoc);
 	for (uint i = 0; i < cameraObjNum; ++i)
 	{
-		objects[cameraObjectIndex[i]].submit(static_cast<void*>(location), offset, i);
+		objects[cameraObjectIndex[i]].submit(static_cast<void*>(location), i);
 		location += 1;
 	}
 

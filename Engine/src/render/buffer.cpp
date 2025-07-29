@@ -214,7 +214,7 @@ namespace buf
         delete[] data;
     }
 
-    void loadFiletoMesh(std::string fileName, meshData* meshdata)
+    void loadFiletoMesh(std::string fileName, meshData* meshdata, uint id)
     {
         auto result = rapidobj::ParseFile(fileName);
 
@@ -277,7 +277,7 @@ namespace buf
         math::compare_float(yMin + meshdata->boundData.halfExtent[msh::AXIS_Y], 0.0f);
         math::compare_float(zMin + meshdata->boundData.halfExtent[msh::AXIS_Z], 0.0f);
 #else // #if ENGINE_DEBUG_DATATEST
-        }   
+        }
 #endif // #else // #if ENGINE_DEBUG_DATATEST
 
         buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.positions.data()), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3,
@@ -302,10 +302,22 @@ namespace buf
 
         loadMeshInfo(fileName, meshdata);
 
-        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata);
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
     }
 
-    imagebuffer* loadTextureFromFile(std::wstring filename, bool mip)
+    void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id)
+    {
+        buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(p), static_cast<uint>(sizeof(float) * 3 * vNum), sizeof(float) * 3,
+            GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+        buffer* norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(n), static_cast<uint>(sizeof(float) * 3 * vNum), sizeof(float) * 3,
+                GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+        buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(i), static_cast<uint>(sizeof(uint) * iNum), sizeof(uint),
+            GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
+    }
+
+    buffer* loadTextureFromFile(std::wstring filename, bool mip)
     {
         DirectX::TexMetadata metadata;
         DirectX::ScratchImage scratchImage;
@@ -339,7 +351,9 @@ namespace buf
             subresources.push_back(subresource);
         }
 
-        imagebuffer* buffer = createImageBuffer(static_cast<uint>(image->width), static_cast<uint>(image->height), mipSize, image->format, D3D12_RESOURCE_FLAG_NONE);
+        uint uWidth = static_cast<uint>(image->width);
+        uint uHeight = static_cast<uint>(image->height);
+        buffer* buf = e_globBufAllocator.alloc(nullptr, uWidth * uHeight, 1, buf::GBF_SRV, buf::RESOURCE_TEXTURE, image->format, uWidth, uHeight, mipSize);
 
         {
             render::getCmdQueue(render::QUEUE_COPY)->getAllocator()->Reset();
@@ -349,7 +363,7 @@ namespace buf
             //CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(buffer->resource.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
             //render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->ResourceBarrier(1, &barrier);
         
-            UINT64 requiredSize = GetRequiredIntermediateSize(buffer->resource.Get(), 0, static_cast<uint>(subresources.size()));
+            UINT64 requiredSize = GetRequiredIntermediateSize(buf->getResource(), 0, static_cast<uint>(subresources.size()));
             
             // Create a temporary (intermediate) resource for uploading the subresources
             Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource;
@@ -359,7 +373,7 @@ namespace buf
             
             e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediateResource));
             
-            UpdateSubresources(render::getCmdQueue(render::QUEUE_COPY)->getCmdList().Get(), buffer->resource.Get(), intermediateResource.Get(), 0, 0, static_cast<uint>(subresources.size()), subresources.data());
+            UpdateSubresources(render::getCmdQueue(render::QUEUE_COPY)->getCmdList().Get(), buf->getResource(), intermediateResource.Get(), 0, 0, static_cast<uint>(subresources.size()), subresources.data());
 
             intermediates.push_back(intermediateResource);
         }
@@ -369,7 +383,7 @@ namespace buf
         render::getCmdQueue(render::QUEUE_COPY)->flush();
         intermediates.clear();
 
-        return buffer;
+        return buf;
     }
 }
 
@@ -509,9 +523,6 @@ namespace buf
                     -1.0f, 0.0f, 0.0f,
                 };
 
-                bufferContainer[VERTEX_CUBE] = createVertexBuffer(cubeVertices, sizeof(cubeVertices), sizeof(float) * 3);
-                bufferContainer[VERTEX_CUBE_NORM] = createVertexBuffer(cubeNorm, sizeof(cubeNorm), sizeof(float) * 3);
-
                 uint cubeIndices[] = {
                     3, 2, 0,
                     0, 1, 3,
@@ -532,7 +543,36 @@ namespace buf
                     20, 23, 22,
                 };
 
-                bufferContainer[INDEX_CUBE] = createIndexBuffer(cubeIndices, sizeof(cubeIndices));
+                buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeVertices), sizeof(cubeVertices), 3, GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+                buffer* nvbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeNorm), sizeof(cubeNorm), 3, GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+                buffer* ibs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeIndices), sizeof(cubeIndices), 1, GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+
+                meshData* meshInfo = new meshData;
+
+                clusterbounddata bound;
+                bound.aabb.center[0] = 0.0f;
+                bound.aabb.center[1] = 0.0f;
+                bound.aabb.center[2] = 0.0f;
+                bound.aabb.hExtent[0] = 1.0f;
+                bound.aabb.hExtent[1] = 1.0f;
+                bound.aabb.hExtent[2] = 1.0f;
+                bound.sphere.center[0] = 0.0f;
+                bound.sphere.center[1] = 0.0f;
+                bound.sphere.center[2] = 0.0f;
+                bound.sphere.radius = 1.73205f;
+                meshInfo->clusterBounds.push_back(bound);
+                meshInfo->boundData.halfExtent[msh::AXIS_Y] = 1.0f;
+                meshInfo->boundData.halfExtent[msh::AXIS_Y] = 1.0f;
+                meshInfo->boundData.halfExtent[msh::AXIS_Z] = 1.0f;
+                meshInfo->boundData.radius = 1.73205f;
+                lodInfos lodinfo;
+                lodinfo.clusterNum = 1;
+                lodinfo.indexSize.push_back(36);
+                lodinfo.totalIndicesCount = 36;
+                meshInfo->lodData.push_back(lodinfo);
+                meshInfo->lodNum = 1;
+
+                e_globRenderer.uploadMeshToUB(vbs, nvbs, ibs, meshInfo, msh::MESH_CUBE);
             }
 
         //    {
@@ -569,9 +609,7 @@ namespace buf
             uint width = e_globWindow.width();
             uint height = e_globWindow.height();
 
-            {
-                bufferContainer[DEPTH_SWAPCHAIN] = createDepthBuffer(width, height);
-            }
+            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH, DXGI_FORMAT_D32_FLOAT, width, height);
         }
 
         //create image buffer
@@ -579,7 +617,7 @@ namespace buf
             uint width = e_globWindow.width();
             uint height = e_globWindow.height();
 
-            bufferContainer[IMAGE_DEPTH] = createImageBuffer(width, height, 1, DXGI_FORMAT_R32_UINT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL | GBF_RT, buf::RESOURCE_DEPTH, DXGI_FORMAT_R32_UINT, width, height);
 
             //{
             //    bufferContainer[IMAGE_IRRADIANCE] = loadTextureFromFile(L"asset/texture/Sierra_Madre_B_Ref.irr.hdr", true);
@@ -703,7 +741,7 @@ namespace buf
     char* viewAllocator::allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_RENDER_TARGET_VIEW_DESC view = {};
-        view.Format = buf->getView<D3D12_UNORDERED_ACCESS_VIEW_DESC>(buf::GBF_SRV)->Format;
+        view.Format = bufDesc.Format;
         //force render target to texture2d
         view.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
@@ -755,6 +793,11 @@ descriptor* buffer::getDesc(buf::graphicBufferFlags flag)
     char* loc = baseLoc + offset + BUFFER_VIEW_OFFSET;
 
     return reinterpret_cast<descriptor*>(loc);
+}
+
+CD3DX12_RESOURCE_BARRIER buffer::getTransition(D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
+{
+    return CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 }
 
 void buffer::mapBuffer(unsigned char** dataPtr)
@@ -840,7 +883,7 @@ void buffer_allocator::init()
 }
 
 buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint viewFlags,
-    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels )
+    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor)
 {
     //cbv size should be multiplied by 256 bytes
     if (viewFlags & (1 << buf::graphicBufferFlags::GBF_CBV))
@@ -854,6 +897,8 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint v
 
     int allocatedPos = -1;
 
+    bool found = false;
+
     for (auto iter = freedMem.begin(); iter < freedMem.end(); ++iter)
     {
         if ((*iter).second >= totalSize)
@@ -864,9 +909,13 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint v
             (*iter).first = allocatedPos;
             (*iter).second = remainSize;
 
+            found = true;
+
             break;
         }
     }
+
+    if (!found) return nullptr;
 
     char* allocatedData = data + allocatedPos;
 
@@ -921,13 +970,13 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint v
         }
         else if(flag & buf::RESOURCE_TEXTURE)
         {
-            float col[4];
-            col[0] = 0.0f;
-            col[1] = 0.0f;
-            col[2] = 0.0f;
-            col[3] = 0.0f;
+            float color[4];
+            color[0] = clearColor.x;
+            color[1] = clearColor.y;
+            color[2] = clearColor.z;
+            color[3] = clearColor.w;
 
-            clearValue = CD3DX12_CLEAR_VALUE(format, col);
+            clearValue = CD3DX12_CLEAR_VALUE(format, color);
         }
 
         buf::createResource(buf->resource, &bufDesc, size, bufferData, &clearValue, flag);

@@ -6,17 +6,12 @@
 #include <wrl.h>
 #include <d3d12.h>
 #include <d3dx12.h>
+#include <DirectXMath.h>
 
 #include <array>
 #include <string>
 
 struct buffer;
-struct vertexbuffer;
-struct indexbuffer;
-struct constantbuffer;
-struct depthbuffer;
-struct imagebuffer;
-struct uavbuffer;
 
 struct meshData;
 struct descriptor;
@@ -93,9 +88,10 @@ namespace buf
 	bool loadResources();
 	void cleanUp();
 
-	void loadFiletoMesh(std::string fileName, meshData* meshdata);
+	void loadFiletoMesh(std::string fileName, meshData* meshdata, uint id);
+	void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id);
 
-	imagebuffer* loadTextureFromFile(std::wstring filename, bool mip);
+	buffer* loadTextureFromFile(std::wstring filename, bool mip);
 
 	BUFFER_TYPE typeFromIndex(const uint index);
 
@@ -166,7 +162,7 @@ public:
 	void init();
 	void update();
 	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), uint viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
-		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 0);
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 0, DirectX::XMFLOAT4 clearColor = {});
 	void free(char* bufferData);
 	void free(uint index);
 };
@@ -207,6 +203,10 @@ public:
 
 	descriptor* getDesc(buf::graphicBufferFlags flag);
 
+	CD3DX12_RESOURCE_BARRIER getTransition(D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
+
+	void mapBuffer(unsigned char** dataPtr);
+	void unmapBuffer();
 private:
 	friend struct buffer_allocator;
 	friend class buf::viewAllocator;
@@ -218,9 +218,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 
 	virtual ~buffer() {}
-
-	void mapBuffer(unsigned char** dataPtr);
-	void unmapBuffer();
 };
 
 extern buffer_allocator e_globBufAllocator;

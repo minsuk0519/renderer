@@ -24,9 +24,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 	meshEnumIndex = meshIdx;
 	meshPtr = msh::getMesh(meshIdx);
 
-	cbv = buf::createConstantBuffer(consts::CONST_OBJ_SIZE);
-
-	desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, cbv));
+	cbv = e_globBufAllocator.alloc(nullptr, consts::CONST_OBJ_SIZE, 1, buf::GBF_CBV);
 
 	id = obj::remainID++;
 
@@ -36,10 +34,9 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 }
 
 
-
 void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw)
 {
-	cmdQueue->sendData(CBV_OBJECT, desc.getHandle());
+	cmdQueue->sendData(CBV_OBJECT, cbv->getDesc(buf::GBF_CBV)->getHandle());
 
 	//if (debugDraw)
 	//{
@@ -70,19 +67,17 @@ void object::update(float dt)
 		roughness,
 	};
 
-	memcpy(cbv->info.cbvDataBegin, matPointer, cbv->info.size);
-	memcpy(cbv->info.cbvDataBegin + sizeof(float) * 16, &a, cbv->info.size);
+	cbv->uploadBuffer(sizeof(float) * (4 * 4), 0, matPointer);
+	cbv->uploadBuffer(sizeof(float) * (3 + 1 + 1), sizeof(float) * (4 * 4), &a);
 }
 
-void object::submit(void* cbvLoc, uint& offset, uint localID)
+void object::submit(void* cbvLoc, uint localID)
 {
 	uint data;
 
 	data = (localID << 16) | (getMeshIdx() << 3) | lod;
 
 	memcpy(cbvLoc, &data, 4);
-
-	offset += 1 + (getMesh()->getData()->idx->view.SizeInBytes / (sizeof(uint) * 3)) / 64;
 }
 
 void object::sendMat(unsigned char* cbvdata)
@@ -97,11 +92,11 @@ void object::sendMat(unsigned char* cbvdata)
 
 	unsigned char* dataLoc;
 		
-	if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
-	else dataLoc = cbvdata + consts::CONST_OBJ_SIZE_ALLIGNMENT * id;
+	//if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
+	//else dataLoc = cbvdata + consts::CONST_OBJ_SIZE_ALLIGNMENT * id;
 
-	memcpy(dataLoc, matPointer, cbv->info.size);
-	memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
+	//memcpy(dataLoc, matPointer, cbv->info.size);
+	//memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
 }
 
 void object::uploadViewInfo(unsigned char* dataLoc)
@@ -192,7 +187,7 @@ void object::setAlbedo(float r, float g, float b)
 
 uint64_t object::getCBVLoc() const
 {
-	return cbv->resource->GetGPUVirtualAddress();
+	return cbv->getResource()->GetGPUVirtualAddress();
 }
 
 uint object::getMeshIdx() const

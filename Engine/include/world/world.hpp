@@ -1,6 +1,7 @@
 #pragma once
 
 #include <system/defines.hpp>
+#include <system/config.hpp>
 
 #include <vector>
 #include <string>

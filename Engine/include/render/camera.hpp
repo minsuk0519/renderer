@@ -69,12 +69,8 @@ public:
 	cam::viewport screenViewport;
 	cam::scissorRect scissor = {};
 
-	constantbuffer* projectionBuffer;
-	descriptor desc;
-
-	//for drawing frustum
-	constantbuffer* objectBuffer;
-	descriptor objectdesc;
+	buffer* projectionBuffer;
+	buffer* objectBuffer;
 
 	cam::VIEWPORT_TYPE viewportType = cam::VIEWPORT_FULL;
 
