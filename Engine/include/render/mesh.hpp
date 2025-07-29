@@ -17,7 +17,6 @@ namespace msh
 		MESH_BUNNY,
 		MESH_TERRAIN,
 		MESH_END,
-		MESH_SCENE_TRIANGLE = MESH_END,
 		MESH_SIZE,
 	};
 
@@ -31,7 +30,7 @@ namespace msh
 	bool loadResources();
 	void cleanUp();
 
-	void setUpTerrain(vertexbuffer* vertex, vertexbuffer* n, indexbuffer* index);
+	void setUpTerrain(float* p, float* n, uint* i, uint vNum, uint iNum);
 
 	mesh* getMesh(const uint& idx);
 	mesh* getMesh(const MESH_INDEX idx);
@@ -109,6 +108,5 @@ public:
 
 	meshData* getData() const;
 
-	void setBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool lineDraw);
 	void draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 };
