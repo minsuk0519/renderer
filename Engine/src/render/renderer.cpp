@@ -212,7 +212,6 @@ bool renderer::createSwapChain()
 
 bool renderer::createFrameResources()
 {
-	uint screenPixelSize = e_globWindow.width() * e_globWindow.height();
 	uint sWidth = e_globWindow.width();
 	uint sHeight = e_globWindow.height();
 
@@ -229,27 +228,27 @@ bool renderer::createFrameResources()
 
 	gbufferFB = new framebuffer();
 	//position
-	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//normal
-	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
-	gbufferFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferFB->setDepthClear(1.0f);
 
 #if ENGINE_DEBUG_DEBUGCAM
 	//should be sync with gbufferFB
 	gbufferDebugFB = new framebuffer();
 	//position
-	gbufferDebugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//normal
-	gbufferDebugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
-	gbufferDebugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferDebugFB->setDepthClear(1.0f);
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	debugFB = new framebuffer();
-	debugFB->createAddFBO(e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	debugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	debugFB->setDepthClear(1.0f);
 
 	{
@@ -521,7 +520,6 @@ void renderer::draw(float dt)
 	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
 	descriptor* unifiedVertexBufferUAV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
 	descriptor* unifiedNormalBufferUAV = ubManager->unifiedNormalBuffer->getDesc(buf::GBF_SRV);
-	descriptor* unifiedIndexBufferUAV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
 	descriptor* camDesc = e_globWorld.getMainCam()->getDesc();
 
 	descriptor* ssaoUAV[3];

@@ -64,33 +64,33 @@ private:
 
 private:
 	framebuffer* swapchainFB[FRAME_COUNT];
-	framebuffer* gbufferFB;
+	framebuffer* gbufferFB = nullptr;
 #if ENGINE_DEBUG_DEBUGCAM
-	framebuffer* gbufferDebugFB;
+	framebuffer* gbufferDebugFB = nullptr;
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
-	framebuffer* debugFB;
+	framebuffer* debugFB = nullptr;
 	bool debugFBRequest = false;
 	uint debugFBMeshID;
 	UINT64 debugProjection;
 
 	buffer* ssaoTex[3];
 
-	buffer* commandBuffer;
-	buffer* objectConstBuffer;
-	buffer* localClusterOffsetBuffer;
-	buffer* localClusterSizeBuffer;
-	buffer* clusterArgsBuffer;
+	buffer* commandBuffer = nullptr;
+	buffer* objectConstBuffer = nullptr;
+	buffer* localClusterOffsetBuffer = nullptr;
+	buffer* localClusterSizeBuffer = nullptr;
+	buffer* clusterArgsBuffer = nullptr;
 
 #if	ENGINE_DEBUG_BUFFER
-	buffer* outDebugBuffer;
+	buffer* outDebugBuffer = nullptr;
 #endif //#if ENGINE_DEBUG_BUFFER
-	buffer* viewInfoBuffer;
-	buffer* clusterBoundBuffer;
+	buffer* viewInfoBuffer = nullptr;
+	buffer* clusterBoundBuffer = nullptr;
 	
-	buffer* cmdConstBuffer;
+	buffer* cmdConstBuffer = nullptr;
 
-	buffer* vertexIDBuffer;
+	buffer* vertexIDBuffer = nullptr;
 
 	bool debugCamMode = false;
 
@@ -98,8 +98,8 @@ private:
 	uint curLodOffset = 0;
 	uint curClusterOffset = 0;
 
-	buffer* AABBwireframeBuffer[2];
-	buffer* triangleBuffer;
+	buffer* AABBwireframeBuffer[3];
+	buffer* triangleBuffer = nullptr;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;

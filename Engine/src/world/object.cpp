@@ -57,7 +57,7 @@ void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, com
 	//}
 }
 
-void object::update(float dt)
+void object::update([[maybe_unused]] float dt)
 {
 	float* matPointer = trans->getMatPointer();
 

@@ -6,7 +6,7 @@
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
 
-class buffer;
+struct buffer;
 
 class framebuffer
 {

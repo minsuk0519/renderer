@@ -137,7 +137,7 @@ namespace buf
 	};
 
 
-	viewAllocator::allocateViewFunc allocateViews[graphicBufferFlags::GBF_COUNT] = {
+	static viewAllocator::allocateViewFunc allocateViews[graphicBufferFlags::GBF_COUNT] = {
 		viewAllocator::allocateUAVs,
 		viewAllocator::allocateCBVs,
 		viewAllocator::allocateSRVs,
@@ -161,7 +161,7 @@ public:
 
 	void init();
 	void update();
-	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), uint viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
+	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), uint_8 viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
 		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 0, DirectX::XMFLOAT4 clearColor = {}, ID3D12Resource* resource = nullptr);
 	void free(char* bufferData);
 	void free(uint index);

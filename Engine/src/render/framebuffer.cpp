@@ -14,16 +14,22 @@ bool framebuffer::createAddFBO(uint width, uint height, DXGI_FORMAT format, Dire
 	return true;
 }
 
-bool framebuffer::attachResource(ID3D12Resource* resource, uint width, uint height, DXGI_FORMAT format, DirectX::XMFLOAT4 clearColor)
+bool framebuffer::attachResource(ID3D12Resource* resource, uint width, uint height, DXGI_FORMAT format, DirectX::XMFLOAT4 clear)
 {
-	e_globBufAllocator.alloc(nullptr, width * height, 4, 0, 0, DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 0, DirectX::XMFLOAT4{ 0,0,0,0 }, resource);
+	clearColor = clear;
+
+	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, 0, 0, format, width, height, 0, clearColor, resource);
+
+	FBOs.push_back(FBO);
+
+	return true;
 }
 
 //open frame buffer and clear the buffer
 //TODO we will add extra features for not clear color or depth
 void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool clear)
 {
-	uint numFBO = FBOs.size();
+	uint numFBO = (uint)FBOs.size();
 
 	std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
 	std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvs;
@@ -33,7 +39,7 @@ void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdLi
 
 	for (uint i = 0; i < numFBO; ++i) barriers.push_back(FBOs[i]->getTransition(D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	cmdList->ResourceBarrier(barriers.size(), barriers.data());
+	cmdList->ResourceBarrier((uint)barriers.size(), barriers.data());
 
 	for (uint i = 0; i < numFBO; ++i)
 	{
@@ -67,7 +73,7 @@ void framebuffer::closeFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdL
 		barriers.push_back(FBO->getTransition(D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 	}
 
-	cmdList->ResourceBarrier(barriers.size(), barriers.data());
+	cmdList->ResourceBarrier((uint)barriers.size(), barriers.data());
 }
 
 void framebuffer::setDepthClear(float depth)

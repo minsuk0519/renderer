@@ -74,6 +74,8 @@ namespace shaders
 			TC_LOG_ERROR(errorMsg.c_str());
 			return false;
 		}
+
+		return true;
 	}
 
 	bool loadResources()
@@ -239,7 +241,7 @@ namespace shaders
 	void guiShaderSetting()
 	{
 		uint shaderIndex = 0;
-		uint shaderNum = shaders.size();
+		uint shaderNum = (uint)shaders.size();
 
 		for (shaderIndex = 0; shaderIndex < shaderNum; ++shaderIndex)
 		{
@@ -422,7 +424,7 @@ void shader::decipherHLSL()
 					}
 					else if (variableIndex == 2)
 					{
-						hlslbuf.data = str.size();
+						hlslbuf.data = (uint)str.size();
 					}
 					else if (variableIndex == 3)
 					{
@@ -525,7 +527,7 @@ void shader::decipherHLSL()
 					}
 					if (variableIndex == 2)
 					{
-						hlslbuf.data = str.size();
+						hlslbuf.data = (uint)str.size();
 					}
 					if (variableIndex == 3)
 					{
@@ -546,8 +548,6 @@ void shader::decipherHLSL()
 		auto find = sourceString.find("Resource Bindings:") + 1;
 		find = sourceString.find("------------------------------ ---------- ------- ----------- ------- -------------- ------", find);
 		find = sourceString.find("; ", find) + 1;
-
-		bool skipConstant = false;
 
 		while (true)
 		{
@@ -767,8 +767,6 @@ void shader::decipherHLSL()
 				std::string line = sourceString.substr(find, find2 - find);
 				find = find2 - 1;
 
-				auto find3 = line.find("%cb_");
-
 				find2 = line.find(" ");
 
 				std::string Name = line.substr(1, find2 - 1);
@@ -849,7 +847,7 @@ void shader::decipherHLSL()
 						}
 						else if (c == '[' || c == '<')
 						{
-							stack3.push(stack.size());
+							stack3.push((uint)stack.size());
 						}
 						else if (c == ',')
 						{
@@ -898,7 +896,7 @@ void shader::decipherHLSL()
 	//set input signature
 	if (type == shaders::SHADER_VS)
 	{
-		uint inputContainerSize = bufData.inputContainer.size();
+		uint inputContainerSize = (uint)bufData.inputContainer.size();
 		for (uint i = 0; i < inputContainerSize; ++i)
 		{
 			DXGI_FORMAT format = (DXGI_FORMAT)bufData.inputContainer[i].data;

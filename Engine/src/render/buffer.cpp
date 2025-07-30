@@ -204,7 +204,7 @@ namespace buf
                     aabb.hExtent[2] = values[10];
 
                     meshData->clusterBounds.push_back({ sphere, aabb });
-                    totalIndexCount += values[0];
+                    totalIndexCount += (uint)values[0];
                 }
 
                 TC_ASSERT(totalIndexCount == meshData->lodData[i].totalIndicesCount);
@@ -646,7 +646,7 @@ namespace buf
         return count;
     }
 
-    char* viewAllocator::allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateUAVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
         //we will forcely use R32 for UAVs since we will use our own packing unpacking for raw byte buffer
@@ -662,7 +662,7 @@ namespace buf
         return viewPos + sizeof(descriptor);
     }
 
-    char* viewAllocator::allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateCBVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_CONSTANT_BUFFER_VIEW_DESC view = {};
 
@@ -709,7 +709,7 @@ namespace buf
         return viewPos + sizeof(descriptor);
     }
 
-    char* viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_DEPTH_STENCIL_VIEW_DESC view = {};
 
@@ -784,7 +784,7 @@ descriptor* buffer::getDesc(buf::graphicBufferFlags flag)
 
 CD3DX12_RESOURCE_BARRIER buffer::getTransition(D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
 {
-    return CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    return CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), before, after);
 }
 
 void buffer::mapBuffer(unsigned char** dataPtr)
@@ -800,7 +800,7 @@ void buffer::unmapBuffer()
 
 void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
 {
-    uint memSize = freedMem.size();
+    uint memSize = (uint)freedMem.size();
 
     for (uint i = 0; i < (memSize - 1); ++i)
     {
@@ -869,7 +869,7 @@ void buffer_allocator::init()
     freedMem.push_back(std::make_pair(0, BUFFER_MAX_SIZE - 1));
 }
 
-buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint viewFlags,
+buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8 viewFlags,
     uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor, ID3D12Resource* resource)
 {
     //cbv size should be multiplied by 256 bytes
@@ -999,7 +999,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint v
         viewPos += size;
     }
 
-    uint addrDiff = viewPos - allocatedData;
+    uint addrDiff = (uint)(viewPos - allocatedData);
 
     TC_ASSERT(addrDiff == totalSize);
 
@@ -1010,10 +1010,6 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint v
 
 void buffer_allocator::free(char* bufferData)
 {
-    uint startPos;
-    uint size;
-    uint index;
-
     buffer* buf = reinterpret_cast<buffer*>(bufferData);
 
     freeInternal((data - bufferData), buf->header.totalSize, buf->header.packedData.bufferId);
@@ -1021,16 +1017,21 @@ void buffer_allocator::free(char* bufferData)
 
 void buffer_allocator::free(uint index)
 {
-    uint startPos;
-    uint size;
+    int startPos = -1;
+    uint size = 0;
 
     for (auto& mem : memBlocks)
     {
         if (mem->header.packedData.bufferId == index)
         {
-            startPos = (data - mem->baseLoc);
+            startPos = (int)(data - mem->baseLoc);
             size = mem->header.totalSize;
         }
+    }
+
+    if (startPos == -1)
+    {
+        TC_LOG_ERROR("Trying to free vacant buffer");
     }
 
     freeInternal(startPos, size, index);

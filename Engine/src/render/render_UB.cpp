@@ -87,7 +87,6 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		uint clusterInfoSize = curClusterOffset * sizeof(clusterInfo);
 		curClusterOffset = 0;
 		uint indexOffset = 0;
-		uint vertexOffset = 0;
 
 		uint meshClusterIndex = 0;
 		for (uint j = 0; j < lodNum; ++j)

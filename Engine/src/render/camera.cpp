@@ -95,14 +95,14 @@ void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, projectionBuffer->getDesc(buf::GBF_CBV)->getHandle());
 }
 
-void camera::changeViewport(const cam::VIEWPORT_TYPE type)
+void camera::changeViewport(const cam::VIEWPORT_TYPE viewType)
 {
-	if (viewportType == type) return;
+	if (viewportType == viewType) return;
 
 	uint width = e_globWindow.width();
 	uint height = e_globWindow.height();
 
-	if (type == cam::VIEWPORT_MINI)
+	if (viewType == cam::VIEWPORT_MINI)
 	{
 		screenViewport.topLeftX = static_cast<float>(width - MINI_VIEWPORT_WIDTH);
 		screenViewport.topLeftY = static_cast<float>(height - MINI_VIEWPORT_HEIGHT);
@@ -114,7 +114,7 @@ void camera::changeViewport(const cam::VIEWPORT_TYPE type)
 		scissor.right = static_cast<long>(width);
 		scissor.bottom = static_cast<long>(height);
 	}
-	else if (type == cam::VIEWPORT_FULL)
+	else if (viewType == cam::VIEWPORT_FULL)
 	{
 		screenViewport.topLeftX = 0.0f;
 		screenViewport.topLeftY = 0.0f;
@@ -127,7 +127,7 @@ void camera::changeViewport(const cam::VIEWPORT_TYPE type)
 		scissor.bottom = static_cast<long>(height);
 	}
 
-	viewportType = type;
+	viewportType = viewType;
 }
 
 void camera::updateView()
