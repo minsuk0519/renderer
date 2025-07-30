@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <system/defines.hpp>
 
 #ifdef _DEBUG
 #define CONFIG_CAPTURE_ENABLED 1
@@ -14,3 +15,18 @@ namespace config
 
 #define BUFFER_MAX_SIZE		1048576
 #define BUFFER_MAX_COUNT	16384
+
+
+#define UVB_MAX_SIZE		402653184
+#define UNB_MAX_SIZE		251658240
+#define UIB_MAX_SIZE		402653184
+
+constexpr uint THREADS_NUM_CLUSTERS = 64;
+constexpr uint MAX_OBJECTS = 256;
+constexpr uint MAX_CLUSTERS = MAX_OBJECTS * 1024;
+
+constexpr uint MAX_MESHES = 16;
+constexpr uint MAX_MESHES_LOD = 128;
+constexpr uint MAX_MESHES_CLUSTERS = 8096;
+
+constexpr uint MAX_LODS = 8;

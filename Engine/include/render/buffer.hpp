@@ -6,19 +6,19 @@
 #include <wrl.h>
 #include <d3d12.h>
 #include <d3dx12.h>
+#include <DirectXMath.h>
 
 #include <array>
 #include <string>
 
 struct buffer;
-struct vertexbuffer;
-struct indexbuffer;
-struct constantbuffer;
-struct depthbuffer;
-struct imagebuffer;
-struct uavbuffer;
 
 struct meshData;
+struct descriptor;
+
+//buffer_header + buffer
+#define BUFFER_HEADER_SIZE ((4 + 4 + 4) + (4 + 8))
+#define BUFFER_VIEW_OFFSET (BUFFER_HEADER_SIZE + 4)
 
 namespace buf
 {
@@ -88,9 +88,10 @@ namespace buf
 	bool loadResources();
 	void cleanUp();
 
-	void loadFiletoMesh(std::string fileName, meshData* meshdata);
+	void loadFiletoMesh(std::string fileName, meshData* meshdata, uint id);
+	void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id);
 
-	imagebuffer* loadTextureFromFile(std::wstring filename, bool mip);
+	buffer* loadTextureFromFile(std::wstring filename, bool mip);
 
 	BUFFER_TYPE typeFromIndex(const uint index);
 
@@ -104,9 +105,8 @@ namespace buf
 		GBF_UAV,
 		GBF_CBV,
 		GBF_SRV,
-		GBF_VERTEX_VIEW,
-		GBF_INDEX_VIEW,
 		GBF_DEPTH_STENCIL,
+		GBF_RT,
 		GBF_COUNT,
 		GBF_FBO = GBF_COUNT,
 	};
@@ -127,24 +127,22 @@ namespace buf
 	class viewAllocator
 	{
 	public:
-		typedef void (*allocateViewFunc)(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		typedef char* (*allocateViewFunc)(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
 
-		static void allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateVertViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateIndexViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static void allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
 	};
 
 
-	viewAllocator::allocateViewFunc allocateViews[graphicBufferFlags::GBF_COUNT] = {
+	static viewAllocator::allocateViewFunc allocateViews[graphicBufferFlags::GBF_COUNT] = {
 		viewAllocator::allocateUAVs,
 		viewAllocator::allocateCBVs,
 		viewAllocator::allocateSRVs,
-		viewAllocator::allocateVertViews,
-		viewAllocator::allocateIndexViews,
 		viewAllocator::allocateDepthViews,
+		viewAllocator::allocateRenderTarget,
 	};
 }
 
@@ -163,8 +161,8 @@ public:
 
 	void init();
 	void update();
-	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), buf::graphicBufferFlags viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
-		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 0);
+	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), uint_8 viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 0, DirectX::XMFLOAT4 clearColor = {}, ID3D12Resource* resource = nullptr);
 	void free(char* bufferData);
 	void free(uint index);
 };
@@ -197,25 +195,18 @@ struct buffer
 {
 public:
 	uint getElemSize() const;
-
-	char* getView(const buf::graphicBufferFlags& index);
-
-	template<typename T>
-	T* getView(const buf::graphicBufferFlags& index)
-	{
-		char* viewLoc = reinterpret_cast<char*>(this) + BUFFER_HEADER_SIZE;
-		for (uint i = 0; i < index; ++i)
-		{
-			if (header.packedData.viewFlags & (1 << i))
-			{
-				viewLoc += buf::viewSizeTable[i];
-			}
-		}
-		return reinterpret_cast<T*>(viewLoc);
-	}
 	
 	ID3D12Resource* getResource() const;
+	buffer_header* getHeader();
 
+	void uploadBuffer(uint size, uint offset, void* data);
+
+	descriptor* getDesc(buf::graphicBufferFlags flag);
+
+	CD3DX12_RESOURCE_BARRIER getTransition(D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
+
+	void mapBuffer(unsigned char** dataPtr);
+	void unmapBuffer();
 private:
 	friend struct buffer_allocator;
 	friend class buf::viewAllocator;
@@ -227,12 +218,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 
 	virtual ~buffer() {}
-
-	void uploadBuffer(uint size, uint offset, void* data);
-
-	void mapBuffer(unsigned char** dataPtr);
-	void unmapBuffer();
 };
 
-//buffer_header + buffer
-#define BUFFER_HEADER_SIZE ((4 + 4 + 4) + (4 + 8))
+extern buffer_allocator e_globBufAllocator;

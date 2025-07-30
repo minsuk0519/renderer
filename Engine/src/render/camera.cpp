@@ -42,13 +42,8 @@ bool camera::init()
 
 	transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,2.0f });
 
-	projectionBuffer = buf::createConstantBuffer(consts::CONST_PROJ_SIZE);
-
-	desc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, projectionBuffer));
-
-	objectBuffer = buf::createConstantBuffer(consts::CONST_OBJ_SIZE);
-
-	objectdesc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, objectBuffer));
+	projectionBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_PROJ_SIZE, 1, buf::GBF_CBV, buf::RESOURCE_READBACK);
+	objectBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_OBJ_SIZE, 1, buf::GBF_CBV, buf::RESOURCE_READBACK);
 	
 	return true;
 }
@@ -97,17 +92,17 @@ void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, 
 	cmdList->RSSetScissorRects(1, &scissorRect);
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, desc.getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, projectionBuffer->getDesc(buf::GBF_CBV)->getHandle());
 }
 
-void camera::changeViewport(const cam::VIEWPORT_TYPE type)
+void camera::changeViewport(const cam::VIEWPORT_TYPE viewType)
 {
-	if (viewportType == type) return;
+	if (viewportType == viewType) return;
 
 	uint width = e_globWindow.width();
 	uint height = e_globWindow.height();
 
-	if (type == cam::VIEWPORT_MINI)
+	if (viewType == cam::VIEWPORT_MINI)
 	{
 		screenViewport.topLeftX = static_cast<float>(width - MINI_VIEWPORT_WIDTH);
 		screenViewport.topLeftY = static_cast<float>(height - MINI_VIEWPORT_HEIGHT);
@@ -119,7 +114,7 @@ void camera::changeViewport(const cam::VIEWPORT_TYPE type)
 		scissor.right = static_cast<long>(width);
 		scissor.bottom = static_cast<long>(height);
 	}
-	else if (type == cam::VIEWPORT_FULL)
+	else if (viewType == cam::VIEWPORT_FULL)
 	{
 		screenViewport.topLeftX = 0.0f;
 		screenViewport.topLeftY = 0.0f;
@@ -132,7 +127,7 @@ void camera::changeViewport(const cam::VIEWPORT_TYPE type)
 		scissor.bottom = static_cast<long>(height);
 	}
 
-	viewportType = type;
+	viewportType = viewType;
 }
 
 void camera::updateView()
@@ -195,6 +190,11 @@ DirectX::XMMATRIX camera::getMat() const
 	return view * projection;
 }
 
+descriptor* camera::getDesc() const
+{
+	return projectionBuffer->getDesc(buf::GBF_CBV);
+}
+
 #if ENGINE_DEBUG_DEBUGCAM
 void camera::toggleDebugMode()
 {
@@ -221,9 +221,10 @@ void camera::update(float dt)
 
 	DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, projection);
 
-	memcpy(projectionBuffer->info.cbvDataBegin, &viewProj, sizeof(float) * 4 * 4);
-	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4, &pos, sizeof(float) * 3);
-	memcpy(projectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4 + sizeof(float) * 3, &FAR_PLANE, sizeof(float));
+	float far_plane = FAR_PLANE;
+	projectionBuffer->uploadBuffer(sizeof(float) * 4 * 4, 0, &viewProj);
+	projectionBuffer->uploadBuffer(sizeof(float) * 3, sizeof(float) * 4 * 4, &pos);
+	projectionBuffer->uploadBuffer(sizeof(float), sizeof(float) * 4 * 4 + sizeof(float) * 3, &far_plane);
 	
 	if (viewportType == cam::VIEWPORT_MINI) return;
 

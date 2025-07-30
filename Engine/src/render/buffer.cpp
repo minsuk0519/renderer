@@ -204,7 +204,7 @@ namespace buf
                     aabb.hExtent[2] = values[10];
 
                     meshData->clusterBounds.push_back({ sphere, aabb });
-                    totalIndexCount += values[0];
+                    totalIndexCount += (uint)values[0];
                 }
 
                 TC_ASSERT(totalIndexCount == meshData->lodData[i].totalIndicesCount);
@@ -214,7 +214,7 @@ namespace buf
         delete[] data;
     }
 
-    void loadFiletoMesh(std::string fileName, meshData* meshdata)
+    void loadFiletoMesh(std::string fileName, meshData* meshdata, uint id)
     {
         auto result = rapidobj::ParseFile(fileName);
 
@@ -277,17 +277,17 @@ namespace buf
         math::compare_float(yMin + meshdata->boundData.halfExtent[msh::AXIS_Y], 0.0f);
         math::compare_float(zMin + meshdata->boundData.halfExtent[msh::AXIS_Z], 0.0f);
 #else // #if ENGINE_DEBUG_DATATEST
-        }   
+        }
 #endif // #else // #if ENGINE_DEBUG_DATATEST
 
         buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.positions.data()), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3,
-            GBF_VERTEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+            GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
         buffer* norm = nullptr;
         //make sure that the model file contains normal data and it's vertex normal not face normal
         if (result.attributes.normals.size() > 0)
         {
             norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.normals.data()), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3,
-                GBF_VERTEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+                GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
             TC_ASSERT(result.attributes.normals.size() == result.attributes.positions.size());
         }
         else
@@ -295,17 +295,29 @@ namespace buf
             norm = nullptr;
         }
         buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(indices.data()), static_cast<uint>(sizeof(uint) * indices.size()), sizeof(uint),
-            GBF_INDEX_VIEW, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+            GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
 
         //TODO : not support now
         //meshdata->idxLine = createIndexBuffer(result.shapes[0].lines.indices.data(), static_cast<uint>(sizeof(uint) * result.shapes[0].lines.indices.size()));
 
         loadMeshInfo(fileName, meshdata);
 
-        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata);
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
     }
 
-    imagebuffer* loadTextureFromFile(std::wstring filename, bool mip)
+    void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id)
+    {
+        buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(p), static_cast<uint>(sizeof(float) * 3 * vNum), sizeof(float) * 3,
+            GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+        buffer* norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(n), static_cast<uint>(sizeof(float) * 3 * vNum), sizeof(float) * 3,
+                GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+        buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(i), static_cast<uint>(sizeof(uint) * iNum), sizeof(uint),
+            GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
+    }
+
+    buffer* loadTextureFromFile(std::wstring filename, bool mip)
     {
         DirectX::TexMetadata metadata;
         DirectX::ScratchImage scratchImage;
@@ -339,7 +351,9 @@ namespace buf
             subresources.push_back(subresource);
         }
 
-        imagebuffer* buffer = createImageBuffer(static_cast<uint>(image->width), static_cast<uint>(image->height), mipSize, image->format, D3D12_RESOURCE_FLAG_NONE);
+        uint uWidth = static_cast<uint>(image->width);
+        uint uHeight = static_cast<uint>(image->height);
+        buffer* buf = e_globBufAllocator.alloc(nullptr, uWidth * uHeight, 1, buf::GBF_SRV, buf::RESOURCE_TEXTURE, image->format, uWidth, uHeight, mipSize);
 
         {
             render::getCmdQueue(render::QUEUE_COPY)->getAllocator()->Reset();
@@ -349,7 +363,7 @@ namespace buf
             //CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(buffer->resource.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
             //render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->ResourceBarrier(1, &barrier);
         
-            UINT64 requiredSize = GetRequiredIntermediateSize(buffer->resource.Get(), 0, static_cast<uint>(subresources.size()));
+            UINT64 requiredSize = GetRequiredIntermediateSize(buf->getResource(), 0, static_cast<uint>(subresources.size()));
             
             // Create a temporary (intermediate) resource for uploading the subresources
             Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource;
@@ -359,7 +373,7 @@ namespace buf
             
             e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediateResource));
             
-            UpdateSubresources(render::getCmdQueue(render::QUEUE_COPY)->getCmdList().Get(), buffer->resource.Get(), intermediateResource.Get(), 0, 0, static_cast<uint>(subresources.size()), subresources.data());
+            UpdateSubresources(render::getCmdQueue(render::QUEUE_COPY)->getCmdList().Get(), buf->getResource(), intermediateResource.Get(), 0, 0, static_cast<uint>(subresources.size()), subresources.data());
 
             intermediates.push_back(intermediateResource);
         }
@@ -369,7 +383,7 @@ namespace buf
         render::getCmdQueue(render::QUEUE_COPY)->flush();
         intermediates.clear();
 
-        return buffer;
+        return buf;
     }
 }
 
@@ -428,21 +442,8 @@ namespace buf
 
 	bool loadResources()
 	{
-        ////create vertex buffer
-        //{
-        //    //create triangle vertex
-        //    {
-        //        float triangleVertices[] =
-        //        {
-        //            0.0, 0.5, 0.0f,
-        //            0.5, -0.5, 0.0f,
-        //            0.0, -0.5, 0.0f,
-        //        };
-
-        //        bufferContainer[VERTEX_TRIANGLE] = createVertexBuffer(triangleVertices, sizeof(triangleVertices), sizeof(float) * 3);
-        //    }
-
-            //create triangle vertex
+        //create vertex buffer
+            //create cube vertex
             {
                 float cubeVertices[] =
                 {
@@ -509,9 +510,6 @@ namespace buf
                     -1.0f, 0.0f, 0.0f,
                 };
 
-                bufferContainer[VERTEX_CUBE] = createVertexBuffer(cubeVertices, sizeof(cubeVertices), sizeof(float) * 3);
-                bufferContainer[VERTEX_CUBE_NORM] = createVertexBuffer(cubeNorm, sizeof(cubeNorm), sizeof(float) * 3);
-
                 uint cubeIndices[] = {
                     3, 2, 0,
                     0, 1, 3,
@@ -532,7 +530,36 @@ namespace buf
                     20, 23, 22,
                 };
 
-                bufferContainer[INDEX_CUBE] = createIndexBuffer(cubeIndices, sizeof(cubeIndices));
+                buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeVertices), sizeof(cubeVertices), 3, GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+                buffer* nvbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeNorm), sizeof(cubeNorm), 3, GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+                buffer* ibs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeIndices), sizeof(cubeIndices), 1, GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+
+                meshData* meshInfo = new meshData;
+
+                clusterbounddata bound;
+                bound.aabb.center[0] = 0.0f;
+                bound.aabb.center[1] = 0.0f;
+                bound.aabb.center[2] = 0.0f;
+                bound.aabb.hExtent[0] = 1.0f;
+                bound.aabb.hExtent[1] = 1.0f;
+                bound.aabb.hExtent[2] = 1.0f;
+                bound.sphere.center[0] = 0.0f;
+                bound.sphere.center[1] = 0.0f;
+                bound.sphere.center[2] = 0.0f;
+                bound.sphere.radius = 1.73205f;
+                meshInfo->clusterBounds.push_back(bound);
+                meshInfo->boundData.halfExtent[msh::AXIS_Y] = 1.0f;
+                meshInfo->boundData.halfExtent[msh::AXIS_Y] = 1.0f;
+                meshInfo->boundData.halfExtent[msh::AXIS_Z] = 1.0f;
+                meshInfo->boundData.radius = 1.73205f;
+                lodInfos lodinfo;
+                lodinfo.clusterNum = 1;
+                lodinfo.indexSize.push_back(36);
+                lodinfo.totalIndicesCount = 36;
+                meshInfo->lodData.push_back(lodinfo);
+                meshInfo->lodNum = 1;
+
+                e_globRenderer.uploadMeshToUB(vbs, nvbs, ibs, meshInfo, msh::MESH_CUBE);
             }
 
         //    {
@@ -569,9 +596,7 @@ namespace buf
             uint width = e_globWindow.width();
             uint height = e_globWindow.height();
 
-            {
-                bufferContainer[DEPTH_SWAPCHAIN] = createDepthBuffer(width, height);
-            }
+            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH, DXGI_FORMAT_D32_FLOAT, width, height);
         }
 
         //create image buffer
@@ -579,7 +604,7 @@ namespace buf
             uint width = e_globWindow.width();
             uint height = e_globWindow.height();
 
-            bufferContainer[IMAGE_DEPTH] = createImageBuffer(width, height, 1, DXGI_FORMAT_R32_UINT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL | GBF_RT, buf::RESOURCE_DEPTH, DXGI_FORMAT_R32_UINT, width, height);
 
             //{
             //    bufferContainer[IMAGE_IRRADIANCE] = loadTextureFromFile(L"asset/texture/Sierra_Madre_B_Ref.irr.hdr", true);
@@ -600,22 +625,11 @@ namespace buf
     {
     }
 
-    BUFFER_TYPE typeFromIndex(const uint index)
-    {
-        if (index < VERTEX_END && index >= VERTEX_START) return BUFFER_VERTEX_TYPE;
-        else if (index < CONSTANT_END && index >= CONSTANT_START) return BUFFER_CONSTANT_TYPE;
-        else if (index < UAV_END && index >= UAV_START) return BUFFER_UAV_TYPE;
-        else if (index < IMAGE_END && index >= IMAGE_START) return BUFFER_IMAGE_TYPE;
-        else if (index < INDEX_END && index >= INDEX_START) return BUFFER_INDEX_TYPE;
-        else if (index < DEPTH_END && index >= DEPTH_START) return BUFFER_DEPTH_TYPE;
-
-        //this should not happen
-        
-        return BUFFER_TYPE();
-    }
 
     //uint_8
     static_assert(graphicBufferFlags::GBF_COUNT < 8);
+
+    constexpr uint DESCRIPTOR_SIZE = sizeof(descriptor);
 
     uint estimateBufferSize(uint_8 flags)
     {
@@ -623,11 +637,8 @@ namespace buf
 
         for (uint i = 0; i < graphicBufferFlags::GBF_COUNT; ++i)
         {
-            if(flags & (1 << i)) count += viewSizeTable[i];
+            if(flags & (1 << i)) count += DESCRIPTOR_SIZE;
         }
-
-        //header
-        count += sizeof(buffer_header);
 
         //buffer struct
         count += sizeof(buffer);
@@ -635,41 +646,49 @@ namespace buf
         return count;
     }
 
-    void viewAllocator::allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateUAVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
     {
-        D3D12_UNORDERED_ACCESS_VIEW_DESC* view = reinterpret_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC *>(viewPos);
+        D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
         //we will forcely use R32 for UAVs since we will use our own packing unpacking for raw byte buffer
-        view->Format = DXGI_FORMAT_R32_FLOAT;
-        view->ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-        view->Buffer.FirstElement = 0;
-        view->Buffer.NumElements = buf->header.dataSize / sizeof(float);
+        view.Format = DXGI_FORMAT_R32_FLOAT;
+        view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+        view.Buffer.FirstElement = 0;
+        view.Buffer.NumElements = buf->header.dataSize / sizeof(float);
+        
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
 
-        viewPos += sizeof(D3D12_UNORDERED_ACCESS_VIEW_DESC);
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, buf, &view);
 
-        descriptor normSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, normBuffer);
+        return viewPos + sizeof(descriptor);
     }
 
-    void viewAllocator::allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateCBVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
     {
-        D3D12_CONSTANT_BUFFER_VIEW_DESC* view = reinterpret_cast<D3D12_CONSTANT_BUFFER_VIEW_DESC*>(viewPos);
+        D3D12_CONSTANT_BUFFER_VIEW_DESC view = {};
 
         uint size = buf->header.dataSize;
 
-        view->BufferLocation = buf->resource->GetGPUVirtualAddress();
-        view->SizeInBytes = size;
+        view.BufferLocation = buf->resource->GetGPUVirtualAddress();
+        view.SizeInBytes = size;
+
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
+
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, buf, &view);
+
+        return viewPos + sizeof(descriptor);
     }
 
-    void viewAllocator::allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
     {
-        D3D12_SHADER_RESOURCE_VIEW_DESC* view = reinterpret_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(viewPos);
+        D3D12_SHADER_RESOURCE_VIEW_DESC view = {};
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
 
-        view->Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         if (buf->header.packedData.texture)
         {
-            view->ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-
-            view->Texture2D.MipLevels = bufDesc.MipLevels;
-            view->Format = bufDesc.Format;
+            view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            view.Texture2D.MipLevels = bufDesc.MipLevels;
+            view.Format = bufDesc.Format;
         }
         else
         {
@@ -680,38 +699,44 @@ namespace buf
             desc.FirstElement = 0;
             desc.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
 
-            view->ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-            view->Format = DXGI_FORMAT_UNKNOWN;
-            view->Buffer = desc;
+            view.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            view.Format = DXGI_FORMAT_UNKNOWN;
+            view.Buffer = desc;
         }
+
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, buf, &view);
+
+        return viewPos + sizeof(descriptor);
     }
 
-    void viewAllocator::allocateVertViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
     {
-        D3D12_VERTEX_BUFFER_VIEW* view = reinterpret_cast<D3D12_VERTEX_BUFFER_VIEW*>(viewPos);
-
-        view->BufferLocation = buf->resource->GetGPUVirtualAddress();
-        view->StrideInBytes = buf->header.packedData.stride;
-        view->SizeInBytes = buf->header.dataSize;
-    }
-
-    void viewAllocator::allocateIndexViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
-    {
-        D3D12_INDEX_BUFFER_VIEW* view = reinterpret_cast<D3D12_INDEX_BUFFER_VIEW*>(viewPos);
-
-        view->BufferLocation = buf->resource->GetGPUVirtualAddress();
-        view->SizeInBytes = buf->header.dataSize;
-        view->Format = DXGI_FORMAT_R32_UINT;
-    }
-
-    void viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
-    {
-        D3D12_DEPTH_STENCIL_VIEW_DESC* view = reinterpret_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>(viewPos);
+        D3D12_DEPTH_STENCIL_VIEW_DESC view = {};
 
         //TODO : pass the value for format size
-        view->Format = DXGI_FORMAT_D32_FLOAT;
-        view->ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-        view->Flags = D3D12_DSV_FLAG_NONE;
+        view.Format = DXGI_FORMAT_D32_FLOAT;
+        view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+        view.Flags = D3D12_DSV_FLAG_NONE;
+
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
+
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_DEPTH)->requestdescriptor(buf::BUFFER_DEPTH_TYPE, buf, &view);
+
+        return viewPos + sizeof(descriptor);
+    }
+
+    char* viewAllocator::allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    {
+        D3D12_RENDER_TARGET_VIEW_DESC view = {};
+        view.Format = bufDesc.Format;
+        //force render target to texture2d
+        view.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+        descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
+
+        *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_RENDERTARGET)->requestdescriptor(buf::BUFFER_RT_TYPE, buf, &view);
+
+        return viewPos + sizeof(descriptor);
     }
 };
 
@@ -725,17 +750,9 @@ ID3D12Resource* buffer::getResource() const
     return resource.Get();
 }
 
-char* buffer::getView(const buf::graphicBufferFlags& index)
+buffer_header* buffer::getHeader()
 {
-    char* viewLoc = reinterpret_cast<char*>(this) + BUFFER_HEADER_SIZE;
-    for (uint i = 0; i < index; ++i)
-    {
-        if (header.packedData.viewFlags & (1 << i))
-        {
-            viewLoc += buf::viewSizeTable[i];
-        }
-    }
-    return viewLoc;
+    return &header;
 }
 
 void buffer::uploadBuffer(uint size, uint offset, void* data)
@@ -745,6 +762,29 @@ void buffer::uploadBuffer(uint size, uint offset, void* data)
     resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
     memcpy(pVertexDataBegin + offset, data, size);
     resource->Unmap(0, nullptr);
+}
+
+descriptor* buffer::getDesc(buf::graphicBufferFlags flag)
+{
+    uint offset = 0;
+    for (uint i = 0; i < flag; ++i)
+    {
+        if (header.packedData.viewFlags & (1 << i))
+        {
+            offset += buf::DESCRIPTOR_SIZE;
+        }
+    }
+
+    TC_ASSERT(header.packedData.viewFlags & (1 << flag));
+
+    char* loc = baseLoc + offset + BUFFER_VIEW_OFFSET;
+
+    return reinterpret_cast<descriptor*>(loc);
+}
+
+CD3DX12_RESOURCE_BARRIER buffer::getTransition(D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
+{
+    return CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), before, after);
 }
 
 void buffer::mapBuffer(unsigned char** dataPtr)
@@ -760,7 +800,7 @@ void buffer::unmapBuffer()
 
 void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
 {
-    uint memSize = freedMem.size();
+    uint memSize = (uint)freedMem.size();
 
     for (uint i = 0; i < (memSize - 1); ++i)
     {
@@ -829,8 +869,8 @@ void buffer_allocator::init()
     freedMem.push_back(std::make_pair(0, BUFFER_MAX_SIZE - 1));
 }
 
-buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::graphicBufferFlags viewFlags,
-    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels )
+buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8 viewFlags,
+    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor, ID3D12Resource* resource)
 {
     //cbv size should be multiplied by 256 bytes
     if (viewFlags & (1 << buf::graphicBufferFlags::GBF_CBV))
@@ -844,6 +884,8 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::g
 
     int allocatedPos = -1;
 
+    bool found = false;
+
     for (auto iter = freedMem.begin(); iter < freedMem.end(); ++iter)
     {
         if ((*iter).second >= totalSize)
@@ -854,9 +896,13 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::g
             (*iter).first = allocatedPos;
             (*iter).second = remainSize;
 
+            found = true;
+
             break;
         }
     }
+
+    if (!found) return nullptr;
 
     char* allocatedData = data + allocatedPos;
 
@@ -903,38 +949,44 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::g
 
     CD3DX12_CLEAR_VALUE clearValue;
 
-    if (flag & buf::RESOURCE_CLEAR)
+    if (resource == nullptr)
     {
-        if ((flag & buf::RESOURCE_DEPTH))
+        if (flag & buf::RESOURCE_CLEAR)
         {
-            clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
+            if ((flag & buf::RESOURCE_DEPTH))
+            {
+                clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
+            }
+            else if (flag & buf::RESOURCE_TEXTURE)
+            {
+                float color[4];
+                color[0] = clearColor.x;
+                color[1] = clearColor.y;
+                color[2] = clearColor.z;
+                color[3] = clearColor.w;
+
+                clearValue = CD3DX12_CLEAR_VALUE(format, color);
+            }
+
+            buf::createResource(buf->resource, &bufDesc, size, bufferData, &clearValue, flag);
         }
-        else if(flag & buf::RESOURCE_TEXTURE)
+        else
         {
-            float col[4];
-            col[0] = 0.0f;
-            col[1] = 0.0f;
-            col[2] = 0.0f;
-            col[3] = 0.0f;
-
-            clearValue = CD3DX12_CLEAR_VALUE(format, col);
+            buf::createResource(buf->resource, &bufDesc, size, bufferData, nullptr, flag);
         }
-
-        buf::createResource(buf->resource, &bufDesc, size, bufferData, &clearValue, flag);
     }
     else
     {
-        buf::createResource(buf->resource, &bufDesc, size, bufferData, nullptr, flag);
+        buf->resource.Attach(resource);
     }
 
     //views
-    char* viewPos = allocatedData + BUFFER_HEADER_SIZE;
+    char* viewPos = allocatedData + BUFFER_VIEW_OFFSET;
     for (uint i = 0; i < buf::graphicBufferFlags::GBF_COUNT; ++i)
     {
         if (viewFlags & (1 << i))
         {
-            buf::allocateViews[i](viewPos, buf, bufDesc);
-            viewPos += buf::viewSizeTable[i];
+            viewPos = buf::allocateViews[i](viewPos, buf, bufDesc);
         }
     }
 
@@ -947,7 +999,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::g
         viewPos += size;
     }
 
-    uint addrDiff = viewPos - allocatedData;
+    uint addrDiff = (uint)(viewPos - allocatedData);
 
     TC_ASSERT(addrDiff == totalSize);
 
@@ -958,10 +1010,6 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, buf::g
 
 void buffer_allocator::free(char* bufferData)
 {
-    uint startPos;
-    uint size;
-    uint index;
-
     buffer* buf = reinterpret_cast<buffer*>(bufferData);
 
     freeInternal((data - bufferData), buf->header.totalSize, buf->header.packedData.bufferId);
@@ -969,16 +1017,21 @@ void buffer_allocator::free(char* bufferData)
 
 void buffer_allocator::free(uint index)
 {
-    uint startPos;
-    uint size;
+    int startPos = -1;
+    uint size = 0;
 
     for (auto& mem : memBlocks)
     {
         if (mem->header.packedData.bufferId == index)
         {
-            startPos = (data - mem->baseLoc);
+            startPos = (int)(data - mem->baseLoc);
             size = mem->header.totalSize;
         }
+    }
+
+    if (startPos == -1)
+    {
+        TC_LOG_ERROR("Trying to free vacant buffer");
     }
 
     freeInternal(startPos, size, index);

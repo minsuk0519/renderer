@@ -97,6 +97,7 @@
     <ClInclude Include="include\render\mesh.hpp" />
     <ClInclude Include="include\render\pipelinestate.hpp" />
     <ClInclude Include="include\render\renderer.hpp" />
+    <ClInclude Include="include\render\render_UB.hpp" />
     <ClInclude Include="include\render\rootsignature.hpp" />
     <ClInclude Include="include\render\shader.hpp" />
     <ClInclude Include="include\render\shader_defines.hpp" />
@@ -123,6 +124,7 @@
     <ClCompile Include="src\render\mesh.cpp" />
     <ClCompile Include="src\render\pipelinestate.cpp" />
     <ClCompile Include="src\render\renderer.cpp" />
+    <ClCompile Include="src\render\render_UB.cpp" />
     <ClCompile Include="src\render\rootsignature.cpp" />
     <ClCompile Include="src\render\shader.cpp" />
     <ClCompile Include="src\render\transform.cpp" />

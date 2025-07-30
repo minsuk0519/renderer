@@ -66,7 +66,7 @@ public:
 
 	uint setRootTable(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint offset);
 
-	descriptor requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf);
+	descriptor requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf, void* view);
 
 	uint getRemainPos(render::descriptorHeapIndex heapIdx) const;
 };

@@ -32,6 +32,10 @@ int rawFileRead(std::string fileName, char** data, uint bufferSize)
 	{
 		fileBufferSize = BUFFERSIZE;
 	}
+	else
+	{
+		fileBufferSize = bufferSize;
+	}
 	
 	*data = new char[fileBufferSize];
 

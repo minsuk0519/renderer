@@ -125,7 +125,13 @@ uint descriptorheap::setRootTable(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandLi
 	return off;
 }
 
-descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf)
+template <typename T>
+T* getCorrespondingView(void* ptr)
+{
+	return reinterpret_cast<T*>(ptr);
+}
+
+descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf, void* view)
 {
 	render::descriptorHeapIndex heapIdx;
 
@@ -148,32 +154,27 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 	{
 	case buf::BUFFER_CONSTANT_TYPE:
 	{	
-		e_globRenderer.device->CreateConstantBufferView(buf->getView<D3D12_CONSTANT_BUFFER_VIEW_DESC>(buf::GBF_CBV), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateConstantBufferView(getCorrespondingView<D3D12_CONSTANT_BUFFER_VIEW_DESC>(view), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_DEPTH_TYPE:
 	{
-		e_globRenderer.device->CreateDepthStencilView(buf->getResource(), buf->getView<D3D12_DEPTH_STENCIL_VIEW_DESC>(buf::GBF_DEPTH_STENCIL), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateDepthStencilView(buf->getResource(), getCorrespondingView<D3D12_DEPTH_STENCIL_VIEW_DESC>(view), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_IMAGE_TYPE:
 	{
-		e_globRenderer.device->CreateShaderResourceView(buf->getResource(), buf->getView<D3D12_SHADER_RESOURCE_VIEW_DESC>(buf::GBF_SRV), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateShaderResourceView(buf->getResource(), getCorrespondingView<D3D12_SHADER_RESOURCE_VIEW_DESC>(view), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_UAV_TYPE:
 	{
-		e_globRenderer.device->CreateUnorderedAccessView(buf->getResource(), nullptr, buf->getView<D3D12_UNORDERED_ACCESS_VIEW_DESC>(buf::GBF_UAV), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateUnorderedAccessView(buf->getResource(), nullptr, getCorrespondingView<D3D12_UNORDERED_ACCESS_VIEW_DESC>(view), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	case buf::BUFFER_RT_TYPE:
 	{
-		D3D12_RENDER_TARGET_VIEW_DESC view = {};
-		view.Format = buf->getView<D3D12_UNORDERED_ACCESS_VIEW_DESC>(buf::GBF_SRV)->Format;
-		//force render target to texture2d
-		view.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-
-		e_globRenderer.device->CreateRenderTargetView(buf->getResource(), &view, D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
+		e_globRenderer.device->CreateRenderTargetView(buf->getResource(), getCorrespondingView<D3D12_RENDER_TARGET_VIEW_DESC>(view), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
 	default:

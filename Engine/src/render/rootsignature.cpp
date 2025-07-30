@@ -91,7 +91,7 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 
 	for (uint i = 0; i < render::D3D12_RANGE_TYPE_SIZE; ++i)
 	{
-		rootParametersSize += typeMaps[i].size();
+		rootParametersSize += (uint)typeMaps[i].size();
 	}
 
 	rootParameters.resize(rootParametersSize);
@@ -189,7 +189,6 @@ bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::
 	ranges.resize(descriptors.size());
 	rootParameters.resize(descriptors.size() + constantNums.size());
 
-	D3D12_DESCRIPTOR_RANGE_TYPE currentType = descriptors[0].type;
 	uint index[render::D3D12_RANGE_TYPE_CONSTANT] = { 0 };
 	for (int i = 0; i < descriptors.size(); ++i)
 	{
@@ -211,7 +210,7 @@ bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::
 		}
 	}
 
-	uint rootParamIndex = descriptors.size();
+	uint rootParamIndex = (uint)descriptors.size();
 
 	for (auto cons : constantNums)
 	{

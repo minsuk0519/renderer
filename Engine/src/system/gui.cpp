@@ -25,7 +25,7 @@ namespace gui
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
 };
 
-constantbuffer* debugProjectionBuffer;
+buffer* debugProjectionBuffer;
 descriptor debugProjectionDesc;
 float meshDebugDrawCamArmLength_Default = 2.5f;
 DirectX::XMVECTOR meshDebugDrawCamPos_Default = DirectX::XMVECTOR{ 0.0f, 0.0f, meshDebugDrawCamArmLength_Default };
@@ -54,8 +54,7 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
         fontDesc.getCPUHandle(),
         fontDesc.getHandle());
 
-    debugProjectionBuffer = buf::createConstantBuffer(consts::CONST_PROJ_SIZE);
-    debugProjectionDesc = (render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, debugProjectionBuffer));
+    debugProjectionBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_PROJ_SIZE, 1, buf::GBF_CBV);
 
     return true;
 }
@@ -197,8 +196,8 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
 
                 float* aabbSize = msh::getMesh(meshID)->getData()->boundData.halfExtent;
 
-                memcpy(debugProjectionBuffer->info.cbvDataBegin, &viewProj, sizeof(float) * 4 * 4);
-                memcpy(debugProjectionBuffer->info.cbvDataBegin + sizeof(float) * 4 * 4, aabbSize, sizeof(float) * 3);
+                debugProjectionBuffer->uploadBuffer(sizeof(float) * 4 * 4, 0, &viewProj);
+                debugProjectionBuffer->uploadBuffer(sizeof(float) * 3, sizeof(float) * 4 * 4, &aabbSize);
             }
         }
 
@@ -243,8 +242,8 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
         ImGui::Text("ObjectID");
         ImGui::Image((ImTextureID)(fbo->getDescHandle(2).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
         ImGui::Text("SSAOTex");
-        ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[0].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
-        ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[2].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        //ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[0].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+        //ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[2].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
 
         ImGui::End();
     }

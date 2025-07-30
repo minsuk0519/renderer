@@ -166,12 +166,12 @@ void pipelinestate::sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	}
 }
 
-void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, uint dataSize, void* data)
+void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, uint dataSize, void* dataPtr)
 {
 	if (hlslLoc.find(loc) != hlslLoc.end())
 	{
-		if (isCompute) cmdList->SetComputeRoot32BitConstants(hlslLoc.at(loc), dataSize, data, 0);
-		else cmdList->SetGraphicsRoot32BitConstants(hlslLoc.at(loc), dataSize, data, 0);
+		if (isCompute) cmdList->SetComputeRoot32BitConstants(hlslLoc.at(loc), dataSize, dataPtr, 0);
+		else cmdList->SetGraphicsRoot32BitConstants(hlslLoc.at(loc), dataSize, dataPtr, 0);
 	}
 	else
 	{
@@ -180,43 +180,43 @@ void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	}
 }
 
-void pipelinestate::setCommandSignature(const std::vector<render::cmdSigData>& data)
+void pipelinestate::setCommandSignature(const std::vector<render::cmdSigData>& cmdSigs)
 {
 	std::vector<D3D12_INDIRECT_ARGUMENT_DESC> argumentDescs;
 
-	argumentDescs.resize(data.size() + 1);
+	argumentDescs.resize(cmdSigs.size() + 1);
 
 	uint byteStride = 0;
 
 	if (isCompute)
 	{
-		argumentDescs[data.size()].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+		argumentDescs[cmdSigs.size()].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
 		byteStride += sizeof(D3D12_DISPATCH_ARGUMENTS);
 	}
 	else
 	{
-		argumentDescs[data.size()].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+		argumentDescs[cmdSigs.size()].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
 		byteStride += sizeof(D3D12_DRAW_ARGUMENTS);
 	}
 
-	for (uint i = 0; i < data.size(); ++i)
+	for (uint i = 0; i < cmdSigs.size(); ++i)
 	{
-		argumentDescs[i].Type = data[i].type;
-		if (data[i].type == D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT)
+		argumentDescs[i].Type = cmdSigs[i].type;
+		if (cmdSigs[i].type == D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT)
 		{
-			argumentDescs[i].Constant.RootParameterIndex = hlslLoc[data[i].loc];
+			argumentDescs[i].Constant.RootParameterIndex = hlslLoc[cmdSigs[i].loc];
 			argumentDescs[i].Constant.DestOffsetIn32BitValues = 0;
-			argumentDescs[i].Constant.Num32BitValuesToSet = data[i].num;
-			byteStride += data[i].num * sizeof(uint);
+			argumentDescs[i].Constant.Num32BitValuesToSet = cmdSigs[i].num;
+			byteStride += cmdSigs[i].num * sizeof(uint);
 		}
 	}
 
 	D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
 	commandSignatureDesc.pArgumentDescs = argumentDescs.data();
-	commandSignatureDesc.NumArgumentDescs = data.size() + 1;
+	commandSignatureDesc.NumArgumentDescs = (uint)cmdSigs.size() + 1;
 	commandSignatureDesc.ByteStride = byteStride;
 
-	if(data.empty()) e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, NULL, IID_PPV_ARGS(&cmdSignature));
+	if(cmdSigs.empty()) e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, NULL, IID_PPV_ARGS(&cmdSignature));
 	else e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, rootsig->getrootSignature(), IID_PPV_ARGS(&cmdSignature));
 }
 
@@ -270,7 +270,11 @@ void pipelinestate::guiSetting()
 			else if (form <= 59) size = 16;
 			else if (form <= 65) size = 8;
 			else if (form <= 66) size = 1;
-			else TC_BREAK();
+			else
+			{
+				size = 0;
+				TC_BREAK();
+			}
 
 			if (form <= 4) channel = 4;
 			else if (form <= 8) channel = 3;
@@ -286,7 +290,11 @@ void pipelinestate::guiSetting()
 			else if (form <= 47) channel = 1;
 			else if (form <= 52) channel = 2;
 			else if (form <= 66) channel = 1;
-			else TC_BREAK();
+			else
+			{
+				channel = 0;
+				TC_BREAK();
+			}
 
 			std::string text = "size : " + std::to_string(size) + ", channel : " + std::to_string(channel);
 

@@ -94,20 +94,15 @@ namespace math
 
         double dLength = std::sqrt(dLengthSquare);
 
-        if (dLength == 0.0f)
-        {
-            auto a = 1;
-        }
-
         double xUnit = xDiff / dLength;
         double yUnit = yDiff / dLength;
         double zUnit = zDiff / dLength;
 
         point result;
 
-        result.x = xUnit;
-        result.y = yUnit;
-        result.z = zUnit;
+        result.x = (float)xUnit;
+        result.y = (float)yUnit;
+        result.z = (float)zUnit;
 
         return result;
     }
