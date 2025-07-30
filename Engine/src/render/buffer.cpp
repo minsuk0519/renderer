@@ -442,21 +442,8 @@ namespace buf
 
 	bool loadResources()
 	{
-        ////create vertex buffer
-        //{
-        //    //create triangle vertex
-        //    {
-        //        float triangleVertices[] =
-        //        {
-        //            0.0, 0.5, 0.0f,
-        //            0.5, -0.5, 0.0f,
-        //            0.0, -0.5, 0.0f,
-        //        };
-
-        //        bufferContainer[VERTEX_TRIANGLE] = createVertexBuffer(triangleVertices, sizeof(triangleVertices), sizeof(float) * 3);
-        //    }
-
-            //create triangle vertex
+        //create vertex buffer
+            //create cube vertex
             {
                 float cubeVertices[] =
                 {
@@ -883,7 +870,7 @@ void buffer_allocator::init()
 }
 
 buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint viewFlags,
-    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor)
+    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor, ID3D12Resource* resource)
 {
     //cbv size should be multiplied by 256 bytes
     if (viewFlags & (1 << buf::graphicBufferFlags::GBF_CBV))
@@ -962,28 +949,35 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint v
 
     CD3DX12_CLEAR_VALUE clearValue;
 
-    if (flag & buf::RESOURCE_CLEAR)
+    if (resource == nullptr)
     {
-        if ((flag & buf::RESOURCE_DEPTH))
+        if (flag & buf::RESOURCE_CLEAR)
         {
-            clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
+            if ((flag & buf::RESOURCE_DEPTH))
+            {
+                clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
+            }
+            else if (flag & buf::RESOURCE_TEXTURE)
+            {
+                float color[4];
+                color[0] = clearColor.x;
+                color[1] = clearColor.y;
+                color[2] = clearColor.z;
+                color[3] = clearColor.w;
+
+                clearValue = CD3DX12_CLEAR_VALUE(format, color);
+            }
+
+            buf::createResource(buf->resource, &bufDesc, size, bufferData, &clearValue, flag);
         }
-        else if(flag & buf::RESOURCE_TEXTURE)
+        else
         {
-            float color[4];
-            color[0] = clearColor.x;
-            color[1] = clearColor.y;
-            color[2] = clearColor.z;
-            color[3] = clearColor.w;
-
-            clearValue = CD3DX12_CLEAR_VALUE(format, color);
+            buf::createResource(buf->resource, &bufDesc, size, bufferData, nullptr, flag);
         }
-
-        buf::createResource(buf->resource, &bufDesc, size, bufferData, &clearValue, flag);
     }
     else
     {
-        buf::createResource(buf->resource, &bufDesc, size, bufferData, nullptr, flag);
+        buf->resource.Attach(resource);
     }
 
     //views

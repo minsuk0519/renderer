@@ -30,7 +30,7 @@ namespace msh
 	bool loadResources();
 	void cleanUp();
 
-	void setUpTerrain(float* p, float* n, uint* i, uint vNum, uint iNum);
+	meshData* setUpTerrain(uint iNum);
 
 	mesh* getMesh(const uint& idx);
 	mesh* getMesh(const MESH_INDEX idx);

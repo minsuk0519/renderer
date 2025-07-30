@@ -7,11 +7,16 @@ bool framebuffer::createAddFBO(uint width, uint height, DXGI_FORMAT format, Dire
 {
 	clearColor = clear;
 
-	buffer* FBO = e_globBufAllocator.alloc(nullptr, 0, 4, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_CLEAR, format, width, height, 0, clearColor);
+	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_CLEAR, format, width, height, 0, clearColor);
 
 	FBOs.push_back(FBO);
 
 	return true;
+}
+
+bool framebuffer::attachResource(ID3D12Resource* resource, uint width, uint height, DXGI_FORMAT format, DirectX::XMFLOAT4 clearColor)
+{
+	e_globBufAllocator.alloc(nullptr, width * height, 4, 0, 0, DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 0, DirectX::XMFLOAT4{ 0,0,0,0 }, resource);
 }
 
 //open frame buffer and clear the buffer

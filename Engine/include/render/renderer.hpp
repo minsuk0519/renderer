@@ -3,6 +3,7 @@
 #include <system/defines.hpp>
 #include <render/descriptorheap.hpp>
 #include <render/buffer.hpp>
+#include <render/render_UB.hpp>
 
 #include <dxgi1_6.h>
 #include <d3d12.h>
@@ -11,6 +12,10 @@
 #include <DirectXMath.h>
 
 class framebuffer;
+namespace render
+{
+	class UBManager;
+}
 
 constexpr uint FRAME_COUNT = 2;
 
@@ -69,40 +74,32 @@ private:
 	uint debugFBMeshID;
 	UINT64 debugProjection;
 
-	imagebuffer* ssaoTex[3];
+	buffer* ssaoTex[3];
 
-	uavbuffer* terrainTex[3];
-	uavbuffer* unifiedBuffer[2];
-	uavbuffer* commandBuffer;
+	buffer* commandBuffer;
+	buffer* objectConstBuffer;
+	buffer* localClusterOffsetBuffer;
+	buffer* localClusterSizeBuffer;
+	buffer* clusterArgsBuffer;
 
-	meshInfo* meshInfos;
-	imagebuffer* meshInfoBuffer;
-	imagebuffer* lodInfoBuffer;
-	imagebuffer* clusterInfoBuffer;
-	uavbuffer* localClusterOffsetBuffer;
-	uavbuffer* localClusterSizeBuffer;
-	uavbuffer* clusterArgsBuffer;
 #if	ENGINE_DEBUG_BUFFER
-	uavbuffer* outDebugBuffer;
-	descriptor outDebugDesc;
+	buffer* outDebugBuffer;
 #endif //#if ENGINE_DEBUG_BUFFER
-	imagebuffer* viewInfoBuffer;
-	imagebuffer* clusterBoundBuffer;
+	buffer* viewInfoBuffer;
+	buffer* clusterBoundBuffer;
 	
-	constantbuffer* cmdConstBuffer;
+	buffer* cmdConstBuffer;
 
-	vertexbuffer* vertexIDBuffer;
-	uavbuffer* vertexIDBufferUAV;
-
-	constantbuffer* objectConstBuffer;
-
-	vertexbuffer* AABBwireframeBuffer;
+	buffer* vertexIDBuffer;
 
 	bool debugCamMode = false;
 
 	uint curVertexOffset = 0;
 	uint curLodOffset = 0;
 	uint curClusterOffset = 0;
+
+	buffer* AABBwireframeBuffer[2];
+	buffer* triangleBuffer;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
@@ -111,24 +108,11 @@ public:
 
 	void guiSetting();
 
-	bool createUB();
+	render::UBManager* ubManager;
+	void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID);
 
-	descriptor ssaoDesc[3];
-	descriptor terrainDesc[3];
-	descriptor unifiedDesc[2];
-	descriptor commandDesc;
-	descriptor commandConstDesc;
-	descriptor vertexIDDesc;
-	descriptor objectConstDesc;
-
-	descriptor meshInfoDesc;
-	descriptor lodInfoDesc;
-	descriptor clusterInfoDesc;
-	descriptor localClusterOffsetDesc;
-	descriptor localClusterSizeDesc;
-	descriptor clusterArgsDesc;
-	descriptor viewInfoDesc;
-	descriptor clusterBoundDesc;
+	void setVertexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint slot, buffer* buf);
+	void setIndexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* buf);
 private:
 	void setUpTerrain();
 };

@@ -147,7 +147,7 @@ namespace msh
         return true;
 	}
 
-    void setUpTerrain(float* p, float* n, uint* i, uint vNum, uint iNum)
+    meshData* setUpTerrain(uint iNum)
     {
         mesh* newData = new mesh(MESH_TERRAIN);
         meshData* newMeshData = new meshData();
@@ -169,7 +169,7 @@ namespace msh
 
         meshes[MESH_TERRAIN] = newData;
 
-        buf::uploadLoadedMesh(newData->getData(), p, n, i, vNum, iNum, MESH_TERRAIN);
+        return newMeshData;
     }
 
     void cleanUp()

@@ -190,6 +190,11 @@ DirectX::XMMATRIX camera::getMat() const
 	return view * projection;
 }
 
+descriptor* camera::getDesc() const
+{
+	return projectionBuffer->getDesc(buf::GBF_CBV);
+}
+
 #if ENGINE_DEBUG_DEBUGCAM
 void camera::toggleDebugMode()
 {

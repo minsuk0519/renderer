@@ -77,6 +77,7 @@ public:
 	transform* getTransform() const;
 
 	DirectX::XMMATRIX getMat() const;
+	descriptor* getDesc() const;
 
 #if ENGINE_DEBUG_DEBUGCAM
 	void toggleDebugMode();

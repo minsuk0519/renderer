@@ -3,12 +3,14 @@
 #include <render/renderer.hpp>
 #include <render/buffer.hpp>
 
+class renderer;
+
 namespace render
 {
 	class UBManager
 	{
 	public:
-		friend class renderer;
+		friend class ::renderer;
 
 	private:
 		buffer* unifiedVertexBuffer;
