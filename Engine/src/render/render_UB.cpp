@@ -85,15 +85,16 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		uint lodIndex = 0;
 		uint clusterIndex = 0;
 		uint clusterInfoSize = curClusterOffset * sizeof(clusterInfo);
-		curClusterOffset = 0;
-		uint indexOffset = 0;
+		uint clusterBoundSize = curClusterOffset * sizeof(clusterbounddata);
+		uint indexOffset = curIndexOffset;
+		uint totalIndexSize = 0;
 
 		uint meshClusterIndex = 0;
 		for (uint j = 0; j < lodNum; ++j)
 		{
 			uint curClusterCount = meshdata->lodData[j].clusterNum;
 			lodInfos[lodIndex].clusterCount = curClusterCount;
-			uint totalIndexSize = 0;
+			uint lodIndexSize = 0;
 
 			for (uint k = 0; k < curClusterCount; ++k)
 			{
@@ -119,70 +120,76 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 				}
 
 				indexOffset += indexCount;
-				totalIndexSize += indexCount;
+				lodIndexSize += indexCount;
 				++clusterIndex;
 			}
 			lodInfos[lodIndex].clusterOffset = curClusterOffset;
-			lodInfos[lodIndex].indexSize = totalIndexSize;
+			lodInfos[lodIndex].indexSize = lodIndexSize;
 			curClusterOffset += curClusterCount;
+			totalIndexSize += lodIndexSize;
 			++lodIndex;
 		}
 
-		meshInfoBuffer->uploadBuffer(sizeof(meshInfo), meshID, &meshinfo);
-		lodInfoBuffer->uploadBuffer(lodNum, curLodOffset, lodInfos);
+		curIndexOffset += totalIndexSize;
+
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = getCmdQueue(QUEUE_COMPUTE)->getCmdList();
+		e_globRenderer.uploadGPUBuffer(cmdList, meshInfoBuffer, meshID * sizeof(meshInfo), &meshinfo, sizeof(meshInfo));
+		e_globRenderer.uploadGPUBuffer(cmdList, lodInfoBuffer, curLodOffset * sizeof(lodInfo), &lodInfos, lodNum * sizeof(lodInfo));
 		curLodOffset += lodNum;
-		clusterInfoBuffer->uploadBuffer(clusterInfoSize, 0, clusterInfos);
-		clusterBoundBuffer->uploadBuffer(curClusterOffset * sizeof(clusterbounddata), 0, clusterBounds);
+		e_globRenderer.uploadGPUBuffer(cmdList, clusterInfoBuffer, clusterInfoSize, &clusterInfos, totalClusterCount * sizeof(clusterInfo));
+		e_globRenderer.uploadGPUBuffer(cmdList, clusterBoundBuffer, clusterBoundSize, &clusterBounds, totalClusterCount * sizeof(clusterbounddata));
 
 		delete[] clusterBounds;
 		delete[] lodInfos;
 		delete[] clusterInfos;
 
-		indexOffset = 0;
+		e_globRenderer.copyGPUBuffer(cmdList, unifiedVertexBuffer, meshinfo.vertexOffset * sizeof(float), vertex, 0, vertex->getHeader()->dataSize);
+		e_globRenderer.copyGPUBuffer(cmdList, unifiedVertexBuffer, (MAX_VERTICES + meshinfo.vertexOffset) * sizeof(float), norm, 0, vertex->getHeader()->dataSize);
+		e_globRenderer.copyGPUBuffer(cmdList, unifiedIndexBuffer, curIndexOffset * sizeof(uint), index, 0, index->getHeader()->dataSize);
 
-		{
-			D3D12_BUFFER_SRV vertexDesc = {};
-			vertexDesc.NumElements = vertex->getElemSize();
-			vertexDesc.StructureByteStride = sizeof(float) * 3;
-			D3D12_BUFFER_SRV indexDesc = {};
-			indexDesc.NumElements = index->getElemSize();
-			indexDesc.StructureByteStride = sizeof(uint) * 3;
-			D3D12_BUFFER_SRV normDesc = {};
-			normDesc.NumElements = norm->getElemSize();
-			normDesc.StructureByteStride = sizeof(float) * 3;
+		//{
+		//	D3D12_BUFFER_SRV vertexDesc = {};
+		//	vertexDesc.NumElements = vertex->getElemSize();
+		//	vertexDesc.StructureByteStride = sizeof(float) * 3;
+		//	D3D12_BUFFER_SRV indexDesc = {};
+		//	indexDesc.NumElements = index->getElemSize();
+		//	indexDesc.StructureByteStride = sizeof(uint) * 3;
+		//	D3D12_BUFFER_SRV normDesc = {};
+		//	normDesc.NumElements = norm->getElemSize();
+		//	normDesc.StructureByteStride = sizeof(float) * 3;
 
-			auto computeCmdList = getCmdQueue(QUEUE_COMPUTE)->getCmdList();
+		//	auto computeCmdList = getCmdQueue(QUEUE_COMPUTE)->getCmdList();
 
-			getCmdQueue(QUEUE_COMPUTE)->bindPSO(PSO_GENUNIFIED);
+		//	getCmdQueue(QUEUE_COMPUTE)->bindPSO(PSO_GENUNIFIED);
 
-			unifiedVertexBuffer->getDesc(buf::GBF_UAV);
-			getCmdQueue(QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedVertexBuffer->getDesc(buf::GBF_UAV)->getHandle());
-			getCmdQueue(QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDEX_BUFFER, unifiedIndexBuffer->getDesc(buf::GBF_UAV)->getHandle());
+		//	unifiedVertexBuffer->getDesc(buf::GBF_UAV);
+		//	getCmdQueue(QUEUE_COMPUTE)->sendData(UAV_UNIFIED_VERTEX_BUFFER, unifiedVertexBuffer->getDesc(buf::GBF_UAV)->getHandle());
+		//	getCmdQueue(QUEUE_COMPUTE)->sendData(UAV_UNIFIED_INDEX_BUFFER, unifiedIndexBuffer->getDesc(buf::GBF_UAV)->getHandle());
 
-			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertex->getDesc(buf::GBF_SRV)->getHandle());
-			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, index->getDesc(buf::GBF_SRV)->getHandle());
-			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_NORMAL_BUFFER, norm->getDesc(buf::GBF_SRV)->getHandle());
-			getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_UNIFIED_MESHINFO_BUFFER, meshInfoBuffer->getDesc(buf::GBF_SRV)->getHandle());
+		//	getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, vertex->getDesc(buf::GBF_SRV)->getHandle());
+		//	getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, index->getDesc(buf::GBF_SRV)->getHandle());
+		//	getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_NORMAL_BUFFER, norm->getDesc(buf::GBF_SRV)->getHandle());
+		//	getCmdQueue(QUEUE_COMPUTE)->sendData(SRV_UNIFIED_MESHINFO_BUFFER, meshInfoBuffer->getDesc(buf::GBF_SRV)->getHandle());
 
-			unifiedConsts unifiedconst;
+		//	unifiedConsts unifiedconst;
 
-			uint indexSize = indexDesc.NumElements * 3;
+		//	uint indexSize = indexDesc.NumElements * 3;
 
-			unifiedconst.vertexOffset = meshinfo.vertexOffset;
-			unifiedconst.indexCount = indexSize;
-			unifiedconst.indexOffset = indexOffset;
-			unifiedconst.vertexCount = vertex->getElemSize();
+		//	unifiedconst.vertexOffset = meshinfo.vertexOffset;
+		//	unifiedconst.indexCount = indexSize;
+		//	unifiedconst.indexOffset = indexOffset;
+		//	unifiedconst.vertexCount = vertex->getElemSize();
 
-			indexOffset += indexSize;
+		//	indexOffset += indexSize;
 
-			getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
+		//	getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_UNIFIEDCONSTS, 4, &unifiedconst);
 
-			computeCmdList->Dispatch(1, 1, 1);
+		//	computeCmdList->Dispatch(1, 1, 1);
 
-			getCmdQueue(QUEUE_COMPUTE)->execute({ computeCmdList });
+		//	getCmdQueue(QUEUE_COMPUTE)->execute({ computeCmdList });
 
-			getCmdQueue(QUEUE_COMPUTE)->flush();
-		}
+		//	getCmdQueue(QUEUE_COMPUTE)->flush();
+		//}
 	}
 
 	getCmdQueue(QUEUE_COMPUTE)->getQueue()->EndEvent();
