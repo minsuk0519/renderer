@@ -1,7 +1,7 @@
 static const float PI = 3.14159265358979;
 static const float EPSILON = 0.000000000001;
 static const uint vertexMax = 16777216;
-static const uint clusterMax = 65536;
+static const uint clusterMax = 262144;
 static const uint clusterSize = 64;
 static const uint MAX_OBJ_NUM = 256;
 static const float3 DEBUG_COL = float3(1,0,0);

@@ -15,6 +15,18 @@ struct unifiedConsts
 	uint vertexOffset = 0;
 };
 
+struct lodInfo
+{
+	uint clusterCount;
+	uint clusterOffset;
+	uint indexSize;
+};
+
+struct clusterInfo
+{
+	uint indexCount;
+	uint indexOffset;
+};
 
 bool UBManager::init()
 {
@@ -22,15 +34,15 @@ bool UBManager::init()
 	curLodOffset = 0;
 	curClusterOffset = 0;
 
-	unifiedVertexBuffer = e_globBufAllocator.alloc(nullptr, UVB_MAX_SIZE, 3, buf::GBF_UAV | buf::GBF_SRV);
-	unifiedNormalBuffer = e_globBufAllocator.alloc(nullptr, UNB_MAX_SIZE, 3, buf::GBF_UAV | buf::GBF_SRV);
-	unifiedIndexBuffer = e_globBufAllocator.alloc(nullptr, UIB_MAX_SIZE, 1, buf::GBF_UAV | buf::GBF_SRV);
+	unifiedVertexBuffer = e_globBufAllocator.alloc(nullptr, UVB_MAX_SIZE, 3, buf::GBF_SRV);
+	unifiedNormalBuffer = e_globBufAllocator.alloc(nullptr, UNB_MAX_SIZE, 3, buf::GBF_SRV);
+	unifiedIndexBuffer = e_globBufAllocator.alloc(nullptr, UIB_MAX_SIZE, 1, buf::GBF_SRV);
 
 	//TODO : we can make seperate upload buffer
-	meshInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES, 1, buf::GBF_UAV);
-	lodInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_LOD, 1, buf::GBF_UAV);
-	clusterInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS, 1, buf::GBF_UAV);
-	clusterBoundBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS * sizeof(clusterbounddata), 1, buf::GBF_UAV);
+	meshInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES * sizeof(meshInfo), 1, buf::GBF_SRV);
+	lodInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_LOD * sizeof(lodInfo), 1, buf::GBF_SRV);
+	clusterInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS * sizeof(clusterInfo), 1, buf::GBF_SRV);
+	clusterBoundBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS * sizeof(clusterbounddata), 1, buf::GBF_SRV);
 
 	if (!unifiedVertexBuffer) return false;
 	if (!unifiedNormalBuffer) return false;
@@ -65,19 +77,6 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		}
 		uint vertexSize = vertex->getElemSize();
 		curVertexOffset += vertexSize;
-
-		struct lodInfo
-		{
-			uint clusterCount;
-			uint clusterOffset;
-			uint indexSize;
-		};
-
-		struct clusterInfo
-		{
-			uint indexCount;
-			uint indexOffset;
-		};
 
 		lodInfo* lodInfos = new lodInfo[lodNum];
 		clusterbounddata* clusterBounds = new clusterbounddata[totalClusterCount];
@@ -132,20 +131,41 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 
 		curIndexOffset += totalIndexSize;
 
-		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = getCmdQueue(QUEUE_COMPUTE)->getCmdList();
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = getCmdQueue(QUEUE_COPY)->getCmdList();
+		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		e_globRenderer.uploadGPUBuffer(cmdList, meshInfoBuffer, meshID * sizeof(meshInfo), &meshinfo, sizeof(meshInfo));
-		e_globRenderer.uploadGPUBuffer(cmdList, lodInfoBuffer, curLodOffset * sizeof(lodInfo), &lodInfos, lodNum * sizeof(lodInfo));
+		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
+		render::getCmdQueue(render::QUEUE_COPY)->flush();
+		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		e_globRenderer.uploadGPUBuffer(cmdList, lodInfoBuffer, curLodOffset * sizeof(lodInfo), lodInfos, lodNum * sizeof(lodInfo));
+		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
+		render::getCmdQueue(render::QUEUE_COPY)->flush();
+		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		curLodOffset += lodNum;
-		e_globRenderer.uploadGPUBuffer(cmdList, clusterInfoBuffer, clusterInfoSize, &clusterInfos, totalClusterCount * sizeof(clusterInfo));
-		e_globRenderer.uploadGPUBuffer(cmdList, clusterBoundBuffer, clusterBoundSize, &clusterBounds, totalClusterCount * sizeof(clusterbounddata));
+		e_globRenderer.uploadGPUBuffer(cmdList, clusterInfoBuffer, clusterInfoSize, clusterInfos, totalClusterCount * sizeof(clusterInfo));
+		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
+		render::getCmdQueue(render::QUEUE_COPY)->flush();
+		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		e_globRenderer.uploadGPUBuffer(cmdList, clusterBoundBuffer, clusterBoundSize, clusterBounds, totalClusterCount * sizeof(clusterbounddata));
+		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
+		render::getCmdQueue(render::QUEUE_COPY)->flush();
+		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 
 		delete[] clusterBounds;
 		delete[] lodInfos;
 		delete[] clusterInfos;
 
-		e_globRenderer.copyGPUBuffer(cmdList, unifiedVertexBuffer, meshinfo.vertexOffset * sizeof(float), vertex, 0, vertex->getHeader()->dataSize);
-		e_globRenderer.copyGPUBuffer(cmdList, unifiedVertexBuffer, (MAX_VERTICES + meshinfo.vertexOffset) * sizeof(float), norm, 0, vertex->getHeader()->dataSize);
+		e_globRenderer.copyGPUBuffer(cmdList, unifiedVertexBuffer, meshinfo.vertexOffset * sizeof(float) * 3, vertex, 0, vertex->getHeader()->dataSize);
+		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
+		render::getCmdQueue(render::QUEUE_COPY)->flush();
+		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		e_globRenderer.copyGPUBuffer(cmdList, unifiedVertexBuffer, (MAX_VERTICES + meshinfo.vertexOffset) * sizeof(float) * 3, norm, 0, vertex->getHeader()->dataSize);
+		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
+		render::getCmdQueue(render::QUEUE_COPY)->flush();
+		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		e_globRenderer.copyGPUBuffer(cmdList, unifiedIndexBuffer, curIndexOffset * sizeof(uint), index, 0, index->getHeader()->dataSize);
+		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
+		render::getCmdQueue(render::QUEUE_COPY)->flush();
 
 		//{
 		//	D3D12_BUFFER_SRV vertexDesc = {};
