@@ -7,7 +7,7 @@ bool framebuffer::createAddFBO(uint width, uint height, DXGI_FORMAT format, Dire
 {
 	clearColor = clear;
 
-	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_CLEAR, format, width, height, 0, clearColor);
+	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_CLEAR | buf::RESOURCE_TEXTURE, format, width, height, 1, clearColor);
 
 	FBOs.push_back(FBO);
 
@@ -37,7 +37,7 @@ void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdLi
 	barriers.reserve(numFBO);
 	rtvs.reserve(numFBO);
 
-	for (uint i = 0; i < numFBO; ++i) barriers.push_back(FBOs[i]->getTransition(D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	for (uint i = 0; i < numFBO; ++i) barriers.push_back(FBOs[i]->getTransition(D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	cmdList->ResourceBarrier((uint)barriers.size(), barriers.data());
 
@@ -70,7 +70,7 @@ void framebuffer::closeFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdL
 	std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
 	for (auto FBO : FBOs)
 	{
-		barriers.push_back(FBO->getTransition(D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+		barriers.push_back(FBO->getTransition(D3D12_RESOURCE_STATE_PRESENT));
 	}
 
 	cmdList->ResourceBarrier((uint)barriers.size(), barriers.data());

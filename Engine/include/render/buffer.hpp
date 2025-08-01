@@ -169,7 +169,7 @@ struct buffer_header
 	uint dataSize;
 	uint totalSize;
 
-	union packed_data
+	struct packed_data
 	{
 		uint bufferId	: 16;
 		uint allocated	: 1;

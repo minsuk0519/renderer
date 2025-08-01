@@ -80,7 +80,7 @@ namespace buf
     inline constexpr void TrimLeft(std::string& text)
     {
         size_t index = 0;
-        while (index < text.size() && (text[index] == ' ' || text[index] == '\t' || text[index] == ',' || text[index] == ')' || text[index] == '(' || text[index] == '\n')) ++index;
+        while (index < text.size() && (text[index] == ' ' || text[index] == '\t' || text[index] == ',' || text[index] == ')' || text[index] == '(' || text[index] == '\n' || text[index] == '\r')) ++index;
         
         text.erase(0, index);
     }
@@ -132,7 +132,7 @@ namespace buf
             std::string lodNumString = subStr.substr(0, subStr.find('\n'));
             meshData->lodNum = std::stoi(lodNumString);
 
-            subStr = subStr.substr(subStr.find("cluster Infos by LOD : \n") + 24);
+            subStr = subStr.substr(subStr.find("\n0 : ") + 1);
 
             meshData->lodData.resize(meshData->lodNum);
 
@@ -288,13 +288,13 @@ namespace buf
         }
 #endif // #else // #if ENGINE_DEBUG_DATATEST
 
-        buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.positions.data()), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), sizeof(float) * 3,
+        buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.positions.data()), static_cast<uint>(sizeof(float) * result.attributes.positions.size()), 3,
             GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
         buffer* norm = nullptr;
         //make sure that the model file contains normal data and it's vertex normal not face normal
         if (result.attributes.normals.size() > 0)
         {
-            norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.normals.data()), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), sizeof(float) * 3,
+            norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(result.attributes.normals.data()), static_cast<uint>(sizeof(float) * result.attributes.normals.size()), 3,
                 GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
             TC_ASSERT(result.attributes.normals.size() == result.attributes.positions.size());
         }
@@ -302,7 +302,7 @@ namespace buf
         {
             norm = nullptr;
         }
-        buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(indices.data()), static_cast<uint>(sizeof(uint) * indices.size()), sizeof(uint),
+        buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(indices.data()), static_cast<uint>(sizeof(uint) * indices.size()), 1,
             GBF_NONE, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
 
         //TODO : not support now
@@ -315,11 +315,11 @@ namespace buf
 
     void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id)
     {
-        buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(p), static_cast<uint>(sizeof(float) * 3 * vNum), sizeof(float) * 3,
+        buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(p), static_cast<uint>(sizeof(float) * 3 * vNum), 3,
             buf::GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-        buffer* norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(n), static_cast<uint>(sizeof(float) * 3 * vNum), sizeof(float) * 3,
+        buffer* norm = e_globBufAllocator.alloc(reinterpret_cast<char*>(n), static_cast<uint>(sizeof(float) * 3 * vNum), 3,
             buf::GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-        buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(i), static_cast<uint>(sizeof(uint) * iNum), sizeof(uint),
+        buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(i), static_cast<uint>(sizeof(uint) * iNum), 1,
             buf::GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
 
         e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
@@ -443,133 +443,13 @@ namespace buf
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, bufDesc,
             state, clear, IID_PPV_ARGS(&resource));
 
-        if (!data) copyResource(resource, data, 0, size);
+        if (data) copyResource(resource, data, 0, size);
 
         return state;
     }
 
 	bool loadResources()
 	{
-        //create vertex buffer
-            //create cube vertex
-            {
-                float cubeVertices[] =
-                {
-                    0.5f,  0.5f,  0.5f,
-                    0.5f, -0.5f,  0.5f,
-                   -0.5f,  0.5f,  0.5f,
-                   -0.5f, -0.5f,  0.5f,
-
-                    0.5f,  0.5f, -0.5f,
-                    0.5f, -0.5f, -0.5f,
-                   -0.5f,  0.5f, -0.5f,
-                   -0.5f, -0.5f, -0.5f,
-
-                    0.5f,  0.5f,  0.5f,
-                    0.5f,  0.5f, -0.5f,
-                   -0.5f,  0.5f,  0.5f,
-                   -0.5f,  0.5f, -0.5f,
-
-                    0.5f, -0.5f,  0.5f,
-                    0.5f, -0.5f, -0.5f,
-                   -0.5f, -0.5f,  0.5f,
-                   -0.5f, -0.5f, -0.5f,
-
-                    0.5f,  0.5f,  0.5f,
-                    0.5f,  0.5f, -0.5f,
-                    0.5f, -0.5f,  0.5f,
-                    0.5f, -0.5f, -0.5f,
-
-                   -0.5f,  0.5f,  0.5f,
-                   -0.5f, -0.5f,  0.5f,
-                   -0.5f,  0.5f, -0.5f,
-                   -0.5f, -0.5f, -0.5f,
-                };
-
-                float cubeNorm[] = {
-                    0.0f, 0.0f, 1.0f,
-                    0.0f, 0.0f, 1.0f,
-                    0.0f, 0.0f, 1.0f,
-                    0.0f, 0.0f, 1.0f,
-
-                    0.0f, 0.0f, -1.0f,
-                    0.0f, 0.0f, -1.0f,
-                    0.0f, 0.0f, -1.0f,
-                    0.0f, 0.0f, -1.0f,
-
-                    0.0f, 1.0f, 0.0f,
-                    0.0f, 1.0f, 0.0f,
-                    0.0f, 1.0f, 0.0f,
-                    0.0f, 1.0f, 0.0f,
-
-                    0.0f, -1.0f, 0.0f,
-                    0.0f, -1.0f, 0.0f,
-                    0.0f, -1.0f, 0.0f,
-                    0.0f, -1.0f, 0.0f,
-
-                    1.0f, 0.0f, 0.0f,
-                    1.0f, 0.0f, 0.0f,
-                    1.0f, 0.0f, 0.0f,
-                    1.0f, 0.0f, 0.0f,
-
-                    -1.0f, 0.0f, 0.0f,
-                    -1.0f, 0.0f, 0.0f,
-                    -1.0f, 0.0f, 0.0f,
-                    -1.0f, 0.0f, 0.0f,
-                };
-
-                uint cubeIndices[] = {
-                    3, 2, 0,
-                    0, 1, 3,
-
-                    7, 5, 4,
-                    7, 4, 6,
-
-                    10, 11, 8,
-                    8, 11, 9,
-
-                    13, 15, 12,
-                    12, 15, 14,
-
-                    19, 18, 16,
-                    19, 16, 17,
-
-                    21, 23, 20,
-                    20, 23, 22,
-                };
-
-                buffer* vbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeVertices), sizeof(cubeVertices), 3, GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-                buffer* nvbs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeNorm), sizeof(cubeNorm), 3, GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-                buffer* ibs = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeIndices), sizeof(cubeIndices), 1, GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-
-                meshData* meshInfo = new meshData;
-
-                clusterbounddata bound;
-                bound.aabb.center[0] = 0.0f;
-                bound.aabb.center[1] = 0.0f;
-                bound.aabb.center[2] = 0.0f;
-                bound.aabb.hExtent[0] = 1.0f;
-                bound.aabb.hExtent[1] = 1.0f;
-                bound.aabb.hExtent[2] = 1.0f;
-                bound.sphere.center[0] = 0.0f;
-                bound.sphere.center[1] = 0.0f;
-                bound.sphere.center[2] = 0.0f;
-                bound.sphere.radius = 1.73205f;
-                meshInfo->clusterBounds.push_back(bound);
-                meshInfo->boundData.halfExtent[msh::AXIS_X] = 1.0f;
-                meshInfo->boundData.halfExtent[msh::AXIS_Y] = 1.0f;
-                meshInfo->boundData.halfExtent[msh::AXIS_Z] = 1.0f;
-                meshInfo->boundData.radius = 1.73205f;
-                lodInfos lodinfo;
-                lodinfo.clusterNum = 1;
-                lodinfo.indexSize.push_back(36);
-                lodinfo.totalIndicesCount = 36;
-                meshInfo->lodData.push_back(lodinfo);
-                meshInfo->lodNum = 1;
-
-                e_globRenderer.uploadMeshToUB(vbs, nvbs, ibs, meshInfo, msh::MESH_CUBE);
-            }
-
         //    {
         //        //loadFile("asset/model/bun_zipper.ply", VERTEX_OBJ, VERTEX_OBJ_NORM, INDEX_OBJ);
         //        //loadFile("asset/model/dragon_vrip.ply", VERTEX_OBJ, VERTEX_OBJ_NORM, INDEX_OBJ);
@@ -604,7 +484,7 @@ namespace buf
             uint width = e_globWindow.width();
             uint height = e_globWindow.height();
 
-            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH, DXGI_FORMAT_D32_FLOAT, width, height);
+            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE, DXGI_FORMAT_D32_FLOAT, width, height, 1);
         }
 
         //create image buffer
@@ -612,7 +492,7 @@ namespace buf
             uint width = e_globWindow.width();
             uint height = e_globWindow.height();
 
-            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL | GBF_RT, buf::RESOURCE_DEPTH, DXGI_FORMAT_R32_UINT, width, height);
+            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_UINT, width, height, 1);
 
             //{
             //    bufferContainer[IMAGE_IRRADIANCE] = loadTextureFromFile(L"asset/texture/Sierra_Madre_B_Ref.irr.hdr", true);
@@ -696,6 +576,7 @@ namespace buf
         {
             view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
             view.Texture2D.MipLevels = bufDesc.MipLevels;
+            view.Texture2D.MostDetailedMip = 0;
             view.Format = bufDesc.Format;
         }
         else
@@ -794,9 +675,10 @@ CD3DX12_RESOURCE_BARRIER buffer::getTransition(D3D12_RESOURCE_STATES after)
 {
     if (curState == after) TC_LOG_WARNING("You are trying to transit same state");
 
+    D3D12_RESOURCE_STATES before = curState;
     curState = after;
 
-    return CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), curState, after);
+    return CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), before, after);
 }
 
 D3D12_RESOURCE_STATES buffer::getCurResourceState() const
@@ -890,7 +772,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor, ID3D12Resource* resource)
 {
     //cbv size should be multiplied by 256 bytes
-    if (viewFlags & (1 << buf::graphicBufferFlags::GBF_CBV))
+    if (viewFlags & (buf::graphicBufferFlags::GBF_CBV))
     {
         size = ((size / CBVALLIGNMENT) + 1) * CBVALLIGNMENT;
     }
@@ -934,8 +816,8 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     buf->header.packedData.allocated = 1;
     buf->header.packedData.viewFlags = viewFlags;
     buf->header.packedData.stride = stride;
-    buf->header.packedData.lifetime = (flag & buf::RESOURCE_ONETIME);
-    buf->header.packedData.texture = (flag & buf::RESOURCE_TEXTURE);
+    buf->header.packedData.lifetime = (flag & buf::RESOURCE_ONETIME) ? 1 : 0;
+    buf->header.packedData.texture = (flag & buf::RESOURCE_TEXTURE) ? 1 : 0;
 
     D3D12_RESOURCE_FLAGS resourceFlag = D3D12_RESOURCE_FLAG_NONE;
 
@@ -947,7 +829,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     {
         resourceFlag |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
-    if (viewFlags & (buf::graphicBufferFlags::GBF_FBO))
+    if (viewFlags & (buf::graphicBufferFlags::GBF_RT))
     {
         resourceFlag |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     }
