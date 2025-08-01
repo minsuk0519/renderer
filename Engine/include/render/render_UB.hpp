@@ -25,6 +25,7 @@ namespace render
 		uint curVertexOffset = 0;
 		uint curLodOffset = 0;
 		uint curClusterOffset = 0;
+		uint curIndexOffset = 0;
 
 		bool init();
 		void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID);

@@ -25,6 +25,8 @@ uint frameIndex = 0;
 renderer e_globRenderer;
 renderBuf e_globGPUBuffer;
 
+constexpr uint COPYING_GPU_BUFFER_SIZE = 262144;
+
 namespace renderGuiSetting
 {
 	struct AOConstants
@@ -76,8 +78,12 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	TC_INIT(render::initPSO());
 	TC_INIT(render::allocateCmdQueue());
 	TC_CONDITIONB(createSwapChain() == true, "Failed to create swapchain");
-	TC_INIT(buf::loadResources());
 	TC_INIT(render::initDescHeap());
+	e_globBufAllocator.init();
+	uploadBuffer = e_globBufAllocator.alloc(nullptr, COPYING_GPU_BUFFER_SIZE, 1, 0, buf::RESOURCE_UPLOAD);
+	ubManager = new render::UBManager();
+	TC_INIT(ubManager->init());
+	TC_INIT(buf::loadResources());
 	TC_INIT(createFrameResources());
 	TC_INIT(msh::loadResources());
 
@@ -98,9 +104,6 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 #if ENGINE_DEBUG_BUFFER
 	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, 65536 * 1024 * sizeof(uint), 1, buf::GBF_UAV, buf::RESOURCE_READBACK | buf::RESOURCE_CLEAR);
 #endif // #if ENGINE_DEBUG_BUFFER
-
-	ubManager = new render::UBManager();
-	TC_INIT(ubManager->init());
 
 	return true;
 }
@@ -286,6 +289,36 @@ void renderer::setIndexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>&
 	cmdList->IASetIndexBuffer(&view);
 }
 
+void renderer::copyGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* dst, uint dstOffset, buffer* src, uint srcOffset, uint size)
+{
+	TC_ASSERT(dst->getHeader()->dataSize >= size);
+
+	D3D12_RESOURCE_STATES srcBarrier = dst->getCurResourceState();
+
+	CD3DX12_RESOURCE_BARRIER barrier;
+
+	//src don't need it because it is D3D12_RESOURCE_STATE_GENERIC_READ
+	barrier = dst->getTransition(D3D12_RESOURCE_STATE_COPY_DEST);
+
+	cmdList->ResourceBarrier(1, &barrier);
+
+	cmdList->CopyBufferRegion(dst->getResource(), dstOffset, src->getResource(), srcOffset, size);
+
+	barrier = dst->getTransition(srcBarrier);
+
+	cmdList->ResourceBarrier(1, &barrier);
+}
+
+void renderer::uploadGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* dst, uint dstOffset, void* data, uint size)
+{
+	//todo : change it to srcOffset
+	uint offset = 0;
+
+	uploadBuffer->uploadBuffer(size, offset, data);
+
+	copyGPUBuffer(cmdList, dst, dstOffset, uploadBuffer, offset, size);
+}
+
 framebuffer* renderer::getFrameBuffer() const
 {
 	return gbufferFB;
@@ -380,9 +413,9 @@ void renderer::setUpTerrain()
 	uint indexSize = 512 * 512 * sizeof(uint) * 3 * 2;
 	buffer* terrainVert[3];
 	//TODO : arbitrary size
-	terrainVert[0] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-	terrainVert[1] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-	terrainVert[2] = e_globBufAllocator.alloc(nullptr, indexSize, buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+	terrainVert[0] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+	terrainVert[1] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+	terrainVert[2] = e_globBufAllocator.alloc(nullptr, indexSize, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
 
 	buffer* noise;
 

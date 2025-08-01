@@ -13,7 +13,7 @@ namespace config
 	const std::string shaderBasePath = "data/shader/source";
 }
 
-#define BUFFER_MAX_SIZE		1048576
+#define BUFFER_MAX_SIZE		1073741824
 #define BUFFER_MAX_COUNT	16384
 
 
@@ -24,6 +24,7 @@ namespace config
 constexpr uint THREADS_NUM_CLUSTERS = 64;
 constexpr uint MAX_OBJECTS = 256;
 constexpr uint MAX_CLUSTERS = MAX_OBJECTS * 1024;
+constexpr uint MAX_VERTICES = 16777216;
 
 constexpr uint MAX_MESHES = 16;
 constexpr uint MAX_MESHES_LOD = 128;

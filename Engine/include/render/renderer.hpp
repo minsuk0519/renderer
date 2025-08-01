@@ -100,6 +100,8 @@ private:
 
 	buffer* AABBwireframeBuffer[3];
 	buffer* triangleBuffer = nullptr;
+
+	buffer* uploadBuffer = nullptr;
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
@@ -113,6 +115,9 @@ public:
 
 	void setVertexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint slot, buffer* buf);
 	void setIndexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* buf);
+
+	void copyGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* dst, uint dstOffset, buffer* src, uint srcOffset, uint size);
+	void uploadGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* dst, uint dstOffset, void* data, uint size);
 private:
 	void setUpTerrain();
 };

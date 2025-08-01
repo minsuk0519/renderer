@@ -2,6 +2,7 @@
 
 #include <system\defines.hpp>
 #include <system\config.hpp>
+#include <system/logger.hpp>
 
 #include <wrl.h>
 #include <d3d12.h>
@@ -15,10 +16,6 @@ struct buffer;
 
 struct meshData;
 struct descriptor;
-
-//buffer_header + buffer
-#define BUFFER_HEADER_SIZE ((4 + 4 + 4) + (4 + 8))
-#define BUFFER_VIEW_OFFSET (BUFFER_HEADER_SIZE + 4)
 
 namespace buf
 {
@@ -102,13 +99,13 @@ namespace buf
 	enum graphicBufferFlags : uint_8
 	{
 		GBF_NONE,
-		GBF_UAV,
-		GBF_CBV,
-		GBF_SRV,
-		GBF_DEPTH_STENCIL,
-		GBF_RT,
-		GBF_COUNT,
-		GBF_FBO = GBF_COUNT,
+		GBF_UAV					= (1 << 0),
+		GBF_CBV					= (1 << 1),
+		GBF_SRV					= (1 << 2),
+		GBF_DEPTH_STENCIL		= (1 << 3),
+		GBF_RT					= (1 << 4),
+		GBF_FBO					= (1 << 5),
+		GBF_COUNT = 6,
 	};
 
 	enum resourceFlags : uint
@@ -172,7 +169,7 @@ struct buffer_header
 	uint dataSize;
 	uint totalSize;
 
-	union packed_data
+	struct packed_data
 	{
 		uint bufferId	: 16;
 		uint allocated	: 1;
@@ -203,7 +200,8 @@ public:
 
 	descriptor* getDesc(buf::graphicBufferFlags flag);
 
-	CD3DX12_RESOURCE_BARRIER getTransition(D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
+	CD3DX12_RESOURCE_BARRIER getTransition(D3D12_RESOURCE_STATES after);
+	D3D12_RESOURCE_STATES getCurResourceState() const;
 
 	void mapBuffer(unsigned char** dataPtr);
 	void unmapBuffer();
@@ -212,12 +210,10 @@ private:
 	friend class buf::viewAllocator;
 
 	char* baseLoc;
-
-	buffer_header header;
-
 	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 
-	virtual ~buffer() {}
+	buffer_header header;
+	D3D12_RESOURCE_STATES curState;
 };
 
 extern buffer_allocator e_globBufAllocator;
