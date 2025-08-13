@@ -310,7 +310,7 @@ namespace buf
 
         loadMeshInfo(fileName, meshdata);
 
-        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id, 0);
     }
 
     void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id)
@@ -322,7 +322,7 @@ namespace buf
         buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(i), static_cast<uint>(sizeof(uint) * iNum), 1,
             buf::GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
 
-        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id, 0);
     }
 
     buffer* loadTextureFromFile(std::wstring filename, bool mip)
@@ -443,7 +443,18 @@ namespace buf
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, bufDesc,
             state, clear, IID_PPV_ARGS(&resource));
 
-        if (data) copyResource(resource, data, 0, size);
+        if (data)
+        {
+            if (flags & RESOURCE_UPLOAD)
+            {
+                copyResource(resource, data, 0, size);
+            }
+            else
+            {
+                //cannot do direct map/unmap for non-upload resources
+                e_globRenderer.uploadCopyGPUBuffer(resource.Get(), data, size);
+            }
+        }
 
         return state;
     }
@@ -539,7 +550,14 @@ namespace buf
         D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
         //we will forcely use R32 for UAVs since we will use our own packing unpacking for raw byte buffer
         view.Format = DXGI_FORMAT_R32_FLOAT;
-        view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+        if (bufDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D)
+        {
+            view.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+        }
+        else
+        {
+            view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+        }
         view.Buffer.FirstElement = 0;
         view.Buffer.NumElements = buf->header.dataSize / sizeof(float);
         
@@ -656,17 +674,17 @@ void buffer::uploadBuffer(uint size, uint offset, void* data)
 descriptor* buffer::getDesc(buf::graphicBufferFlags flag)
 {
     uint offset = 0;
-    for (uint i = 0; i < flag; ++i)
+    for (uint i = 0, j = 0; j < flag; ++i, j = (1 << i))
     {
-        if (header.packedData.viewFlags & (1 << i))
+        if (header.packedData.viewFlags & j)
         {
             offset += buf::DESCRIPTOR_SIZE;
         }
     }
 
-    TC_ASSERT(header.packedData.viewFlags & (1 << flag));
+    TC_ASSERT(header.packedData.viewFlags & flag);
 
-    char* loc = baseLoc + offset + BUFFER_VIEW_OFFSET;
+    char* loc = reinterpret_cast<char*>(this) + offset + BUFFER_VIEW_OFFSET;
 
     return reinterpret_cast<descriptor*>(loc);
 }

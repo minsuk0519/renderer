@@ -10,8 +10,8 @@
 ////////////////////gbuffer Buffer Begin
 //t0 position
 #define SRV_GBUFFER_VERTEX			GET_HLSL_LOC_SRV(0)
-//t1 normal
-#define SRV_GBUFFER_NORM			GET_HLSL_LOC_SRV(1)
+//t1 index
+#define SRV_GBUFFER_INDEX			GET_HLSL_LOC_SRV(1)
 //t2 cluster args
 #define SRV_GBUFFER_CLUSTERARGS		GET_HLSL_LOC_SRV(2)
 //t3 view info
