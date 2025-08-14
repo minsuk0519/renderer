@@ -99,6 +99,7 @@ private:
 
 	buffer* AABBwireframeBuffer[3];
 	buffer* triangleBuffer = nullptr;
+	buffer* sceneTriangleBuffer = nullptr;
 
 	buffer* uploadBuffer = nullptr;
 public:

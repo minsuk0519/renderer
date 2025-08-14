@@ -69,6 +69,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		meshinfo.lodOffset = curLodOffset;
 		meshinfo.vertexOffset = curVertexOffset;
 		meshinfo.flags = flags;
+		uint meshIndexOffset = curIndexOffset;
 
 		for (uint j = 0; j < lodNum; ++j)
 		{
@@ -165,7 +166,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
 		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
-		e_globRenderer.copyGPUBuffer(cmdList, unifiedIndexBuffer, curIndexOffset * sizeof(uint), index, 0, index->getHeader()->dataSize);
+		e_globRenderer.copyGPUBuffer(cmdList, unifiedIndexBuffer, meshIndexOffset * sizeof(uint), index, 0, index->getHeader()->dataSize);
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
 

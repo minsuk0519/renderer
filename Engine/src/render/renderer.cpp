@@ -426,7 +426,11 @@ void renderer::preDraw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
 
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "InstanceCull", sizeof("InstanceCull"));
+
 	e_globWorld.instanceCulling();
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 }
 
 void renderer::setUpTerrain()
@@ -512,6 +516,8 @@ void renderer::setUp()
 		cmdConstBuffer = e_globBufAllocator.alloc(nullptr, 513 * sizeof(uint), 6, buf::GBF_CBV, buf::RESOURCE_UPLOAD);
 	}
 
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Setup WireFrame Buffer", sizeof("Setup WireFrame Buffer"));
+
 	{
 		float cubeVertices[] =
 		{
@@ -541,6 +547,10 @@ void renderer::setUp()
 		AABBwireframeBuffer[2] = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeIndicesLine), 24 * sizeof(uint), 2, buf::GBF_NONE, buf::RESOURCE_NONE);
 	}
 
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Cretae Triangle Buffer", sizeof("Cretae Triangle Buffer"));
+
 	{
 		//create triangle vertex
         float triangleVertices[] =
@@ -552,6 +562,20 @@ void renderer::setUp()
 
 		triangleBuffer = e_globBufAllocator.alloc(reinterpret_cast<char*>(triangleVertices), 9 * sizeof(float), 3, buf::GBF_NONE, buf::RESOURCE_NONE);
 	}
+
+	{
+		//create triangle vertex
+		float triangleVertices[] =
+		{
+			-1.0,  3.0, 0.0f,
+			 3.0, -1.0, 0.0f,
+			-1.0, -1.0, 0.0f,
+		};
+
+		sceneTriangleBuffer = e_globBufAllocator.alloc(reinterpret_cast<char*>(triangleVertices), 9 * sizeof(float), 3, buf::GBF_NONE, buf::RESOURCE_NONE);
+	}
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 }
 
 void renderer::draw(float dt)
@@ -585,6 +609,8 @@ void renderer::draw(float dt)
 	ssaoSRV[1] = ssaoTex[1]->getDesc(buf::GBF_SRV);
 	ssaoSRV[2] = ssaoTex[2]->getDesc(buf::GBF_SRV);
 
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "InitCluster", sizeof("InitCluster"));
+
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
@@ -598,6 +624,9 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
+	
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Triangle Processing", sizeof("Triangle Processing"));
 
 	{
@@ -614,7 +643,9 @@ void renderer::draw(float dt)
 
 		memcpy(cbvDataBegin + 64 * 4 * 4, &objCount, 4);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLINGCONSTS, commandBuffer->getDesc(buf::GBF_CBV)->getHandle());
+		cmdConstBuffer->unmapBuffer();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLINGCONSTS, cmdConstBuffer->getDesc(buf::GBF_CBV)->getHandle());
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESH_INFO_BUFFER, meshInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
@@ -790,7 +821,7 @@ void renderer::draw(float dt)
 
 	e_globWorld.setupCam(cmdList, true, false);
 
-	setVertexBuffer(cmdList, 0, triangleBuffer);
+	setVertexBuffer(cmdList, 0, sceneTriangleBuffer);
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
