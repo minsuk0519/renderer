@@ -81,6 +81,7 @@ private:
 	buffer* localClusterOffsetBuffer = nullptr;
 	buffer* localClusterSizeBuffer = nullptr;
 	buffer* clusterArgsBuffer = nullptr;
+	buffer* fbDepth = nullptr;
 
 #if	ENGINE_DEBUG_BUFFER
 	buffer* outDebugBuffer = nullptr;

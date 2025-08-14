@@ -461,42 +461,13 @@ namespace buf
 
 	bool loadResources()
 	{
-        //    {
-        //        //loadFile("asset/model/bun_zipper.ply", VERTEX_OBJ, VERTEX_OBJ_NORM, INDEX_OBJ);
-        //        //loadFile("asset/model/dragon_vrip.ply", VERTEX_OBJ, VERTEX_OBJ_NORM, INDEX_OBJ);
-        //    }
-        //}
-
-        ////create constant buffer
-        //{
-        //    //create projection buffer
-        //    {
-        //        bufferContainer[CONSTANT_PROJECTION] = createConstantBuffer(sizeof(float) * (4 * 4 * 2 + 3));
-        //    }
-
-        //    //create object buffer
-        //    {
-        //        bufferContainer[CONSTANT_OBJECT] = createConstantBuffer(sizeof(float) * (4 * 4 + 3 + 1 + 1));
-        //        bufferContainer[CONSTANT_OBJECT2] = createConstantBuffer(sizeof(float) * (4 * 4 + 3 + 1 + 1));
-        //    }
-        //    
-        //    {
-        //        bufferContainer[CONSTANT_SUN] = createConstantBuffer(sizeof(float) * (3));
-        //    }
-
-        //    //create hamsley random buffer
-        //    {
-        //        bufferContainer[CONSTANT_HAMRAN] = createConstantBuffer(sizeof(float) * 2 * 100 + sizeof(float));
-        //    }
-        //}
-
         //create depth buffer
-        {
-            uint width = e_globWindow.width();
-            uint height = e_globWindow.height();
+        //{
+        //    uint width = e_globWindow.width();
+        //    uint height = e_globWindow.height();
 
-            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE, DXGI_FORMAT_D32_FLOAT, width, height, 1);
-        }
+        //    buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE, DXGI_FORMAT_D32_FLOAT, width, height, 1);
+        //}
 
         //create image buffer
         {

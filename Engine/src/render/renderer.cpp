@@ -219,6 +219,10 @@ bool renderer::createFrameResources()
 	uint sWidth = e_globWindow.width();
 	uint sHeight = e_globWindow.height();
 
+	{
+		fbDepth = e_globBufAllocator.alloc(nullptr, 0, 3, buf::GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE | buf::RESOURCE_CLEAR, DXGI_FORMAT_D32_FLOAT, sWidth, sHeight, 1);
+	}
+
 	for (int i = 0; i < FRAME_COUNT; ++i)
 	{
 		Microsoft::WRL::ComPtr<ID3D12Resource> resource;
@@ -237,7 +241,7 @@ bool renderer::createFrameResources()
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	gbufferFB->setDepthClear(1.0f);
+	gbufferFB->attachDepth(fbDepth, 1.0f);
 
 #if ENGINE_DEBUG_DEBUGCAM
 	//should be sync with gbufferFB
@@ -248,12 +252,12 @@ bool renderer::createFrameResources()
 	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
 	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	gbufferDebugFB->setDepthClear(1.0f);
+	gbufferDebugFB->attachDepth(fbDepth, 1.0f);
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	debugFB = new framebuffer();
 	debugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	debugFB->setDepthClear(1.0f);
+	debugFB->attachDepth(fbDepth, 1.0f);
 
 	{
 		std::vector<render::cmdSigData> sigData[2];
@@ -273,7 +277,7 @@ void renderer::setVertexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>
 
 	view.BufferLocation = buf->getResource()->GetGPUVirtualAddress();
 	view.SizeInBytes = buf->getHeader()->dataSize;
-	view.StrideInBytes = buf->getHeader()->packedData.stride;
+	view.StrideInBytes = buf->getHeader()->packedData.stride * sizeof(float);
 
 	cmdList->IASetVertexBuffers(slot, 1, &view);
 }

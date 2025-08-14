@@ -18,11 +18,19 @@ bool framebuffer::attachResource(ID3D12Resource* resource, uint width, uint heig
 {
 	clearColor = clear;
 
-	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, 0, 0, format, width, height, 0, clearColor, resource);
+	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT, 0, format, width, height, 0, clearColor, resource);
 
 	FBOs.push_back(FBO);
 
 	return true;
+}
+
+bool framebuffer::attachDepth(buffer* depth, float clear)
+{
+	depthBuffer = depth;
+	clearDepth = clear;
+
+	return false;
 }
 
 //open frame buffer and clear the buffer
@@ -50,9 +58,9 @@ void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdLi
 		if(clear) cmdList->ClearRenderTargetView(rtvs[i], &clearColor.x, 0, nullptr);
 	}
 
-	if (isDepth)
+	if (depthBuffer)
 	{
-		D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(render::getHeap(render::DESCRIPTORHEAP_DEPTH)->getCPUPos(0));
+		D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(depthBuffer->getDesc(buf::GBF_DEPTH_STENCIL)->getCPUHandle());
 
 		if(clear) cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, clearDepth, 0, 0, nullptr);
 		
@@ -74,12 +82,6 @@ void framebuffer::closeFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdL
 	}
 
 	cmdList->ResourceBarrier((uint)barriers.size(), barriers.data());
-}
-
-void framebuffer::setDepthClear(float depth)
-{
-	clearDepth = depth;
-	isDepth = true;
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE framebuffer::getDescHandle(uint FBOIndex)

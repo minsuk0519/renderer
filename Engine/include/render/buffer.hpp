@@ -30,58 +30,6 @@ namespace buf
 		BUFFER_DEPTH_TYPE,
 	};
 
-	enum VERTEX_TYPE
-	{
-		VERTEX_START = 0,
-		VERTEX_TRIANGLE = VERTEX_START,
-		VERTEX_CUBE,
-		VERTEX_CUBE_NORM,
-		VERTEX_OBJ,
-		VERTEX_OBJ_NORM,
-		VERTEX_END,
-	};
-
-	enum CONSTANT_TYPE
-	{
-		CONSTANT_START = VERTEX_END,
-		CONSTANT_PROJECTION = CONSTANT_START,
-		CONSTANT_OBJECT,
-		CONSTANT_OBJECT2,
-		CONSTANT_SUN,
-		CONSTANT_HAMRAN,
-		CONSTANT_END,
-	};
-
-	enum UAV_TYPE
-	{
-		UAV_START = CONSTANT_END,
-		UAV_END,
-	};
-
-	enum IMAGE_TYPE
-	{
-		IMAGE_START = UAV_END,
-		IMAGE_IRRADIANCE = IMAGE_START,
-		IMAGE_ENVIRONMENT,
-		IMAGE_DEPTH,
-		IMAGE_END,
-	};
-
-	enum INDEX_TYPE
-	{
-		INDEX_START = IMAGE_END,
-		INDEX_CUBE = INDEX_START,
-		INDEX_OBJ,
-		INDEX_END,
-	};
-
-	enum DEPTH_TYPE
-	{
-		DEPTH_START = INDEX_END,
-		DEPTH_SWAPCHAIN = DEPTH_START,
-		DEPTH_END,
-	};
-
 	bool loadResources();
 	void cleanUp();
 
@@ -89,8 +37,6 @@ namespace buf
 	void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id);
 
 	buffer* loadTextureFromFile(std::wstring filename, bool mip);
-
-	BUFFER_TYPE typeFromIndex(const uint index);
 
 	buffer* createReadBackBuffer(uint size);
 
