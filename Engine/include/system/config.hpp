@@ -18,8 +18,8 @@ namespace config
 
 
 #define UVB_MAX_SIZE		402653184
-#define UNB_MAX_SIZE		251658240
-#define UIB_MAX_SIZE		402653184
+#define UIB_MAX_SIZE		251658240
+#define VERTEXID_MAX_SIZE	402653184
 
 constexpr uint THREADS_NUM_CLUSTERS = 64;
 constexpr uint MAX_OBJECTS = 256;

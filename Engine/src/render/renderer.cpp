@@ -25,7 +25,8 @@ uint frameIndex = 0;
 renderer e_globRenderer;
 renderBuf e_globGPUBuffer;
 
-constexpr uint COPYING_GPU_BUFFER_SIZE = 262144;
+//TODO : Split this
+constexpr uint COPYING_GPU_BUFFER_SIZE = 262144 * 8;
 
 namespace renderGuiSetting
 {
@@ -94,15 +95,15 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 		ssaoTex[i] = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_FLOAT, e_globWindow.width(), e_globWindow.height());
 	}
 
-	commandBuffer = e_globBufAllocator.alloc(nullptr, (MAX_OBJECTS * 2 + 1) * sizeof(uint) * 5, 1, buf::GBF_UAV, 0);
+	commandBuffer = e_globBufAllocator.alloc(nullptr, (MAX_OBJECTS * 2 + 1) * sizeof(uint) * 5, 1, buf::GBF_UAV | buf::GBF_CBV, 0);
 	objectConstBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_OBJ_SIZE * 256, 1, buf::GBF_CBV, 0);
 	localClusterOffsetBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * sizeof(uint) * 2, 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	localClusterSizeBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 12, 1, buf::GBF_UAV, 0);
 	clusterArgsBuffer = e_globBufAllocator.alloc(nullptr, (MAX_CLUSTERS / THREADS_NUM_CLUSTERS) * sizeof(uint), 1, buf::GBF_UAV, 0);
-	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, 0, DXGI_FORMAT_R32_TYPELESS);
+	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
 	
 #if ENGINE_DEBUG_BUFFER
-	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, 65536 * 1024 * sizeof(uint), 1, buf::GBF_UAV, buf::RESOURCE_READBACK | buf::RESOURCE_CLEAR);
+	outDebugBuffer = e_globBufAllocator.alloc(nullptr, 65536 * 1024 * sizeof(uint), 1, buf::GBF_UAV, 0);
 #endif // #if ENGINE_DEBUG_BUFFER
 
 	return true;
@@ -218,6 +219,10 @@ bool renderer::createFrameResources()
 	uint sWidth = e_globWindow.width();
 	uint sHeight = e_globWindow.height();
 
+	{
+		fbDepth = e_globBufAllocator.alloc(nullptr, 0, 3, buf::GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE | buf::RESOURCE_CLEAR, DXGI_FORMAT_D32_FLOAT, sWidth, sHeight, 1);
+	}
+
 	for (int i = 0; i < FRAME_COUNT; ++i)
 	{
 		Microsoft::WRL::ComPtr<ID3D12Resource> resource;
@@ -236,7 +241,7 @@ bool renderer::createFrameResources()
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	gbufferFB->setDepthClear(1.0f);
+	gbufferFB->attachDepth(fbDepth, 1.0f);
 
 #if ENGINE_DEBUG_DEBUGCAM
 	//should be sync with gbufferFB
@@ -247,12 +252,12 @@ bool renderer::createFrameResources()
 	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
 	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	gbufferDebugFB->setDepthClear(1.0f);
+	gbufferDebugFB->attachDepth(fbDepth, 1.0f);
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	debugFB = new framebuffer();
 	debugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	debugFB->setDepthClear(1.0f);
+	debugFB->attachDepth(fbDepth, 1.0f);
 
 	{
 		std::vector<render::cmdSigData> sigData[2];
@@ -272,7 +277,7 @@ void renderer::setVertexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>
 
 	view.BufferLocation = buf->getResource()->GetGPUVirtualAddress();
 	view.SizeInBytes = buf->getHeader()->dataSize;
-	view.StrideInBytes = buf->getHeader()->packedData.stride;
+	view.StrideInBytes = buf->getHeader()->packedData.stride * sizeof(float);
 
 	cmdList->IASetVertexBuffers(slot, 1, &view);
 }
@@ -317,6 +322,22 @@ void renderer::uploadGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>
 	uploadBuffer->uploadBuffer(size, offset, data);
 
 	copyGPUBuffer(cmdList, dst, dstOffset, uploadBuffer, offset, size);
+}
+
+void renderer::uploadCopyGPUBuffer(ID3D12Resource* resource, void* data, uint size)
+{
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = render::getCmdQueue(render::QUEUE_COPY)->getCmdList();
+
+	uint offset = 0;
+
+	uploadBuffer->uploadBuffer(size, offset, data);
+
+	cmdList->Reset(render::getCmdQueue(render::QUEUE_COPY)->getAllocator().Get(), nullptr);
+
+	cmdList->CopyBufferRegion(resource, 0, uploadBuffer->getResource(), offset, size);
+
+	render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
+	render::getCmdQueue(render::QUEUE_COPY)->flush();
 }
 
 framebuffer* renderer::getFrameBuffer() const
@@ -405,7 +426,11 @@ void renderer::preDraw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
 
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "InstanceCull", sizeof("InstanceCull"));
+
 	e_globWorld.instanceCulling();
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 }
 
 void renderer::setUpTerrain()
@@ -413,13 +438,13 @@ void renderer::setUpTerrain()
 	uint indexSize = 512 * 512 * sizeof(uint) * 3 * 2;
 	buffer* terrainVert[3];
 	//TODO : arbitrary size
-	terrainVert[0] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-	terrainVert[1] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
-	terrainVert[2] = e_globBufAllocator.alloc(nullptr, indexSize, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+	terrainVert[0] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME);
+	terrainVert[1] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME);
+	terrainVert[2] = e_globBufAllocator.alloc(nullptr, indexSize, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME);
 
 	buffer* noise;
 
-	noise = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float), 1, buf::GBF_UAV | buf::GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
+	noise = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float), 1, buf::GBF_UAV | buf::GBF_SRV, buf::RESOURCE_ONETIME);
 
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
@@ -469,7 +494,7 @@ void renderer::setUpTerrain()
 
 	meshData* newData = msh::setUpTerrain(indexSize);
 
-	e_globRenderer.uploadMeshToUB(terrainVert[0], terrainVert[1], terrainVert[2], newData, msh::MESH_TERRAIN);
+	e_globRenderer.uploadMeshToUB(terrainVert[0], terrainVert[1], terrainVert[2], newData, msh::MESH_TERRAIN, MESH_INFO_FLAGS_TERRAIN);
 }
 
 struct cmdConsts
@@ -488,8 +513,10 @@ void renderer::setUp()
 
 	{
 		//todo stride
-		cmdConstBuffer = e_globBufAllocator.alloc(nullptr, 513 * sizeof(uint), 6, buf::GBF_CBV);
+		cmdConstBuffer = e_globBufAllocator.alloc(nullptr, 513 * sizeof(uint), 6, buf::GBF_CBV, buf::RESOURCE_UPLOAD);
 	}
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Setup WireFrame Buffer", sizeof("Setup WireFrame Buffer"));
 
 	{
 		float cubeVertices[] =
@@ -520,6 +547,10 @@ void renderer::setUp()
 		AABBwireframeBuffer[2] = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeIndicesLine), 24 * sizeof(uint), 2, buf::GBF_NONE, buf::RESOURCE_NONE);
 	}
 
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Cretae Triangle Buffer", sizeof("Cretae Triangle Buffer"));
+
 	{
 		//create triangle vertex
         float triangleVertices[] =
@@ -531,6 +562,20 @@ void renderer::setUp()
 
 		triangleBuffer = e_globBufAllocator.alloc(reinterpret_cast<char*>(triangleVertices), 9 * sizeof(float), 3, buf::GBF_NONE, buf::RESOURCE_NONE);
 	}
+
+	{
+		//create triangle vertex
+		float triangleVertices[] =
+		{
+			-1.0,  3.0, 0.0f,
+			 3.0, -1.0, 0.0f,
+			-1.0, -1.0, 0.0f,
+		};
+
+		sceneTriangleBuffer = e_globBufAllocator.alloc(reinterpret_cast<char*>(triangleVertices), 9 * sizeof(float), 3, buf::GBF_NONE, buf::RESOURCE_NONE);
+	}
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 }
 
 void renderer::draw(float dt)
@@ -546,13 +591,13 @@ void renderer::draw(float dt)
 	descriptor* meshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
 	descriptor* lodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
 	descriptor* clusterInfoBufferSRV = ubManager->clusterInfoBuffer->getDesc(buf::GBF_SRV);
-	descriptor* vertexIDBufferSRV = vertexIDBuffer->getDesc(buf::GBF_SRV);
-	descriptor* vertexIDBufferUAV = vertexIDBuffer->getDesc(buf::GBF_UAV);
+	descriptor* vertexIDBufferSRV = ubManager->vertexIDBuffer->getDesc(buf::GBF_SRV);
+	descriptor* vertexIDBufferUAV = ubManager->vertexIDBuffer->getDesc(buf::GBF_UAV);
 	descriptor* clusterBoundBufferSRV = ubManager->clusterBoundBuffer->getDesc(buf::GBF_SRV);
 	descriptor* viewInfoBufferSRV = viewInfoBuffer->getDesc(buf::GBF_SRV);
 	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
 	descriptor* unifiedVertexBufferUAV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
-	descriptor* unifiedNormalBufferUAV = ubManager->unifiedNormalBuffer->getDesc(buf::GBF_SRV);
+	descriptor* unifiedIndexBufferUAV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
 	descriptor* camDesc = e_globWorld.getMainCam()->getDesc();
 
 	descriptor* ssaoUAV[3];
@@ -563,6 +608,8 @@ void renderer::draw(float dt)
 	ssaoSRV[0] = ssaoTex[0]->getDesc(buf::GBF_SRV);
 	ssaoSRV[1] = ssaoTex[1]->getDesc(buf::GBF_SRV);
 	ssaoSRV[2] = ssaoTex[2]->getDesc(buf::GBF_SRV);
+
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "InitCluster", sizeof("InitCluster"));
 
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
@@ -577,6 +624,9 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
+	
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Triangle Processing", sizeof("Triangle Processing"));
 
 	{
@@ -593,7 +643,9 @@ void renderer::draw(float dt)
 
 		memcpy(cbvDataBegin + 64 * 4 * 4, &objCount, 4);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLINGCONSTS, commandBuffer->getDesc(buf::GBF_CBV)->getHandle());
+		cmdConstBuffer->unmapBuffer();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLINGCONSTS, cmdConstBuffer->getDesc(buf::GBF_CBV)->getHandle());
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESH_INFO_BUFFER, meshInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
@@ -644,7 +696,7 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VERTEX, unifiedVertexBufferUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_NORM, unifiedNormalBufferUAV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDEX, unifiedIndexBufferUAV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VIEWINFO, viewInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_MESHINFO, meshInfoBufferSRV->getHandle());
@@ -673,7 +725,7 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VERTEX, unifiedVertexBufferUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_NORM, unifiedNormalBufferUAV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDEX, unifiedIndexBufferUAV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VIEWINFO, viewInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_MESHINFO, meshInfoBufferSRV->getHandle());
@@ -769,7 +821,7 @@ void renderer::draw(float dt)
 
 	e_globWorld.setupCam(cmdList, true, false);
 
-	setVertexBuffer(cmdList, 0, triangleBuffer);
+	setVertexBuffer(cmdList, 0, sceneTriangleBuffer);
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
@@ -832,7 +884,7 @@ void renderer::drawWorld(float dt)
 {
 }
 
-void renderer::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID)
+void renderer::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID, uint flags)
 {
-	ubManager->uploadMeshToUB(vertex, norm, index, meshdata, meshID);
+	ubManager->uploadMeshToUB(vertex, norm, index, meshdata, meshID, flags);
 }

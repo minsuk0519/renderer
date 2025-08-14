@@ -42,8 +42,8 @@ bool camera::init()
 
 	transformPtr->setPosition(DirectX::XMVECTOR{ 0.0f,0.0f,2.0f });
 
-	projectionBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_PROJ_SIZE, 1, buf::GBF_CBV, buf::RESOURCE_READBACK);
-	objectBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_OBJ_SIZE, 1, buf::GBF_CBV, buf::RESOURCE_READBACK);
+	projectionBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_PROJ_SIZE, 1, buf::GBF_CBV, buf::RESOURCE_UPLOAD);
+	objectBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_OBJ_SIZE, 1, buf::GBF_CBV, buf::RESOURCE_UPLOAD);
 	
 	return true;
 }

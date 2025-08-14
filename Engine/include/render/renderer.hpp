@@ -81,6 +81,7 @@ private:
 	buffer* localClusterOffsetBuffer = nullptr;
 	buffer* localClusterSizeBuffer = nullptr;
 	buffer* clusterArgsBuffer = nullptr;
+	buffer* fbDepth = nullptr;
 
 #if	ENGINE_DEBUG_BUFFER
 	buffer* outDebugBuffer = nullptr;
@@ -90,8 +91,6 @@ private:
 	
 	buffer* cmdConstBuffer = nullptr;
 
-	buffer* vertexIDBuffer = nullptr;
-
 	bool debugCamMode = false;
 
 	uint curVertexOffset = 0;
@@ -100,6 +99,7 @@ private:
 
 	buffer* AABBwireframeBuffer[3];
 	buffer* triangleBuffer = nullptr;
+	buffer* sceneTriangleBuffer = nullptr;
 
 	buffer* uploadBuffer = nullptr;
 public:
@@ -111,13 +111,14 @@ public:
 	void guiSetting();
 
 	render::UBManager* ubManager;
-	void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID);
+	void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID, uint flags);
 
 	void setVertexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint slot, buffer* buf);
 	void setIndexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* buf);
 
 	void copyGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* dst, uint dstOffset, buffer* src, uint srcOffset, uint size);
 	void uploadGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* dst, uint dstOffset, void* data, uint size);
+	void uploadCopyGPUBuffer(ID3D12Resource* resource, void* data, uint size);
 private:
 	void setUpTerrain();
 };

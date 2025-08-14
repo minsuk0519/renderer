@@ -14,8 +14,8 @@ namespace render
 
 	private:
 		buffer* unifiedVertexBuffer;
-		buffer* unifiedNormalBuffer;
 		buffer* unifiedIndexBuffer;
+		buffer* vertexIDBuffer;
 
 		buffer* meshInfoBuffer;
 		buffer* lodInfoBuffer;
@@ -28,6 +28,6 @@ namespace render
 		uint curIndexOffset = 0;
 
 		bool init();
-		void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID);
+		void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID, uint flags);
 	};
 };

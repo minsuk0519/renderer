@@ -73,7 +73,8 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         scaledNorm.z = normal.z * scale.z;
         result.normal = normalize(quatRotate(rotation, scaledNorm));
 
-        result.output = float4(clusterID,meshIndex,objID,vertexIndex);
+        //result.output = float4(clusterID,meshIndex,objID,vertexIndex);
+        result.output = uint4(vertexOffset, vertexIndex, indexOffset, vertexID);
     }
     return result;
 }

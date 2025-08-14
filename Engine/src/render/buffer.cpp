@@ -310,7 +310,7 @@ namespace buf
 
         loadMeshInfo(fileName, meshdata);
 
-        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id, 0);
     }
 
     void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id)
@@ -322,7 +322,7 @@ namespace buf
         buffer* idx = e_globBufAllocator.alloc(reinterpret_cast<char*>(i), static_cast<uint>(sizeof(uint) * iNum), 1,
             buf::GBF_SRV, buf::RESOURCE_ONETIME | buf::RESOURCE_UPLOAD);
 
-        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id);
+        e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id, 0);
     }
 
     buffer* loadTextureFromFile(std::wstring filename, bool mip)
@@ -443,49 +443,31 @@ namespace buf
         e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, bufDesc,
             state, clear, IID_PPV_ARGS(&resource));
 
-        if (data) copyResource(resource, data, 0, size);
+        if (data)
+        {
+            if (flags & RESOURCE_UPLOAD)
+            {
+                copyResource(resource, data, 0, size);
+            }
+            else
+            {
+                //cannot do direct map/unmap for non-upload resources
+                e_globRenderer.uploadCopyGPUBuffer(resource.Get(), data, size);
+            }
+        }
 
         return state;
     }
 
 	bool loadResources()
 	{
-        //    {
-        //        //loadFile("asset/model/bun_zipper.ply", VERTEX_OBJ, VERTEX_OBJ_NORM, INDEX_OBJ);
-        //        //loadFile("asset/model/dragon_vrip.ply", VERTEX_OBJ, VERTEX_OBJ_NORM, INDEX_OBJ);
-        //    }
-        //}
-
-        ////create constant buffer
-        //{
-        //    //create projection buffer
-        //    {
-        //        bufferContainer[CONSTANT_PROJECTION] = createConstantBuffer(sizeof(float) * (4 * 4 * 2 + 3));
-        //    }
-
-        //    //create object buffer
-        //    {
-        //        bufferContainer[CONSTANT_OBJECT] = createConstantBuffer(sizeof(float) * (4 * 4 + 3 + 1 + 1));
-        //        bufferContainer[CONSTANT_OBJECT2] = createConstantBuffer(sizeof(float) * (4 * 4 + 3 + 1 + 1));
-        //    }
-        //    
-        //    {
-        //        bufferContainer[CONSTANT_SUN] = createConstantBuffer(sizeof(float) * (3));
-        //    }
-
-        //    //create hamsley random buffer
-        //    {
-        //        bufferContainer[CONSTANT_HAMRAN] = createConstantBuffer(sizeof(float) * 2 * 100 + sizeof(float));
-        //    }
-        //}
-
         //create depth buffer
-        {
-            uint width = e_globWindow.width();
-            uint height = e_globWindow.height();
+        //{
+        //    uint width = e_globWindow.width();
+        //    uint height = e_globWindow.height();
 
-            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE, DXGI_FORMAT_D32_FLOAT, width, height, 1);
-        }
+        //    buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE, DXGI_FORMAT_D32_FLOAT, width, height, 1);
+        //}
 
         //create image buffer
         {
@@ -539,7 +521,14 @@ namespace buf
         D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
         //we will forcely use R32 for UAVs since we will use our own packing unpacking for raw byte buffer
         view.Format = DXGI_FORMAT_R32_FLOAT;
-        view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+        if (bufDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D)
+        {
+            view.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+        }
+        else
+        {
+            view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+        }
         view.Buffer.FirstElement = 0;
         view.Buffer.NumElements = buf->header.dataSize / sizeof(float);
         
@@ -656,17 +645,17 @@ void buffer::uploadBuffer(uint size, uint offset, void* data)
 descriptor* buffer::getDesc(buf::graphicBufferFlags flag)
 {
     uint offset = 0;
-    for (uint i = 0; i < flag; ++i)
+    for (uint i = 0, j = 0; j < flag; ++i, j = (1 << i))
     {
-        if (header.packedData.viewFlags & (1 << i))
+        if (header.packedData.viewFlags & j)
         {
             offset += buf::DESCRIPTOR_SIZE;
         }
     }
 
-    TC_ASSERT(header.packedData.viewFlags & (1 << flag));
+    TC_ASSERT(header.packedData.viewFlags & flag);
 
-    char* loc = baseLoc + offset + BUFFER_VIEW_OFFSET;
+    char* loc = reinterpret_cast<char*>(this) + offset + BUFFER_VIEW_OFFSET;
 
     return reinterpret_cast<descriptor*>(loc);
 }

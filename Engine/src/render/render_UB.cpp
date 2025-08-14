@@ -35,18 +35,19 @@ bool UBManager::init()
 	curClusterOffset = 0;
 
 	unifiedVertexBuffer = e_globBufAllocator.alloc(nullptr, UVB_MAX_SIZE, 3, buf::GBF_SRV);
-	unifiedNormalBuffer = e_globBufAllocator.alloc(nullptr, UNB_MAX_SIZE, 3, buf::GBF_SRV);
 	unifiedIndexBuffer = e_globBufAllocator.alloc(nullptr, UIB_MAX_SIZE, 1, buf::GBF_SRV);
 
-	//TODO : we can make seperate upload buffer
+	//todo : maybe we need to move it to renderer
+	vertexIDBuffer = e_globBufAllocator.alloc(nullptr, VERTEXID_MAX_SIZE, 1, buf::GBF_UAV | buf::GBF_SRV);
+
 	meshInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES * sizeof(meshInfo), 1, buf::GBF_SRV);
 	lodInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_LOD * sizeof(lodInfo), 1, buf::GBF_SRV);
-	clusterInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS * sizeof(clusterInfo), 1, buf::GBF_SRV);
-	clusterBoundBuffer = e_globBufAllocator.alloc(nullptr, MAX_MESHES_CLUSTERS * sizeof(clusterbounddata), 1, buf::GBF_SRV);
+	clusterInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * MAX_MESHES_CLUSTERS * sizeof(clusterInfo), 1, buf::GBF_SRV);
+	clusterBoundBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * MAX_MESHES_CLUSTERS * sizeof(clusterbounddata), 1, buf::GBF_SRV);
 
 	if (!unifiedVertexBuffer) return false;
-	if (!unifiedNormalBuffer) return false;
 	if (!unifiedIndexBuffer) return false;
+	if (!vertexIDBuffer) return false;
 	if (!meshInfoBuffer) return false;
 	if (!lodInfoBuffer) return false;
 	if (!clusterInfoBuffer) return false;
@@ -55,7 +56,7 @@ bool UBManager::init()
 	return true;
 }
 
-void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID)
+void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID, uint flags)
 {
 	getCmdQueue(QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Upload MeshInfo to UB", sizeof("Upload MeshInfo to UB"));
 
@@ -67,6 +68,8 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		meshinfo.numLod = lodNum;
 		meshinfo.lodOffset = curLodOffset;
 		meshinfo.vertexOffset = curVertexOffset;
+		meshinfo.flags = flags;
+		uint meshIndexOffset = curIndexOffset;
 
 		for (uint j = 0; j < lodNum; ++j)
 		{
@@ -163,7 +166,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
 		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
-		e_globRenderer.copyGPUBuffer(cmdList, unifiedIndexBuffer, curIndexOffset * sizeof(uint), index, 0, index->getHeader()->dataSize);
+		e_globRenderer.copyGPUBuffer(cmdList, unifiedIndexBuffer, meshIndexOffset * sizeof(uint), index, 0, index->getHeader()->dataSize);
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
 
