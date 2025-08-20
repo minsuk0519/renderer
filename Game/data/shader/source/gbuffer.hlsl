@@ -2,11 +2,7 @@
 #include "include\packing.hlsli"
 #include "include\math.hlsli"
 
-StructuredBuffer<float3> UVB : register(t0);
-StructuredBuffer<uint> UIB : register(t1);
-StructuredBuffer<uint> clusterArgs : register(t2);
-StructuredBuffer<float> viewInfos : register(t3);
-StructuredBuffer<uint> meshInfos : register(t4);
+ByteAddressBuffer clusterArgs : register(t0);
 
 struct PSInput
 {
@@ -33,36 +29,34 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
 {
     PSInput result;
 
-    uint indexOffset = clusterArgs[(clusterID) * 3 + 0];
-    uint indexSize = clusterArgs[(clusterID) * 3 + 1];
-    uint packedID = clusterArgs[(clusterID) * 3 + 2];
+    uint indexOffset = clusterArgs.Load((clusterID * 3 + 0) * 4);
+    uint indexSize = clusterArgs.Load((clusterID * 3 + 1) * 4);
+    uint packedID = clusterArgs.Load((clusterID * 3 + 2) * 4);
 
     uint objectInfo = packedID & ((1 << 16) - 1);
     uint meshIndex = objectInfo >> 3;
     uint objID = packedID >> 16;
 
-    uint vertexOffset = meshInfos[meshIndex * 4 + 2];
+    meshInfo mesh;
+    getMeshInfo(meshIndex, mesh);
 
-    uint vertexIndex = UIB[indexOffset + vertexID];
+    uint vertexOffset = mesh.vertexOffset;
 
-    float3 position = UVB[vertexOffset + vertexIndex];
-    float3 normal = UVB[vertexOffset + vertexIndex + vertexMax];
+    uint vertexIndex;
+    getVertexIndex(indexOffset + vertexID, vertexIndex);
+
+    float3 position;
+    getVertex(vertexOffset + vertexIndex, position);
+    float3 normal;
+    getNormal(vertexOffset + vertexIndex + vertexMax, normal);
 
     if(vertexID < indexSize)
     {
-        float3 translate = float3(
-            viewInfos[objID * 10 + 0],
-            viewInfos[objID * 10 + 1],
-            viewInfos[objID * 10 + 2]);
-        float3 scale = float3(
-            viewInfos[objID * 10 + 3],
-            viewInfos[objID * 10 + 4],
-            viewInfos[objID * 10 + 5]);
-        float4 rotation = float4(
-            viewInfos[objID * 10 + 6],
-            viewInfos[objID * 10 + 7],
-            viewInfos[objID * 10 + 8],
-            viewInfos[objID * 10 + 9]);
+        viewInfo view;
+        getViewInfo(objID, view);
+        float3 translate = view.translate;
+        float3 scale = view.scale;
+        float4 rotation = view.rotation;
         float3 worldPos = transformToWorld(scale, rotation, translate, position);
         result.worldPos = worldPos;
         result.position = mul(proj.viewProj, float4(worldPos, 1.0f));

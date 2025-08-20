@@ -1,31 +1,13 @@
 //DEPRECATED
 
-#include "include\helper.hlsli"
-#include "include\struct.hlsli"
+#include "include\common.hlsli"
 
-RWStructuredBuffer<cmdBuf> commandBuffer : register(u0);
-RWStructuredBuffer<uint3> vertexIDBuffer : register(u1);
-RWStructuredBuffer<uint> objectVertexIDOffsets : register(u2);
+RWByteAddressBuffer commandBuffer : register(u0);
+RWByteAddressBuffer vertexIDBuffer : register(u1);
 
-StructuredBuffer<meshInfo> meshInfos : register(t0);
-StructuredBuffer<lodInfo> lodInfos : register(t1);
-StructuredBuffer<clusterInfo> clusterInfos : register(t2);
-
-StructuredBuffer<uint> totalClusterSize : register(t3);
-StructuredBuffer<uint> clusterVis : register(t4);
-
-cbuffer cb_cmdBuf : register(b0)
-{
-    //objID, meshIndex
-    uint4 obj[MAX_OBJ_NUM / 4];
-    uint objCount;
-    uint3 pad;
-}
-
-//objID, meshIndex, lod
-//16 : 13 : 3
-
-static uint packedObj[MAX_OBJ_NUM] = (uint[MAX_OBJ_NUM])obj;  
+ByteAddressBuffer objectVertexIDOffsets : register(t2);
+ByteAddressBuffer totalClusterSize : register(t3);
+ByteAddressBuffer clusterVis : register(t4);
 
 [numthreads(64, 1, 1)]
 void genCmdBuf_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
@@ -43,38 +25,37 @@ void genCmdBuf_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, ui
     uint meshIndex = packedID >> 3;
     uint objID = packedObj[localObjectIndex] >> 16;
 
-    uint lodIndex = meshInfos[meshIndex].lodOffset + packedID & 0x7;
+    meshInfo mesh;
+    getMeshInfo(meshIndex, mesh);
+    uint lodIndex = mesh.lodOffset + packedID & 0x7;
+    
+    lodInfo lod;
+    getLODInfo(lodIndex, lod);
 
-    uint clusterNum = lodInfos[lodIndex].clusterCount;
-    uint clusterOffset = lodInfos[lodIndex].clusterOffset;
-    uint totalIndexSize = lodInfos[lodIndex].indexSize;
-
-    uint vertexIDIndex = objectVertexIDOffsets[localObjectIndex];
+    uint vertexIDIndex = objectVertexIDOffsets.Load(localObjectIndex * 4);
     
     uint vertexIDBufferNum = 0;
     for(j = 0; j < 3; ++j)
     {
-        uint size = clusterInfos[clusterOffset + j].indexSize;
+        clusterInfo clusters;
+        getClusterInfo(lod.clusterOffset + j, clusters);
+        uint size = clusters.indexSize;
 
         if(gtid.x * 3 >= size) break;
         //if(clusterVis[packedObj[i][1] + j] == false) continue;
-        vertexIDBuffer[vertexIDIndex + vertexIDBufferNum * 192 + gtid.x].x = meshIndex << 24 | 0 << 22 | gtid.x << 16 | j;
-        vertexIDBuffer[vertexIDIndex + vertexIDBufferNum * 192 + gtid.x].y = meshIndex << 24 | 1 << 22 | gtid.x << 16 | j;
-        vertexIDBuffer[vertexIDIndex + vertexIDBufferNum * 192 + gtid.x].z = meshIndex << 24 | 2 << 22 | gtid.x << 16 | j;
+        vertexIDBuffer.Store3((vertexIDIndex + vertexIDBufferNum * 192 + gtid.x) * 4 * 4, uint3(
+            meshIndex << 24 | 0 << 22 | gtid.x << 16 | j, meshIndex << 24 | 1 << 22 | gtid.x << 16 | j, meshIndex << 24 | 2 << 22 | gtid.x << 16 | j));
 
         ++vertexIDBufferNum;
     }
 
     if(gtid.x == 0)
     {
-        commandBuffer[localObjectIndex].cbv = (localObjectIndex << 16) | objID;
+        commandBuffer.Store((localObjectIndex * 5 + 0) * 4, (localObjectIndex << 16) | objID);
 
         //will be changed
-        commandBuffer[localObjectIndex].VertexCountPerInstance = totalIndexSize;
-        commandBuffer[localObjectIndex].InstanceCount = 1;
-        commandBuffer[localObjectIndex].StartVertexLocation = vertexIDIndex;
-        commandBuffer[localObjectIndex].StartInstanceLocation = 0;
+        commandBuffer.Store4((localObjectIndex * 5 + 1) * 4, uint4(lod.indexSize, 1, vertexIDIndex, 0));
     }
 
-    if(gtid.x == 0 && localObjectIndex == 0) commandBuffer[MAX_OBJ_NUM * 2].cbv = objCount;
+    if(gtid.x == 0 && localObjectIndex == 0) commandBuffer.Store(MAX_OBJ_NUM * 2 * 4, objCount);
 }

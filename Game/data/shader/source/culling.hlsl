@@ -1,38 +1,13 @@
-#include "include\helper.hlsli"
-#include "include\struct.hlsli"
+#include "include\common.hlsli"
 #include "include\math.hlsli"
-#include "include\globalbuffers.hlsli"
 
-RWStructuredBuffer<cmdBufCluster> commandBuffer : register(u0);
-RWStructuredBuffer<uint> outClusterArgs : register(u1);
-RWStructuredBuffer<uint> localClusterOffsets : register(u2);
-RWStructuredBuffer<uint> localClusterSize : register(u3);
-RWStructuredBuffer<uint> clsuterCmdBuffer : register(u4);
+RWByteAddressBuffer commandBuffer : register(u0);
+RWByteAddressBuffer outClusterArgs : register(u1);
+RWByteAddressBuffer localClusterOffsets : register(u2);
+RWByteAddressBuffer localClusterSize : register(u3);
+RWByteAddressBuffer clsuterCmdBuffer : register(u4);
 
-StructuredBuffer<uint> meshInfos : register(t0);
-StructuredBuffer<lodInfo> lodInfos : register(t1);
-StructuredBuffer<clusterInfo> clusterInfos : register(t2);
-StructuredBuffer<uint> clusterArgs : register(t3);
-StructuredBuffer<float> clusterBounds : register(t4);
-StructuredBuffer<float> viewInfos : register(t5);
-
-cbuffer cb_cmdBuf : register(b0)
-{
-    //objID, meshIndex
-    uint4 obj[MAX_OBJ_NUM / 4];
-    uint objCount;
-    uint3 pad;
-}
-
-cbuffer cb_cmdBuf : register(b1)
-{
-    projection proj;
-}
-
-//objID, meshIndex, lod
-//16 : 13 : 3
-
-static uint packedObj[MAX_OBJ_NUM] = (uint[MAX_OBJ_NUM])obj;
+ByteAddressBuffer clusterArgs : register(t0);
 
 #define CLUSTER_THREAD_NUM 64
 
@@ -41,7 +16,7 @@ void initCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
 {
     for(uint i = 0; i < 12; ++i)
     {
-        localClusterSize[i] = 0;
+        localClusterSize.Store(i * 4, 0);
     }
 }
 
@@ -61,31 +36,31 @@ void uploadLocalObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
     uint packedID = packedObj[localObjectIndex] & ((1 << 16) - 1);
     uint meshIndex = packedID >> 3;
     uint objID = packedObj[localObjectIndex] >> 16;
+    
+    meshInfo mesh;
+    getMeshInfo(meshIndex, mesh);
+    uint lodIndex = mesh.lodOffset + (packedID & 0x7);
 
-    uint lodIndex = meshInfos[meshIndex * 4 + 0] + (packedID & 0x7);
-
-    uint clusterCount = lodInfos[lodIndex].clusterCount;
-    uint clusterOffset = lodInfos[lodIndex].clusterOffset;
-    uint totalIndexSize = lodInfos[lodIndex].indexSize;
+    lodInfo lod;
+    getLODInfo(lodIndex, lod);
+    uint clusterCount = lod.clusterCount;
+    uint clusterOffset = lod.clusterOffset;
+    uint totalIndexSize = lod.indexSize;
 
     uint offset;
-    InterlockedAdd(localClusterSize[0], clusterCount, offset);
+    localClusterSize.InterlockedAdd(0, clusterCount, offset);
     
     for(uint i = 0; i < clusterCount; ++i)
     {
-      localClusterOffsets[(offset + i) * 3 + 0] = lodIndex;
-      localClusterOffsets[(offset + i) * 3 + 1] = packedObj[localObjectIndex];
-      localClusterOffsets[(offset + i) * 3 + 2] = i;
+        localClusterOffsets.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedObj[localObjectIndex], i));
     }
 
     GroupMemoryBarrierWithGroupSync();
 
     if(threadID.x == 0)
     {
-        uint totalSize = localClusterSize[0];
-        localClusterSize[1] = (1 + (totalSize - 1) / CLUSTER_THREAD_NUM);
-        localClusterSize[2] = 1;
-        localClusterSize[3] = 1;
+        uint totalSize = localClusterSize.Load(0);
+        localClusterSize.Store3(4, uint3((1 + (totalSize - 1) / CLUSTER_THREAD_NUM), 1, 1));
     }
 }
 
@@ -107,18 +82,24 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
 
     uint clusterArgsIndex = (groupID.x * CLUSTER_THREAD_NUM + gtid.x);
 
-    if(localClusterSize[0] <= clusterArgsIndex)
+    uint localClusterSizeValue = localClusterSize.Load(0);
+
+    if(localClusterSizeValue <= clusterArgsIndex)
     {
         valid = false;
     }
 
-    uint lodIndex = clusterArgs[clusterArgsIndex * 3 + 0];
-    uint packedID = clusterArgs[clusterArgsIndex * 3 + 1];
-    uint clusterIndex = clusterArgs[clusterArgsIndex * 3 + 2];
+    uint3 clusterArg = clusterArgs.Load3(clusterArgsIndex * 4 * 3);
 
-    uint clusterCount = lodInfos[lodIndex].clusterCount;
-    uint clusterOffset = lodInfos[lodIndex].clusterOffset;
-    uint totalIndexSize = lodInfos[lodIndex].indexSize;
+    uint lodIndex = clusterArg.x;
+    uint packedID = clusterArg.y;
+    uint clusterIndex = clusterArg.z;
+
+    lodInfo lod;
+    getLODInfo(lodIndex, lod);
+    uint clusterCount = lod.clusterCount;
+    uint clusterOffset = lod.clusterOffset;
+    uint totalIndexSize = lod.indexSize;
 
     uint indexSize = 0;
     uint indexOffset = 0;
@@ -127,20 +108,12 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     uint meshIndex = objectInfo >> 3;
     uint objID = packedID >> 16;
 
-    float3 sphereCenter = float3(
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 0],
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 1],
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 2]);
-    float sphereRadius = 
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 3];
-    float3 aabbCenter = float3(
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 4],
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 5],
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 6]);
-    float3 aabbhExtent = float3(
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 7],
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 8],
-        clusterBounds[(clusterOffset + clusterIndex) * 10 + 9]);
+    clusterBound clusterbound;
+    getClusterBound(clusterOffset + clusterIndex, clusterbound);
+    float3 sphereCenter = clusterbound.sphereCenter;
+    float sphereRadius = clusterbound.sphereRadius;
+    float3 aabbCenter = clusterbound.aabbCenter;
+    float3 aabbhExtent = clusterbound.aabbhExtent;
 
 //aabb culling
     bool vis = true;
@@ -148,19 +121,11 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     if(valid)
     {
         float3 aabbLeftBottom = aabbCenter - aabbhExtent;
-        float3 translate = float3(
-            viewInfos[objID * 10 + 0],
-            viewInfos[objID * 10 + 1],
-            viewInfos[objID * 10 + 2]);
-        float3 scale = float3(
-            viewInfos[objID * 10 + 3],
-            viewInfos[objID * 10 + 4],
-            viewInfos[objID * 10 + 5]);
-        float4 rotation = float4(
-            viewInfos[objID * 10 + 6],
-            viewInfos[objID * 10 + 7],
-            viewInfos[objID * 10 + 8],
-            viewInfos[objID * 10 + 9]);
+        viewInfo view;
+        getViewInfo(objID, view);
+        float3 translate = view.translate;
+        float3 scale = view.scale;
+        float4 rotation = view.rotation;
         
         float3 LB = transformToWorld(scale, rotation, translate, aabbLeftBottom);
 
@@ -218,28 +183,30 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     uint offset = 0;
     if(valid)
     {
-        indexSize = clusterInfos[clusterOffset + clusterIndex].indexSize;
-        indexOffset = clusterInfos[clusterOffset + clusterIndex].indexOffset;
+        clusterInfo clusters;
+        getClusterInfo(clusterOffset + clusterIndex, clusters);
+        indexSize = clusters.indexSize;
+        indexOffset = clusters.indexOffset;
     }
 
     uint validToInt = valid ? 1 : 0;
-    InterlockedAdd(localClusterSize[4], validToInt, offset);
+    localClusterSize.InterlockedAdd(4 * 4, validToInt, offset);
 
     if(valid)
     {
-        outClusterArgs[(offset) * 3 + 0] = indexOffset;
-        outClusterArgs[(offset) * 3 + 1] = indexSize;
-        outClusterArgs[(offset) * 3 + 2] = packedID;
+        outClusterArgs.Store3(offset * 4 * 3, uint3(indexOffset, indexSize, packedID));
     }
 
     GroupMemoryBarrierWithGroupSync();
 
     if(threadID.x == 0)
     {
-        uint totalSize = localClusterSize[4];
-        localClusterSize[5] = 3 * CLUSTER_THREAD_NUM;                       //VertexCountPerInstance
-        localClusterSize[6] = totalSize;                                    //InstanceCount
-        localClusterSize[7] = 0;                                            //StartVertexLocation
-        localClusterSize[8] = 0;                                            //StartInstanceLocation
+        uint totalSize = localClusterSize.Load(4 * 4);
+        localClusterSize.Store4(5 * 4, uint4(
+                3 * CLUSTER_THREAD_NUM,                       //VertexCountPerInstance
+                totalSize,                                    //InstanceCount
+                0,                                            //StartVertexLocation
+                0                                             //StartInstanceLocation
+        ));
     }
 }

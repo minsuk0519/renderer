@@ -8,6 +8,8 @@ static const float3 DEBUG_COL = float3(1,0,0);
 static const uint SCREENWIDTH = 1600;
 static const uint SCREENHEIGHT = 900;
 
+#define e 2.718281828459045f
+
 float2 SphericalToEquirectangular(float3 v)
 {
 	float2 uv = float2(0.5 - atan2(v.x, v.z) / (2 * PI), acos(v.y) / PI);
