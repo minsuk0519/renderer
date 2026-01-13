@@ -7,23 +7,41 @@
 #define GET_HLSL_LOC_UAV( x ) ( (x << 2) | 2)
 #define GET_HLSL_LOC_CBV( x ) ( (x << 2) | 3)
 
+
+
+////////////////////global Buffer Begin
+//u63 debug buffer
+#define UAV_GLOBAL_DEBUG_BUFFER		GET_HLSL_LOC_UAV(63)
+
+//t63 position
+#define SRV_VERTEX_BUFFER			GET_HLSL_LOC_SRV(63)
+//t62 index
+#define SRV_INDEX_BUFFER			GET_HLSL_LOC_SRV(62)
+//t61 mesh info
+#define SRV_MESHINFO_BUFFER			GET_HLSL_LOC_SRV(61)
+//t60 lod info
+#define SRV_LOD_INFO_BUFFER			GET_HLSL_LOC_SRV(60)
+//t59 cluster info
+#define SRV_CLUSTER_INFO_BUFFER		GET_HLSL_LOC_SRV(59)
+//t58 cluster bounds
+#define SRV_CLUSTER_BOUNDS_BUFFER	GET_HLSL_LOC_SRV(58)
+//t57 view info
+#define SRV_VIEWINFO_BUFFER			GET_HLSL_LOC_SRV(57)
+
+//b63 cmdBuf constants
+#define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(63)
+//b62 projection
+#define CBV_PROJECTION				GET_HLSL_LOC_CBV(62)
+//b61 object
+#define CBV_OBJECT					GET_HLSL_LOC_CBV(61)
+//b59 screen
+#define CBV_SCREEN					GET_HLSL_LOC_CBV(59)
+////////////////////global Buffer End
+
 ////////////////////gbuffer Buffer Begin
-//t0 position
-#define SRV_GBUFFER_VERTEX			GET_HLSL_LOC_SRV(0)
-//t1 index
-#define SRV_GBUFFER_INDEX			GET_HLSL_LOC_SRV(1)
-//t2 cluster args
-#define SRV_GBUFFER_CLUSTERARGS		GET_HLSL_LOC_SRV(2)
-//t3 view info
-#define SRV_GBUFFER_VIEWINFO		GET_HLSL_LOC_SRV(3)
-//t4 mesh info
-#define SRV_GBUFFER_MESHINFO		GET_HLSL_LOC_SRV(4)
-//b0 projection
-#define CBV_PROJECTION				GET_HLSL_LOC_CBV(0)
-//b1 object
-#define CBV_OBJECT					GET_HLSL_LOC_CBV(1)
-//b2 screen
-#define CBV_SCREEN					GET_HLSL_LOC_CBV(2)
+//t0 cluster args
+#define SRV_GBUFFER_CLUSTERARGS		GET_HLSL_LOC_SRV(0)
+
 //b3 guiDebug
 #define CBV_GUIDEBUG				GET_HLSL_LOC_CBV(3)
 ////////////////////gbuffer Buffer Begin
@@ -74,14 +92,6 @@
 #define UAV_UNIFIED_VERTEX_BUFFER	GET_HLSL_LOC_UAV(0)
 //u1 uib buffer output
 #define UAV_UNIFIED_INDEX_BUFFER	GET_HLSL_LOC_UAV(1)
-//t0 vertex buffer input
-#define SRV_VERTEX_BUFFER			GET_HLSL_LOC_SRV(0)
-//t1 index buffer input
-#define SRV_INDEX_BUFFER			GET_HLSL_LOC_SRV(1)
-//t2 normal buffer input
-#define SRV_NORMAL_BUFFER			GET_HLSL_LOC_SRV(2)
-//t3 meshInfo buffer input
-#define SRV_UNIFIED_MESHINFO_BUFFER	GET_HLSL_LOC_SRV(3)
 //b0 noise constants
 #define CBV_UNIFIEDCONSTS			GET_HLSL_LOC_CBV(0)
 ////////////////////Unified Buffer Ends
@@ -91,16 +101,10 @@
 #define UAV_CMD_BUFFER				GET_HLSL_LOC_UAV(0)
 //u1 vertexID buffer output
 #define UAV_CMD_VERTEXID_BUFFER		GET_HLSL_LOC_UAV(1)
-//t0 mesh info buffer input
-#define SRV_MESH_INFO_BUFFER		GET_HLSL_LOC_SRV(0)
-//t1 lod info buffer input
-#define SRV_LOD_INFO_BUFFER			GET_HLSL_LOC_SRV(1)
-//t2 cluster info buffer input
-#define SRV_CLUSTER_INFO_BUFFER		GET_HLSL_LOC_SRV(2)
 //t3 vertex ID Offsets buffer input
 #define SRV_VERTEX_ID_OFFSET		GET_HLSL_LOC_SRV(3)
 //b0 cmdBuf constants
-#define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(0)
+//#define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(0)
 ////////////////////cmdBuf Buffer Ends
 
 ////////////////////culling Buffer Begin
@@ -112,22 +116,8 @@
 #define UAV_CLUSTEROFFSET_BUFFER			GET_HLSL_LOC_UAV(2)
 //u3 cluster size buffer output
 #define UAV_CLUSTERSIZE_BUFFER				GET_HLSL_LOC_UAV(3)
-//t0 mesh info buffer input
-#define SRV_CULLING_MESH_INFO_BUFFER		GET_HLSL_LOC_SRV(0)
-//t1 lod info buffer input
-#define SRV_CULLING_LOD_INFO_BUFFER			GET_HLSL_LOC_SRV(1)
-//t2 cluster info buffer input
-#define SRV_CULLING_CLUSTER_INFO_BUFFER		GET_HLSL_LOC_SRV(2)
-//t3 cluster args buffer input
-#define SRV_CLUSTER_ARGS_BUFFER				GET_HLSL_LOC_SRV(3)
-//t4 cluster bounds input
-#define SRV_CLUSTER_BOUNDS_BUFFER			GET_HLSL_LOC_SRV(4)
-//t5 view infos input
-#define SRV_VIEW_INFOS_BUFFER				GET_HLSL_LOC_SRV(5)
-//b0 cmdBuf constants
-#define CBV_CULLINGCONSTS					GET_HLSL_LOC_CBV(0)
-//b0 projection
-#define CBV_CULLING_PROJECTION				GET_HLSL_LOC_CBV(1)
+//t0 cluster args buffer input
+#define SRV_CLUSTER_ARGS_BUFFER				GET_HLSL_LOC_SRV(0)
 ////////////////////culling Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -138,12 +128,6 @@
 //b0 cmdBuf constants
 #define CBV_UTILSCONSTS					GET_HLSL_LOC_CBV(0)
 ////////////////////utils Buffer Ends
-
-////////////////////global buffer Begin
-//u63 debug buffer
-#define UAV_GLOBAL_DEBUG_BUFFER			GET_HLSL_LOC_UAV(63)
-////////////////////global buffer Ends
-
 
 #define FEATURE_AO (1 << 0)
 

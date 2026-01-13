@@ -2,7 +2,7 @@
 
 void getVertexIndex(uint index, out uint ID)
 {
-    ID = UVB.Load((index + vertexMax) * BUFFER_ELEMENT_SIZE);
+    ID = UIB.Load(index * BUFFER_ELEMENT_SIZE);
 }
 
 void getVertex(uint index, out float3 vertex)
@@ -17,9 +17,9 @@ void getNormal(uint index, out float3 normal)
 
 void getViewInfoFromBuffer(ByteAddressBuffer buffer, uint index, out viewInfo result)
 {
-    float3 data1 = asfloat(buffer.Load3(VIEWINFO_STRUCT_ELEMENT_SIZE * index + 0) * BUFFER_ELEMENT_SIZE);
-    float3 data2 = asfloat(buffer.Load3(VIEWINFO_STRUCT_ELEMENT_SIZE * index + 3) * BUFFER_ELEMENT_SIZE);
-    float4 data3 = asfloat(buffer.Load4(VIEWINFO_STRUCT_ELEMENT_SIZE * index + 6) * BUFFER_ELEMENT_SIZE);
+    float3 data1 = asfloat(buffer.Load3((VIEWINFO_STRUCT_ELEMENT_SIZE * index + 0) * BUFFER_ELEMENT_SIZE));
+    float3 data2 = asfloat(buffer.Load3((VIEWINFO_STRUCT_ELEMENT_SIZE * index + 3) * BUFFER_ELEMENT_SIZE));
+    float4 data3 = asfloat(buffer.Load4((VIEWINFO_STRUCT_ELEMENT_SIZE * index + 6) * BUFFER_ELEMENT_SIZE));
 
     result.translate = data1;
     result.scale = data2;
@@ -28,9 +28,9 @@ void getViewInfoFromBuffer(ByteAddressBuffer buffer, uint index, out viewInfo re
 
 void getViewInfo(uint index, out viewInfo result)
 {
-    float3 data1 = asfloat(viewInfos.Load3(VIEWINFO_STRUCT_ELEMENT_SIZE * index + 0) * BUFFER_ELEMENT_SIZE);
-    float3 data2 = asfloat(viewInfos.Load3(VIEWINFO_STRUCT_ELEMENT_SIZE * index + 3) * BUFFER_ELEMENT_SIZE);
-    float4 data3 = asfloat(viewInfos.Load4(VIEWINFO_STRUCT_ELEMENT_SIZE * index + 6) * BUFFER_ELEMENT_SIZE);
+    float3 data1 = asfloat(viewInfos.Load3((VIEWINFO_STRUCT_ELEMENT_SIZE * index + 0) * BUFFER_ELEMENT_SIZE));
+    float3 data2 = asfloat(viewInfos.Load3((VIEWINFO_STRUCT_ELEMENT_SIZE * index + 3) * BUFFER_ELEMENT_SIZE));
+    float4 data3 = asfloat(viewInfos.Load4((VIEWINFO_STRUCT_ELEMENT_SIZE * index + 6) * BUFFER_ELEMENT_SIZE));
 
     result.translate = data1;
     result.scale = data2;
@@ -85,7 +85,7 @@ void getClusterInfoFromBuffer(ByteAddressBuffer buffer, uint index, out clusterI
 
 void getClusterInfo(uint index, out clusterInfo result)
 {
-    uint3 data = lodInfos.Load3(CLUSTERINFO_STRUCT_SIZE * index);
+    uint3 data = clusterInfos.Load3(CLUSTERINFO_STRUCT_SIZE * index);
 
     result.indexSize = data.x;
     result.indexOffset = data.y;
@@ -93,9 +93,9 @@ void getClusterInfo(uint index, out clusterInfo result)
 
 void getClusterBoundFromBuffer(ByteAddressBuffer buffer, uint index, out clusterBound result)
 {
-    float4 data1 = asfloat(buffer.Load4(CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 0) * BUFFER_ELEMENT_SIZE);
-    float3 data2 = asfloat(buffer.Load3(CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 4) * BUFFER_ELEMENT_SIZE);
-    float3 data3 = asfloat(buffer.Load3(CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 7) * BUFFER_ELEMENT_SIZE);
+    float4 data1 = asfloat(buffer.Load4((CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 0) * BUFFER_ELEMENT_SIZE));
+    float3 data2 = asfloat(buffer.Load3((CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 4) * BUFFER_ELEMENT_SIZE));
+    float3 data3 = asfloat(buffer.Load3((CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 7) * BUFFER_ELEMENT_SIZE));
 
     result.sphereCenter = data1.xyz;
     result.sphereRadius = data1.w;
@@ -105,9 +105,9 @@ void getClusterBoundFromBuffer(ByteAddressBuffer buffer, uint index, out cluster
 
 void getClusterBound(uint index, out clusterBound result)
 {
-    float4 data1 = asfloat(clusterBounds.Load4(CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 0) * BUFFER_ELEMENT_SIZE);
-    float3 data2 = asfloat(clusterBounds.Load3(CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 4) * BUFFER_ELEMENT_SIZE);
-    float3 data3 = asfloat(clusterBounds.Load3(CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 7) * BUFFER_ELEMENT_SIZE);
+    float4 data1 = asfloat(clusterBounds.Load4((CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 0) * BUFFER_ELEMENT_SIZE));
+    float3 data2 = asfloat(clusterBounds.Load3((CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 4) * BUFFER_ELEMENT_SIZE));
+    float3 data3 = asfloat(clusterBounds.Load3((CLUSTERBOUND_STRUCT_ELEMENT_SIZE * index + 7) * BUFFER_ELEMENT_SIZE));
 
     result.sphereCenter = data1.xyz;
     result.sphereRadius = data1.w;

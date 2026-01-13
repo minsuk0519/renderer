@@ -48,7 +48,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
     float3 position;
     getVertex(vertexOffset + vertexIndex, position);
     float3 normal;
-    getNormal(vertexOffset + vertexIndex + vertexMax, normal);
+    getNormal(vertexOffset + vertexIndex, normal);
 
     if(vertexID < indexSize)
     {
@@ -58,7 +58,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         float3 scale = view.scale;
         float4 rotation = view.rotation;
         float3 worldPos = transformToWorld(scale, rotation, translate, position);
-        result.worldPos = worldPos;
+        result.worldPos = translate;//worldPos;
         result.position = mul(proj.viewProj, float4(worldPos, 1.0f));
 
         float3 scaledNorm;
@@ -68,7 +68,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         result.normal = normalize(quatRotate(rotation, scaledNorm));
 
         //result.output = float4(clusterID,meshIndex,objID,vertexIndex);
-        result.output = uint4(vertexOffset, vertexIndex, indexOffset, vertexID);
+        result.output = uint4(clusterID, vertexIndex, indexSize, vertexID);
     }
     return result;
 }

@@ -4,8 +4,8 @@
 
 RWByteAddressBuffer commandBuffer : register(u0);
 RWByteAddressBuffer vertexIDBuffer : register(u1);
+RWByteAddressBuffer objectVertexIDOffsets : register(u2);
 
-ByteAddressBuffer objectVertexIDOffsets : register(t2);
 ByteAddressBuffer totalClusterSize : register(t3);
 ByteAddressBuffer clusterVis : register(t4);
 
