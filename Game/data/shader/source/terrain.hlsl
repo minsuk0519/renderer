@@ -1,10 +1,10 @@
 #include "include\common.hlsli"
 
-RWStructuredBuffer<float3> vertOut : register(u0);
-RWStructuredBuffer<float3> normOut : register(u1);
-RWStructuredBuffer<uint3> indexOut : register(u2);
+RWByteAddressBuffer vertOut : register(u0);
+RWByteAddressBuffer normOut : register(u1);
+RWByteAddressBuffer indexOut : register(u2);
 
-StructuredBuffer<float> noiseMap : register(t0);
+ByteAddressBuffer noiseMap : register(t0);
 
 static const int THREADS_X = 8;
 static const int THREADS_Y = 8;
@@ -43,7 +43,7 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 	}
 	else
 	{
-		height = noiseMap[index] * HEIGHT_MODIFIER - 0.5 * HEIGHT_MODIFIER;
+		height = noiseMap.Load(index * 4) * HEIGHT_MODIFIER - 0.5 * HEIGHT_MODIFIER;
 	}
 
 	HEIGHTS[gtid.y][gtid.x] = height;
@@ -80,7 +80,8 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 			bits |= 8;
 		}
 
-		vertOut[index] = float3(u, hCenter, v) - float3(0.5 * NOISE_WIDTH, 0.0, 0.5 * NOISE_HEIGHT);
+		float3 verts = float3(u, hCenter, v) - float3(0.5 * NOISE_WIDTH, 0.0, 0.5 * NOISE_HEIGHT);
+		vertOut.Store3(index * 4 * 3, verts); 
 
 		float3 accumNorm = float3(0,0,0);
 
@@ -97,7 +98,7 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 			}
 		}
 
-		normOut[index] = normalize(accumNorm);
+		normOut.Store3(index * 4 * 3, normalize(accumNorm));
 	} 
 }
 
@@ -114,6 +115,6 @@ void genTerrainIndex_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThread
 	uint indexBottomLeft = getIndex(baseU, baseV + 1);
 	uint indexTopRight = getIndex(baseU + 1, baseV);
 
-	indexOut[(squareIndex) * 2 + 0] = uint3(index, indexTopRight, indexBottomLeft);
-	indexOut[(squareIndex) * 2 + 1] = uint3(indexTopRight, indexBottomLeft, indexBottomRight);
+	indexOut.Store3(((squareIndex) * 2 + 0) * 4 * 3, uint3(index, indexTopRight, indexBottomLeft));
+	indexOut.Store3(((squareIndex) * 2 + 1) * 4 * 3, uint3(indexTopRight, indexBottomLeft, indexBottomRight));
 }

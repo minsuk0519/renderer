@@ -493,7 +493,7 @@ void renderer::setUpTerrain()
 	}
 
 	meshData* newData = msh::setUpTerrain(indexSize);
-
+	
 	e_globRenderer.uploadMeshToUB(terrainVert[0], terrainVert[1], terrainVert[2], newData, msh::MESH_TERRAIN, MESH_INFO_FLAGS_TERRAIN);
 }
 
@@ -505,11 +505,11 @@ struct cmdConsts
 
 void renderer::setUp()
 {
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Terrain", sizeof("Generate Terrain"));
+	//render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Terrain", sizeof("Generate Terrain"));
 
-	setUpTerrain();
-	
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+	//setUpTerrain();
+	//
+	//render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 
 	{
 		//todo stride
@@ -595,7 +595,9 @@ void renderer::draw(float dt)
 	descriptor* vertexIDBufferUAV = ubManager->vertexIDBuffer->getDesc(buf::GBF_UAV);
 	descriptor* clusterBoundBufferSRV = ubManager->clusterBoundBuffer->getDesc(buf::GBF_SRV);
 	descriptor* viewInfoBufferSRV = viewInfoBuffer->getDesc(buf::GBF_SRV);
+#if	ENGINE_DEBUG_BUFFER
 	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
+#endif // #if ENGINE_DEBUG_BUFFER
 	descriptor* unifiedVertexBufferUAV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
 	descriptor* unifiedIndexBufferUAV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
 	descriptor* camDesc = e_globWorld.getMainCam()->getDesc();
@@ -645,9 +647,9 @@ void renderer::draw(float dt)
 
 		cmdConstBuffer->unmapBuffer();
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLINGCONSTS, cmdConstBuffer->getDesc(buf::GBF_CBV)->getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, cmdConstBuffer->getDesc(buf::GBF_CBV)->getHandle());
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESH_INFO_BUFFER, meshInfoBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
 
 		computeCmdList->Dispatch(objCount, 1, 1);
@@ -658,7 +660,6 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_CULLCLUSTER);
 
-		//render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESH_INFO_BUFFER, meshInfoDesc.getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_INFO_BUFFER, clusterInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_ARGS_BUFFER, clusteroffsetSRV->getHandle());
@@ -666,8 +667,8 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_BOUNDS_BUFFER, clusterBoundBufferSRV->getHandle());
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEW_INFOS_BUFFER, viewInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_PROJECTION, camDesc->getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 
 #if ENGINE_DEBUG_BUFFER
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
@@ -695,11 +696,11 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VERTEX, unifiedVertexBufferUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDEX, unifiedIndexBufferUAV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VIEWINFO, viewInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_MESHINFO, meshInfoBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 
 		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 5 * sizeof(uint), nullptr, 0);
 
@@ -724,11 +725,11 @@ void renderer::draw(float dt)
 	{
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VERTEX, unifiedVertexBufferUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDEX, unifiedIndexBufferUAV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VIEWINFO, viewInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_MESHINFO, meshInfoBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 
 		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 5 * sizeof(uint), nullptr, 0);
 	}

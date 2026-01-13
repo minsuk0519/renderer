@@ -1,12 +1,12 @@
 #include "include\common.hlsli"
 
-RWStructuredBuffer<float3> UVB : register(u0);
-RWStructuredBuffer<uint> UIB : register(u1);
-//RWStructuredBuffer<float3> clusterBoundingBox : register(u2);
+RWByteAddressBuffer writeUVB : register(u0);
+RWByteAddressBuffer writeUIB : register(u1);
+//RWByteAddressBuffer clusterBoundingBox : register(u2);
 
-StructuredBuffer<float3> vertexBuffer : register(t0);
-StructuredBuffer<uint3> indexBuffer : register(t1);
-StructuredBuffer<float3> normalBuffer : register(t2);
+ByteAddressBuffer vertexBuffer : register(t0);
+ByteAddressBuffer indexBuffer : register(t1);
+ByteAddressBuffer normalBuffer : register(t2);
 
 cbuffer cb_unifiedConstant : register(b0)
 {
@@ -16,20 +16,20 @@ cbuffer cb_unifiedConstant : register(b0)
     uint vertexOffset;
 }
 
+//deprecated.
+//may be used in generating cone bounds for future use? 
 [numthreads(1, 1, 1)]
 void unified_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
 {
     for(uint vertIndex = 0; vertIndex < vertexCount; ++vertIndex)
     {
-        UVB[vertexOffset + vertIndex] = vertexBuffer[vertIndex];
-        UVB[vertexMax + vertexOffset + vertIndex] = normalBuffer[vertIndex];
+        writeUVB.Store3((vertexOffset + vertIndex) * VERTEX_STRUCT_SIZE, vertexBuffer.Load3(vertIndex * VERTEX_STRUCT_SIZE));
+        writeUVB.Store3((vertexMax + vertexOffset + vertIndex) * VERTEX_STRUCT_SIZE, normalBuffer.Load3(vertIndex * VERTEX_STRUCT_SIZE));
     }
 
     for(uint id = 0; id < indexCount; ++id)
     {
-        UIB[indexOffset + id * 3 + 0] = indexBuffer[id].x;
-        UIB[indexOffset + id * 3 + 1] = indexBuffer[id].y;
-        UIB[indexOffset + id * 3 + 2] = indexBuffer[id].z;
+        writeUIB.Store3((indexOffset + id) * INDEX_STRUCT_SIZE, indexBuffer.Load3(id * INDEX_STRUCT_SIZE));
     }
 
         // float3 cone_norm;
