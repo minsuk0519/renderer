@@ -64,6 +64,10 @@ namespace render
 bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_CULL_MODE cull, bool wireframe, bool depth)
 {
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	if (wireframe)
+	{
+		primitiveType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+	}
 
 	isCompute = false;
 

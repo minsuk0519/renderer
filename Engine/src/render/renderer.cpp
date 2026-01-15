@@ -289,7 +289,7 @@ void renderer::setIndexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>&
 	view.BufferLocation = buf->getResource()->GetGPUVirtualAddress();
 	//todo?
 	view.Format = DXGI_FORMAT_R32_UINT;
-	view.SizeInBytes = buf->getHeader()->packedData.stride;
+	view.SizeInBytes = buf->getHeader()->dataSize;
 
 	cmdList->IASetIndexBuffer(&view);
 }
@@ -516,6 +516,7 @@ void renderer::setUp()
 		cmdConstBuffer = e_globBufAllocator.alloc(nullptr, 513 * sizeof(uint), 6, buf::GBF_CBV, buf::RESOURCE_UPLOAD);
 	}
 
+#if ENGINE_DEBUG_DEBUGCAM
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Setup WireFrame Buffer", sizeof("Setup WireFrame Buffer"));
 
 	{
@@ -532,14 +533,14 @@ void renderer::setUp()
 		   -1.0f, -1.0f, -1.0f,
 		};
 		AABBwireframeBuffer[0] = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeVertices), 24 * sizeof(float), 3, buf::GBF_NONE, buf::RESOURCE_NONE);
-		AABBwireframeBuffer[1] = e_globBufAllocator.alloc(nullptr, 24 * sizeof(float), 6, buf::GBF_NONE, buf::RESOURCE_UPLOAD);
+		AABBwireframeBuffer[1] = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * 6 * sizeof(float), 6, buf::GBF_NONE, buf::RESOURCE_UPLOAD);
 		uint cubeIndicesLine[] = 
 		{
-			0, 1, 1, 2,
-			2, 3, 3, 0,
+			0, 1, 1, 3,
+			3, 2, 2, 0,
 
-			4, 5, 5, 6,
-			6, 7, 7, 4,
+			4, 5, 5, 7,
+			7, 6, 6, 4,
 
 			0, 4, 1, 5,
 			2, 6, 3, 7,
@@ -548,8 +549,9 @@ void renderer::setUp()
 	}
 
 	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Cretae Triangle Buffer", sizeof("Cretae Triangle Buffer"));
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Create Triangle Buffer", sizeof("Create Triangle Buffer"));
 
 	{
 		//create triangle vertex
@@ -801,7 +803,7 @@ void renderer::draw(float dt)
 	{
 		e_globWorld.setupCam(cmdList, false, false);
 
-		setVertexBuffer(cmdList, 0, triangleBuffer);
+		setVertexBuffer(cmdList, 0, sceneTriangleBuffer);
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferDebugFB->getDescHandle(0));
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferDebugFB->getDescHandle(1));
@@ -861,11 +863,13 @@ void renderer::draw(float dt)
 
 		e_globWorld.setupCam(cmdList, true, false);
 
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+
 		setVertexBuffer(cmdList, 0, AABBwireframeBuffer[0]);
 		setVertexBuffer(cmdList, 1, AABBwireframeBuffer[1]);
 		setIndexBuffer(cmdList, AABBwireframeBuffer[2]);
 
-		cmdList->DrawIndexedInstanced(48, e_globWorld.objectNum, 0, 0, 0);
+		cmdList->DrawIndexedInstanced(24, e_globWorld.objectNum, 0, 0, 0);
 
 		swapchainFB[frameIndex]->closeFB(cmdList);
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });

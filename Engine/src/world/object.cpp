@@ -16,7 +16,7 @@ transform* object::getTransform() const
 	return trans;
 }
 
-bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
+bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex)
 {
 	pso = psoIndex;
 	trans = new transform();
@@ -28,7 +28,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 
 	id = obj::remainID++;
 
-	displayUI = gui;
+	visibility = false;
 
 	return true;
 }
@@ -164,11 +164,6 @@ void object::guiSetting()
 	}
 }
 
-void object::disableWire()
-{
-	displayWire = false;
-}
-
 mesh* object::getMesh() const
 {
 	return meshPtr;
@@ -225,4 +220,14 @@ bool object::instanceCulling(DirectX::XMVECTOR* frustum)
 	}
 
 	return true;
+}
+
+bool object::wasVisible() const
+{
+	return visibility;
+}
+
+void object::updateVisibility(bool vis)
+{
+	visibility = vis;
 }
