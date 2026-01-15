@@ -505,11 +505,11 @@ struct cmdConsts
 
 void renderer::setUp()
 {
-	//render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Terrain", sizeof("Generate Terrain"));
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Terrain", sizeof("Generate Terrain"));
 
-	//setUpTerrain();
-	//
-	//render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
+	setUpTerrain();
+	
+	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 
 	{
 		//todo stride
