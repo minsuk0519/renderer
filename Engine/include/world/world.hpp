@@ -44,7 +44,7 @@ public:
 
 	//index of object that is in camera frustum
 	uint cameraObjectIndex[MAX_OBJECTS] = { 0 };
-	uint cameraObjNum = 0;
+	uint cameraObjNum[DRAW_PASS_NUM];
 
 	object* objects;
 

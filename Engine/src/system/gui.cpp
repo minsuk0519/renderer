@@ -25,12 +25,13 @@ namespace gui
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
 };
 
+#if ENGINE_DEBUG_MESH
 buffer* debugProjectionBuffer;
-descriptor debugProjectionDesc;
 float meshDebugDrawCamArmLength_Default = 2.5f;
 DirectX::XMVECTOR meshDebugDrawCamPos_Default = DirectX::XMVECTOR{ 0.0f, 0.0f, meshDebugDrawCamArmLength_Default };
 float meshDebugDrawCamArmLength = meshDebugDrawCamArmLength_Default;
 DirectX::XMVECTOR meshDebugDrawCamPos = meshDebugDrawCamPos_Default;
+#endif // #if ENGINE_DEBUG_MESH
 
 bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap, const descriptor& fontDesc)
 {
@@ -54,7 +55,9 @@ bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12De
         fontDesc.getCPUHandle(),
         fontDesc.getHandle());
 
-    debugProjectionBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_PROJ_SIZE, 1, buf::GBF_CBV);
+#if ENGINE_DEBUG_MESH
+    debugProjectionBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_PROJ_SIZE, 1, buf::GBF_CBV, buf::RESOURCE_UPLOAD);
+#endif // #if ENGINE_DEBUG_MESH
 
     return true;
 }
@@ -121,7 +124,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
 
         if (openDebugClick == true)
         {
-            e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionDesc.getHandle().ptr);
+            e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer->getDesc(buf::GBF_CBV)->getHandle().ptr);
             openDebugWindow = true;
         }
 
@@ -180,7 +183,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
                 float yPos = std::cosf(y) * meshDebugDrawCamArmLength;
                 float zPos = std::cosf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
                 meshDebugDrawCamPos = DirectX::XMVECTOR{ xPos, yPos, zPos };
-                e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionDesc.getHandle().ptr);
+                e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer->getDesc(buf::GBF_CBV)->getHandle().ptr);
 
                 DirectX::XMVECTOR forward = DirectX::XMVector3Normalize(DirectX::XMVectorNegate(meshDebugDrawCamPos));
                 DirectX::XMVECTOR globUp = DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };

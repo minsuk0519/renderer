@@ -129,6 +129,13 @@
 #define CBV_UTILSCONSTS					GET_HLSL_LOC_CBV(0)
 ////////////////////utils Buffer Ends
 
+#if ENGINE_DEBUG_MESH
+////////////////////meshviewer Buffer Begin
+//b0 meshviewer constants
+#define CBV_DEBUG_MESHVIEW_ID			GET_HLSL_LOC_CBV(0)
+////////////////////meshviewer Buffer Ends
+#endif // #if ENGINE_DEBUG_MESH
+
 #define FEATURE_AO (1 << 0)
 
 //define PSO indcies

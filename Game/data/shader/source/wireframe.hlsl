@@ -24,18 +24,41 @@ float4 wireframeAABB_ps(PSInput input) : SV_TARGET
     return float4(1.0f, 0.0f, 0.0f, 1.0f);
 }
 
-PSInput wireframe_vs(float3 position : VPOSITION)
+cbuffer cb_wireframeMeshID : register(b0)
+{
+    uint meshIndex;
+};
+
+PSInput wireframeMeshView_vs(uint vertexID : SV_VertexID)
 {
     PSInput result;
 
-    //this is tricky way, we will use camPos as aabb size
+    meshInfo mesh;
+    getMeshInfo(meshIndex, mesh);
+
+    //lod 0 clusterindex 0
+    lodInfo lod;
+    getLODInfo(mesh.lodOffset, lod);
+
+    clusterInfo clusters;
+    getClusterInfo(lod.clusterOffset, clusters);
+
+    uint vertexOffset = mesh.vertexOffset;
+
+    uint vertexIndex;
+    getVertexIndex(clusters.indexOffset + vertexID, vertexIndex);
+
+    float3 position;
+    getVertex(vertexOffset + vertexIndex, position);
+
+    //this is tricks, we will use camPos as aabb size
     float3 pos = float3(position.x / proj.camPos.x, position.y / proj.camPos.y, position.z / proj.camPos.z);
     float4 worldPos = float4(pos, 1.0);
     result.position = mul(proj.viewProj, worldPos);
     return result;
 }
 
-float wireframe_ps(PSInput input) : SV_TARGET
+float wireframeSingleChannel_ps(PSInput input) : SV_TARGET
 {	
     return 1.0f;
 }

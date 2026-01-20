@@ -135,6 +135,8 @@ bool pipelinestate::initCS(std::string psoName, uint CS)
 
 	shader* cs = shaders::getShader(CS);
 
+	//TODO : creating rootsig on pso creation is not suitable for bindless engine design
+	//this is inefficient when we need multiple psos in a frame
 	rootsig = new rootsignature();
 
 	rootsig->initFromShader({ CS }, hlslLoc, true);

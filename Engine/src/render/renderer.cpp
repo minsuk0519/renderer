@@ -59,6 +59,29 @@ namespace renderGuiSetting
 	bool ssaoEnabled = true;
 }
 
+void bindglobalBuffers()
+{
+	descriptor* clustersizeUAV = localClusterSizeBuffer->getDesc(buf::GBF_UAV);
+	descriptor* clusteroffsetUAV = localClusterOffsetBuffer->getDesc(buf::GBF_UAV);
+	descriptor* clusteroffsetSRV = localClusterOffsetBuffer->getDesc(buf::GBF_SRV);
+	descriptor* meshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
+	descriptor* lodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
+	descriptor* clusterInfoBufferSRV = ubManager->clusterInfoBuffer->getDesc(buf::GBF_SRV);
+	descriptor* vertexIDBufferSRV = ubManager->vertexIDBuffer->getDesc(buf::GBF_SRV);
+	descriptor* vertexIDBufferUAV = ubManager->vertexIDBuffer->getDesc(buf::GBF_UAV);
+	descriptor* clusterBoundBufferSRV = ubManager->clusterBoundBuffer->getDesc(buf::GBF_SRV);
+	descriptor* viewInfoBufferSRV = viewInfoBuffer->getDesc(buf::GBF_SRV);
+#if	ENGINE_DEBUG_BUFFER
+	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
+#endif // #if ENGINE_DEBUG_BUFFER
+	descriptor* unifiedVertexBufferSRV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
+	descriptor* unifiedIndexBufferSRV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
+	descriptor* camDesc = e_globWorld.getMainCam()->getDesc();
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferSRV->getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferSRV->getHandle());
+}
+
 bool initGui()
 {
 	//setting up gui
@@ -350,12 +373,14 @@ framebuffer* renderer::getDebugFrameBuffer() const
 	return debugFB;
 }
 
-void renderer::debugFrameBufferRequest(uint debugMeshID, UINT64 ptr)
+#if ENGINE_DEBUG_MESH
+void renderer::debugFrameBufferRequest(uint debugMeshID, UINT64 projPtr)
 {
 	debugFBRequest = true;
 	debugFBMeshID = debugMeshID;
-	debugProjection = ptr;
+	debugProjection = projPtr;
 }
+#endif // #if ENGINE_DEBUG_MESH
 
 const char* debugDrawVersion[]
 {
@@ -390,6 +415,7 @@ void renderer::guiSetting()
 
 void renderer::preDraw(float dt)
 {
+#if ENGINE_DEBUG_MESH
 	if (debugFBRequest)
 	{
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "DebugMeshDraw", sizeof("DebugMeshDraw"));
@@ -407,11 +433,13 @@ void renderer::preDraw(float dt)
 		cmdList->RSSetViewports(1, &viewport);
 		cmdList->RSSetScissorRects(1, &scissorRect);
 
-		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+		//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		//msh->setBuffer(cmdList, false);
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, (D3D12_GPU_DESCRIPTOR_HANDLE)debugProjection);
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_DEBUG_MESHVIEW_ID, 1, &debugFBMeshID);
 
 		msh->draw(cmdList);
 
@@ -425,6 +453,7 @@ void renderer::preDraw(float dt)
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
+#endif // #if ENGINE_DEBUG_MESH
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "InstanceCull", sizeof("InstanceCull"));
 
