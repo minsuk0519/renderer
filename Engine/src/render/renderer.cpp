@@ -244,7 +244,7 @@ bool renderer::createFrameResources()
 	uint sHeight = e_globWindow.height();
 
 	{
-		fbDepth = e_globBufAllocator.alloc(nullptr, 0, 3, buf::GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE | buf::RESOURCE_CLEAR, DXGI_FORMAT_D32_FLOAT, sWidth, sHeight, 1);
+		fbDepth = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE | buf::RESOURCE_CLEAR, DXGI_FORMAT_D32_FLOAT, sWidth, sHeight, 1);
 	}
 
 	for (int i = 0; i < FRAME_COUNT; ++i)
@@ -267,7 +267,7 @@ bool renderer::createFrameResources()
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	gbufferFB->attachDepth(fbDepth, 1.0f);
+	gbufferFB->attachDepth(fbDepth, 0.0f);
 
 #if ENGINE_DEBUG_DEBUGCAM
 	//should be sync with gbufferFB
@@ -278,12 +278,12 @@ bool renderer::createFrameResources()
 	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
 	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	gbufferDebugFB->attachDepth(fbDepth, 1.0f);
+	gbufferDebugFB->attachDepth(fbDepth, 0.0f);
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	debugFB = new framebuffer();
 	debugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-	debugFB->attachDepth(fbDepth, 1.0f);
+	debugFB->attachDepth(fbDepth, 0.0f);
 
 	{
 		std::vector<render::cmdSigData> sigData[2];

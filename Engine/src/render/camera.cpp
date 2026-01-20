@@ -13,8 +13,8 @@
 
 constexpr float SPEED = 0.0003f;
 
-constexpr float NEAR_PLANE = 0.1f;
-constexpr float FAR_PLANE = 100.0f;
+constexpr float NEAR_PLANE = 0.2f;
+constexpr float FAR_PLANE = 100000.0f;
 
 constexpr float FOV = 60.0f;
 
@@ -185,7 +185,7 @@ DirectX::XMMATRIX camera::getMat() const
 	DirectX::XMVECTOR pos = transformPtr->getPosition();
 
 	DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, up);
-	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, NEAR_PLANE, FAR_PLANE);
+	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, FAR_PLANE, NEAR_PLANE);
 
 	return view * projection;
 }
@@ -206,20 +206,9 @@ void camera::toggleDebugMode()
 
 void camera::update(float dt)
 {
-	DirectX::XMVECTOR rotation = transformPtr->getQuaternion();
-
-	DirectX::XMVECTOR up = transformPtr->getUP();
-	DirectX::XMVECTOR right = transformPtr->getRIGHT();
-
-	DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);
-
 	DirectX::XMVECTOR pos = transformPtr->getPosition();
 
-	DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, up);
-
-	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, NEAR_PLANE, FAR_PLANE);
-
-	DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, projection);
+	DirectX::XMMATRIX viewProj = transformPtr->buildViewProjMat(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, NEAR_PLANE, FAR_PLANE);
 
 	float far_plane = FAR_PLANE;
 	projectionBuffer->uploadBuffer(sizeof(float) * 4 * 4, 0, &viewProj);

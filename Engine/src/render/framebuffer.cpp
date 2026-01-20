@@ -33,8 +33,6 @@ bool framebuffer::attachDepth(buffer* depth, float clear)
 	return false;
 }
 
-//open frame buffer and clear the buffer
-//TODO we will add extra features for not clear color or depth
 void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool clear)
 {
 	uint numFBO = (uint)FBOs.size();

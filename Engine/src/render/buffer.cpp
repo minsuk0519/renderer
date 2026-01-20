@@ -848,7 +848,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
         {
             if ((flag & buf::RESOURCE_DEPTH))
             {
-                clearValue = CD3DX12_CLEAR_VALUE(format, 1.0f, 0);
+                clearValue = CD3DX12_CLEAR_VALUE(format, 0.0f, 0);
             }
             else if (flag & buf::RESOURCE_TEXTURE)
             {
