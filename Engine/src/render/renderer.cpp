@@ -61,25 +61,25 @@ namespace renderGuiSetting
 
 void bindglobalBuffers()
 {
-	descriptor* clustersizeUAV = localClusterSizeBuffer->getDesc(buf::GBF_UAV);
-	descriptor* clusteroffsetUAV = localClusterOffsetBuffer->getDesc(buf::GBF_UAV);
-	descriptor* clusteroffsetSRV = localClusterOffsetBuffer->getDesc(buf::GBF_SRV);
-	descriptor* meshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
-	descriptor* lodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
-	descriptor* clusterInfoBufferSRV = ubManager->clusterInfoBuffer->getDesc(buf::GBF_SRV);
-	descriptor* vertexIDBufferSRV = ubManager->vertexIDBuffer->getDesc(buf::GBF_SRV);
-	descriptor* vertexIDBufferUAV = ubManager->vertexIDBuffer->getDesc(buf::GBF_UAV);
-	descriptor* clusterBoundBufferSRV = ubManager->clusterBoundBuffer->getDesc(buf::GBF_SRV);
-	descriptor* viewInfoBufferSRV = viewInfoBuffer->getDesc(buf::GBF_SRV);
-#if	ENGINE_DEBUG_BUFFER
-	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
-#endif // #if ENGINE_DEBUG_BUFFER
-	descriptor* unifiedVertexBufferSRV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
-	descriptor* unifiedIndexBufferSRV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
-	descriptor* camDesc = e_globWorld.getMainCam()->getDesc();
-
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferSRV->getHandle());
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferSRV->getHandle());
+//	descriptor* clustersizeUAV = localClusterSizeBuffer->getDesc(buf::GBF_UAV);
+//	descriptor* clusteroffsetUAV = localClusterOffsetBuffer->getDesc(buf::GBF_UAV);
+//	descriptor* clusteroffsetSRV = localClusterOffsetBuffer->getDesc(buf::GBF_SRV);
+//	descriptor* meshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
+//	descriptor* lodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
+//	descriptor* clusterInfoBufferSRV = ubManager->clusterInfoBuffer->getDesc(buf::GBF_SRV);
+//	descriptor* vertexIDBufferSRV = ubManager->vertexIDBuffer->getDesc(buf::GBF_SRV);
+//	descriptor* vertexIDBufferUAV = ubManager->vertexIDBuffer->getDesc(buf::GBF_UAV);
+//	descriptor* clusterBoundBufferSRV = ubManager->clusterBoundBuffer->getDesc(buf::GBF_SRV);
+//	descriptor* viewInfoBufferSRV = viewInfoBuffer->getDesc(buf::GBF_SRV);
+//#if	ENGINE_DEBUG_BUFFER
+//	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
+//#endif // #if ENGINE_DEBUG_BUFFER
+//	descriptor* unifiedVertexBufferSRV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
+//	descriptor* unifiedIndexBufferSRV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
+//	descriptor* camDesc = e_globWorld.getMainCam()->getDesc();
+//
+//	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferSRV->getHandle());
+//	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferSRV->getHandle());
 }
 
 bool initGui()
@@ -124,6 +124,7 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	localClusterSizeBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 12, 1, buf::GBF_UAV, 0);
 	clusterArgsBuffer = e_globBufAllocator.alloc(nullptr, (MAX_CLUSTERS / THREADS_NUM_CLUSTERS) * sizeof(uint), 1, buf::GBF_UAV, 0);
 	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
+	materialBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 5, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
 	
 #if ENGINE_DEBUG_BUFFER
 	outDebugBuffer = e_globBufAllocator.alloc(nullptr, 65536 * 1024 * sizeof(uint), 1, buf::GBF_UAV, 0);
@@ -261,6 +262,8 @@ bool renderer::createFrameResources()
 	//position
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//normal
+	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	//objID
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//objInfo
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
@@ -611,10 +614,13 @@ void renderer::setUp()
 
 void renderer::draw(float dt)
 {
-	unsigned char* dataPtr = nullptr;
-	viewInfoBuffer->mapBuffer(&dataPtr);
-	e_globWorld.uploadObjectViewInfo(dataPtr);
+	unsigned char* viewInfoDataPtr = nullptr;
+	unsigned char* materialDataPtr = nullptr;
+	viewInfoBuffer->mapBuffer(&viewInfoDataPtr);
+	materialBuffer->mapBuffer(&materialDataPtr);
+	e_globWorld.uploadObjectInfo(viewInfoDataPtr, materialDataPtr);
 	viewInfoBuffer->unmapBuffer();
+	materialBuffer->unmapBuffer();
 
 	descriptor* clustersizeUAV = localClusterSizeBuffer->getDesc(buf::GBF_UAV);
 	descriptor* clusteroffsetUAV = localClusterOffsetBuffer->getDesc(buf::GBF_UAV);
@@ -626,6 +632,7 @@ void renderer::draw(float dt)
 	descriptor* vertexIDBufferUAV = ubManager->vertexIDBuffer->getDesc(buf::GBF_UAV);
 	descriptor* clusterBoundBufferSRV = ubManager->clusterBoundBuffer->getDesc(buf::GBF_SRV);
 	descriptor* viewInfoBufferSRV = viewInfoBuffer->getDesc(buf::GBF_SRV);
+	descriptor* materialBufferSRV = materialBuffer->getDesc(buf::GBF_SRV);
 #if	ENGINE_DEBUG_BUFFER
 	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
 #endif // #if ENGINE_DEBUG_BUFFER
@@ -782,6 +789,7 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[0]->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_AOCONST, 4, &renderGuiSetting::aoConstants);
@@ -805,6 +813,7 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[i]->getHandle());
 		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAOBLUR, ssaoUAV[i + 1]->getHandle());
@@ -857,7 +866,9 @@ void renderer::draw(float dt)
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferFB->getDescHandle(2));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferFB->getDescHandle(3));
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MATERIAL_BUFFER, materialBufferSRV->getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, camDesc->getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoSRV[2]->getHandle());
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &renderGuiSetting::guiDebug);

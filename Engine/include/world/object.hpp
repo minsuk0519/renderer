@@ -49,6 +49,7 @@ public:
 
 	void sendMat(unsigned char* cbvdata);
 	void uploadViewInfo(unsigned char* dataLoc);
+	void uploadMaterial(unsigned char* dataLoc);
 	void boundData(unsigned char* data);
 
 	void close();

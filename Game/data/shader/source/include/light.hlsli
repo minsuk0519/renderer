@@ -1,7 +1,3 @@
-cbuffer sunBuffer : register(b2)
-{
-    float3 sunDir;
-}
 
 cbuffer randomBuffer : register(b3)
 {
@@ -11,8 +7,6 @@ cbuffer randomBuffer : register(b3)
 
 Texture2D irradianceMap : register(t0);
 Texture2D enviornmentMap : register(t1);
-
-SamplerState samp : register(s0);
 
 float calNormalDistribution_GGX(float NdotH, float roughness)
 {	
@@ -39,7 +33,7 @@ float3 calFresnel(float cosine, float3 F0)
 	return F0 + (1.0 - F0) * pow(1.0 - cosine, 5.0);
 }
 
-float3 calcImageBasedLight(float3 viewDir, float3 normal, float roughness, float metal, float3 albedo, float3 F0)
+float3 calcImageBasedLight(float3 viewDir, float3 normal, float roughness, float metal, float3 albedo)
 {
 	float3 R = (2 * dot(normal, viewDir) * normal - viewDir);
 	float3 A = normalize(float3(R.z, 0, -R.x));
@@ -51,6 +45,9 @@ float3 calcImageBasedLight(float3 viewDir, float3 normal, float roughness, float
 	
 	float NdotV = dot(normal, viewDir);
 	float3 specularcolor = float3(0,0,0);
+
+	float3 F0 = float3(0.04, 0.04, 0.04); 
+	F0 = lerp(F0, albedo, metal);
 	
 	//for(int i = 0; i < randomNum; ++i)
 	{
@@ -96,13 +93,16 @@ float3 calcImageBasedLight(float3 viewDir, float3 normal, float roughness, float
 	return specularcolor + kD * albedo * (1 / PI) * irradiance;
 }
 
-float3 calcLight(float3 lightDir, float3 viewDir, float3 normal, float3 albedo, float3 lightColor, float roughness, float metal, float3 F0)
+float3 calcLight(float3 lightDir, float3 viewDir, float3 normal, float3 albedo, float3 lightColor, float roughness, float metal, float ao)
 {
 	float3 halfway = normalize(viewDir + lightDir);
 	
 	float NdotV = max(dot(normal, viewDir), 0.0);
 	float NdotL = max(dot(normal, lightDir), 0.0);
 	float NdotH = max(dot(normal, halfway), 0.0);
+
+	float3 F0 = float3(0.04, 0.04, 0.04); 
+	F0 = lerp(F0, albedo, metal);
 
 	float D = calNormalDistribution_GGX(NdotH, roughness);
 	float G = calOptimizedGeometry(NdotV, NdotL, roughness);      
@@ -113,5 +113,10 @@ float3 calcLight(float3 lightDir, float3 viewDir, float3 normal, float3 albedo, 
 	float3 kD = float3(1.0, 1.0, 1.0) - kS;
 	kD *= 1.0 - metal;
 
-	return (kD * albedo / PI + specular) * NdotL * lightColor;
+	float3 directLight = (kD * albedo / PI + specular) * NdotL * lightColor;
+
+	float3 ambient = 0.05 * albedo;
+	float3 indirectLight = ambient * ao;
+
+	return directLight + indirectLight;
 }

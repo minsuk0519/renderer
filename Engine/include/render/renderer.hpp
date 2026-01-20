@@ -89,6 +89,7 @@ private:
 	buffer* outDebugBuffer = nullptr;
 #endif //#if ENGINE_DEBUG_BUFFER
 	buffer* viewInfoBuffer = nullptr;
+	buffer* materialBuffer = nullptr;
 	buffer* clusterBoundBuffer = nullptr;
 	
 	buffer* cmdConstBuffer = nullptr;

@@ -25,7 +25,7 @@ public:
 	void close();
 
 	uint submitObjects(void* cbvLoc);
-	void uploadObjectViewInfo(void* cbvLoc);
+	void uploadObjectInfo(void* viewInfoLoc, void* materialLoc);
 	void boundData(void* cbvLoc);
 
 	void setupScene();

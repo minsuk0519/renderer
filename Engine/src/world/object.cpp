@@ -110,6 +110,17 @@ void object::uploadViewInfo(unsigned char* dataLoc)
 	memcpy(dataLoc + sizeof(uint) * 6, &quat, sizeof(uint) * 4);
 }
 
+void object::uploadMaterial(unsigned char* dataLoc)
+{
+	float a[] = {
+		albedo.x, albedo.y, albedo.z,
+		metal,
+		roughness,
+	};
+
+	memcpy(dataLoc, &a, sizeof(float) * (5));
+}
+
 void object::boundData(unsigned char* data)
 {
 	meshData* mshData = getMesh()->getData();

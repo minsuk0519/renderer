@@ -15,6 +15,7 @@ ByteAddressBuffer lodInfos : register(t60);
 ByteAddressBuffer clusterInfos : register(t59);
 ByteAddressBuffer clusterBounds : register(t58);
 ByteAddressBuffer viewInfos : register(t57);
+ByteAddressBuffer materialInfos : register(t56);
 
 cbuffer cb_cmdBuf : register(b63)
 {
@@ -47,3 +48,5 @@ cbuffer cb_window : register(b59)
 	uint screenWidth;
 	uint screenHeight;
 };
+
+SamplerState samp 			: register(s0);

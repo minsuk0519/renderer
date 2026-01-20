@@ -27,6 +27,8 @@
 #define SRV_CLUSTER_BOUNDS_BUFFER	GET_HLSL_LOC_SRV(58)
 //t57 view info
 #define SRV_VIEWINFO_BUFFER			GET_HLSL_LOC_SRV(57)
+//t56 material
+#define SRV_MATERIAL_BUFFER			GET_HLSL_LOC_SRV(56)
 
 //b63 cmdBuf constants
 #define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(63)
@@ -51,10 +53,12 @@
 #define SRV_LIGHT_POSITION		GET_HLSL_LOC_SRV(0)
 //t1 normal gbuffer
 #define SRV_LIGHT_NORM			GET_HLSL_LOC_SRV(1)
-//t2 debug gbuffer
-#define SRV_LIGHT_DEBUG			GET_HLSL_LOC_SRV(2)
-//t3 view info
-#define SRV_LIGHT_AO			GET_HLSL_LOC_SRV(3)
+//t2 object ID buffer
+#define SRV_LIGHT_OBJID			GET_HLSL_LOC_SRV(2)
+//t4 debug gbuffer
+#define SRV_LIGHT_DEBUG			GET_HLSL_LOC_SRV(3)
+//t5 view info
+#define SRV_LIGHT_AO			GET_HLSL_LOC_SRV(4)
 ////////////////////light Buffer Begin
 
 ////////////////////SSAO Buffer Begin

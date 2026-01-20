@@ -8,16 +8,18 @@ struct PSInput
 {
 	float4 position : SV_POSITION;
     float3 worldPos : WORLD_POS;
-    float3 normal : NORMAL;
-
-    uint4 output : OUTPUT;
+    float3 normal   : NORMAL;
+    uint objID      : OBJECTID;
+    
+    uint4 output    : OUTPUT;
 };
 
 struct PSOutput
 {
     float4 position     : SV_TARGET0;
     uint normTex      	: SV_TARGET1;
-    uint debugID      	: SV_TARGET2;
+    uint objID      	: SV_TARGET2;
+    uint debugID      	: SV_TARGET3;
 };
 
 cbuffer cb_objectIdentification : register(b2)
@@ -66,6 +68,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         scaledNorm.y = normal.y * scale.y;
         scaledNorm.z = normal.z * scale.z;
         result.normal = normalize(quatRotate(rotation, scaledNorm));
+        result.objID = objID;
 
         result.output = float4(clusterID,meshIndex,objID,vertexIndex);
         //result.output = uint4(clusterID, vertexIndex, indexSize, vertexID);
@@ -80,6 +83,7 @@ PSInput gbuffer_vs(float3 position : VPOSITION, float3 normal : VNORMAL)
     float4 worldPos = mul(obj.objectMat, float4(position, 1.0));
     result.worldPos = worldPos.xyz;
     result.position = mul(proj.viewProj, worldPos);
+    result.objID = 0;
 
     result.output.x = 0;
     result.output.y = 0;
@@ -100,6 +104,8 @@ PSOutput gbuffer_ps(PSInput input)
 
     result.position = float4(position, 1.0f);
     result.normTex = encodeOct(normal);
+    result.objID = input.objID;
+    
     result.debugID = input.output.x + 1;//input.output.x;
     
     return result;
