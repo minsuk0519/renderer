@@ -119,5 +119,11 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":19
+	},{
+		"shaderFile":"data/shader/source/mipmap.hlsl",
+		"entryPoint":"genHZB_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":20
 	}
 ]

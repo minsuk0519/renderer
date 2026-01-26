@@ -170,5 +170,15 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false	
+	},{
+		"psoIndex":16,
+		"psoName":"genHZB",
+		"vertexIndex":20,
+		"pixelIndex":20,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false	
 	}
 ]

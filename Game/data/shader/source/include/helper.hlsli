@@ -257,3 +257,20 @@ float OctavePerlin(float x, float y, float z, int octaves)
 
     return value / maxValue;
 }
+
+uint tiledSwizzling(uint2 pos, uint bitsNum)
+{
+	uint result;
+
+	uint x = 0;
+	uint y = 0;
+
+	for(uint i = 0; i < bitsNum; ++i)
+	{
+		int offset = bitsNum - i - 1;
+		x |= (pos.x & (1U << (offset))) << offset;
+		y |= (pos.y & (1U << (offset))) << offset;
+	}
+
+	return x | (y << 1);
+}
