@@ -10,6 +10,7 @@
 #include <unordered_set>
 
 #include <array>
+#include <cstring>
 #include <filesystem>
 #include <stack>
 
@@ -39,7 +40,6 @@ namespace shaders
 			L"-E", entry,
 			L"-T", target,
 			L"-Zs",                      // Enable debug information (slim format)
-			L"-Qstrip_reflect",          // Strip reflection into a separate blob. 
 		};
 
 		HRESULT compileStatus = pCompiler->Compile(
@@ -381,32 +381,172 @@ void shader::decipherHLSL()
 	{
 		//input signature
 		{
-			auto find = sourceString.find("Input signature:") + 1;
-			find = sourceString.find("-------------------- ----- ------ -------- -------- ------- ------", find);
-			find = sourceString.find("; ", find) + 1;
+			size_t searchPos = 0;
+			bool foundTable = false;
 
-			while (true)
-			{
-				auto find2 = sourceString.find("\n", find) + 1;
-				std::string line = sourceString.substr(find, find2 - find);
-				find = find2;
+			static const std::string kInputSigHeader = "Input signature:";
+			while (!foundTable) {
+				auto matchPos = sourceString.find(kInputSigHeader, searchPos);
+				if (matchPos == std::string::npos) break;
+				auto find = matchPos + kInputSigHeader.size();
 
-				if (line.find(";\n") != std::string::npos)
-				{
-					break;
+				auto headerLineStart = sourceString.find_first_not_of("; \n\r", find);
+				if (headerLineStart == std::string::npos) break;
+
+				auto headerLineEnd = sourceString.find("\n", headerLineStart);
+				if (headerLineEnd == std::string::npos) break;
+
+				std::string headerLine = sourceString.substr(headerLineStart, headerLineEnd - headerLineStart);
+
+				if (headerLine.find("Mask") == std::string::npos ||
+					(headerLine.find("Register") == std::string::npos && headerLine.find("Format") == std::string::npos)) {
+					searchPos = headerLineEnd + 1;
+					continue;
 				}
 
-				shaders::hlslBuf hlslbuf;
+				foundTable = true;
 
-				uint variableIndex = 0;
-
-				find2 = 0;
+				find = headerLineEnd + 1;
+				find = sourceString.find("\n", find) + 1;
+				find = sourceString.find("; ", find) + 1;
 
 				while (true)
 				{
-					find2 = line.find_first_not_of("; ", find2);
+					auto find2 = sourceString.find("\n", find) + 1;
+					std::string line = sourceString.substr(find, find2 - find);
+					find = find2;
 
-					if (find2 == std::string::npos)
+					if (line.find(";\n") != std::string::npos)
+					{
+						break;
+					}
+
+					shaders::hlslBuf hlslbuf;
+
+					uint variableIndex = 0;
+
+					find2 = 0;
+
+					while (true)
+					{
+						find2 = line.find_first_not_of("; ", find2);
+
+						if (find2 == std::string::npos)
+						{
+							break;
+						}
+						if (line.find("no parameters") != std::string::npos)
+						{
+							break;
+						}
+
+						auto find3 = line.find_first_of(' ', find2);
+						if (find3 == std::string::npos) find3 = line.size();
+						std::string str = line.substr(find2, find3 - find2);
+
+						if (variableIndex == 0)
+						{
+							hlslbuf.name = str;
+						}
+						else if (variableIndex == 2)
+						{
+							hlslbuf.data = (uint)str.size();
+						}
+						else if (variableIndex == 3)
+						{
+							hlslbuf.loc = std::stoi(str);
+						}
+						else if (variableIndex == 5)
+						{
+							uint channelSize = hlslbuf.data;
+
+							if (str == "uint")
+							{
+								if (channelSize == 4)
+								{
+									hlslbuf.data = DXGI_FORMAT_R32G32B32A32_UINT;
+								}
+								else if (channelSize == 3)
+								{
+									hlslbuf.data = DXGI_FORMAT_R32G32B32_UINT;
+								}
+								else if (channelSize == 2)
+								{
+									hlslbuf.data = DXGI_FORMAT_R32G32_UINT;
+								}
+								else if (channelSize == 1)
+								{
+									hlslbuf.data = DXGI_FORMAT_R32_UINT;
+								}
+							}
+							else
+							{
+								if (channelSize == 4)
+								{
+									hlslbuf.data = DXGI_FORMAT_R32G32B32A32_FLOAT;
+								}
+								else if (channelSize == 3)
+								{
+									hlslbuf.data = DXGI_FORMAT_R32G32B32_FLOAT;
+								}
+								else if (channelSize == 2)
+								{
+									hlslbuf.data = DXGI_FORMAT_R32G32_FLOAT;
+								}
+								else if (channelSize == 1)
+								{
+									hlslbuf.data = DXGI_FORMAT_R32_FLOAT;
+								}
+							}
+						}
+						find2 = find3;
+
+						++variableIndex;
+					}
+
+					bufData.inputContainer.push_back(hlslbuf);
+				}
+			}
+		}
+
+		//output signature
+		{
+			size_t searchPos = 0;
+			bool foundTable = false;
+
+			static const std::string kOutputSigHeader = "Output signature:";
+			while (!foundTable) {
+				auto matchPos = sourceString.find(kOutputSigHeader, searchPos);
+				if (matchPos == std::string::npos) break;
+				auto find = matchPos + kOutputSigHeader.size();
+
+				auto headerLineStart = sourceString.find_first_not_of("; \n\r", find);
+				if (headerLineStart == std::string::npos) break;
+
+				auto headerLineEnd = sourceString.find("\n", headerLineStart);
+				if (headerLineEnd == std::string::npos) break;
+
+				std::string headerLine = sourceString.substr(headerLineStart, headerLineEnd - headerLineStart);
+
+				if (headerLine.find("Mask") == std::string::npos ||
+					(headerLine.find("Register") == std::string::npos && headerLine.find("Format") == std::string::npos)) {
+					searchPos = headerLineEnd + 1;
+					continue;
+				}
+
+				foundTable = true;
+
+				find = headerLineEnd + 1;
+				find = sourceString.find("\n", find) + 1;
+				find = sourceString.find("; ", find) + 1;
+
+				while (true)
+				{
+					auto find2 = sourceString.find("\n", find) + 1;
+					std::string line = sourceString.substr(find, find2 - find);
+					find = find2;
+
+					if (line.find(";\n") != std::string::npos)
 					{
 						break;
 					}
@@ -415,138 +555,55 @@ void shader::decipherHLSL()
 						break;
 					}
 
-					auto find3 = line.find_first_of(' ', find2);
-					std::string str = line.substr(find2, find3 - find2);
+					shaders::hlslBuf hlslbuf;
 
-					if (variableIndex == 0)
-					{
-						hlslbuf.name = str;
-					}
-					else if (variableIndex == 2)
-					{
-						hlslbuf.data = (uint)str.size();
-					}
-					else if (variableIndex == 3)
-					{
-						hlslbuf.loc = std::stoi(str);
-					}
-					else if (variableIndex == 5)
-					{
-						uint channelSize = hlslbuf.data;
+					uint variableIndex = 0;
 
-						if (str == "uint")
+					find2 = 0;
+
+					while (true)
+					{
+						find2 = line.find_first_not_of("; ", find2);
+
+						if (find2 == std::string::npos)
 						{
-							if (channelSize == 4)
-							{
-								hlslbuf.data = DXGI_FORMAT_R32G32B32A32_UINT;
-							}
-							else if (channelSize == 3)
-							{
-								hlslbuf.data = DXGI_FORMAT_R32G32B32_UINT;
-							}
-							else if (channelSize == 2)
-							{
-								hlslbuf.data = DXGI_FORMAT_R32G32_UINT;
-							}
-							else if (channelSize == 1)
-							{
-								hlslbuf.data = DXGI_FORMAT_R32_UINT;
-							}
+							break;
 						}
-						else
+
+						auto find3 = line.find_first_of(' ', find2);
+						if (find3 == std::string::npos) find3 = line.size();
+						std::string str = line.substr(find2, find3 - find2);
+
+						if (variableIndex == 0)
 						{
-							if (channelSize == 4)
-							{
-								hlslbuf.data = DXGI_FORMAT_R32G32B32A32_FLOAT;
-							}
-							else if (channelSize == 3)
-							{
-								hlslbuf.data = DXGI_FORMAT_R32G32B32_FLOAT;
-							}
-							else if (channelSize == 2)
-							{
-								hlslbuf.data = DXGI_FORMAT_R32G32_FLOAT;
-							}
-							else if (channelSize == 1)
-							{
-								hlslbuf.data = DXGI_FORMAT_R32_FLOAT;
-							}
+							hlslbuf.name = str;
 						}
-					}
-					find2 = find3;
+						if (variableIndex == 2)
+						{
+							hlslbuf.data = (uint)str.size();
+						}
+						if (variableIndex == 3)
+						{
+							hlslbuf.loc = std::stoi(str);
+						}
+						find2 = find3;
 
-					++variableIndex;
+						++variableIndex;
+					}
+
+					bufData.outputContainer.push_back(hlslbuf);
 				}
-
-				bufData.inputContainer.push_back(hlslbuf);
-			}
-		}
-
-		//output signature
-		{
-			auto find = sourceString.find("Output signature:") + 1;
-			find = sourceString.find("-------------------- ----- ------ -------- -------- ------- ------", find);
-			find = sourceString.find("; ", find) + 1;
-
-			while (true)
-			{
-				auto find2 = sourceString.find("\n", find) + 1;
-				std::string line = sourceString.substr(find, find2 - find);
-				find = find2;
-
-				if (line.find(";\n") != std::string::npos)
-				{
-					break;
-				}
-				if (line.find("no parameters") != std::string::npos)
-				{
-					break;
-				}
-
-				shaders::hlslBuf hlslbuf;
-
-				uint variableIndex = 0;
-
-				find2 = 0;
-
-				while (true)
-				{
-					find2 = line.find_first_not_of("; ", find2);
-
-					if (find2 == std::string::npos)
-					{
-						break;
-					}
-
-					auto find3 = line.find_first_of(' ', find2);
-					std::string str = line.substr(find2, find3 - find2);
-
-					if (variableIndex == 0)
-					{
-						hlslbuf.name = str;
-					}
-					if (variableIndex == 2)
-					{
-						hlslbuf.data = (uint)str.size();
-					}
-					if (variableIndex == 3)
-					{
-						hlslbuf.loc = std::stoi(str);
-					}
-					find2 = find3;
-
-					++variableIndex;
-				}
-
-				bufData.outputContainer.push_back(hlslbuf);
 			}
 		}
 	}
 
 	//constant buffer
 	{
-		auto find = sourceString.find("Resource Bindings:") + 1;
-		find = sourceString.find("------------------------------ ---------- ------- ----------- ------- -------------- ------", find);
+		auto find = sourceString.find("Resource Bindings:");
+		find = sourceString.find("\n", find) + 1; // blank ";" line
+		find = sourceString.find("\n", find) + 1; // header line ("Name Type Format ...")
+		find = sourceString.find("\n", find) + 1; // dashes line
+		find = sourceString.find("\n", find) + 1; // first data line (or blank if none)
 		find = sourceString.find("; ", find) + 1;
 
 		while (true)
@@ -581,28 +638,29 @@ void shader::decipherHLSL()
 				}
 
 				auto find3 = line.find_first_of(' ', find2);
+				if (find3 == std::string::npos) find3 = line.size();
 				std::string str = line.substr(find2, find3 - find2);
 
-				//if (variableIndex == 3)
-				//{
-				//	std::string cBufferLoc;
-
-				//	if (str.find("CB") != std::string::npos)
-				//	{
-				//		cBufferLoc = str.substr(2);
-				//	}
-				//	else if(str.find("S") != std::string::npos)
-				//	{
-				//		cBufferLoc = str.substr(1);
-				//	}
-				//	else
-				//	{
-				//		cBufferLoc = str.substr(1);
-				//	}
-				//	hlslbuf.loc = std::stoi(cBufferLoc);
-				//}
-
 				if (variableIndex == 4)
+				{
+					std::string cBufferLoc;
+
+					if (str.find("CB") != std::string::npos)
+					{
+						cBufferLoc = str.substr(2);
+					}
+					else if(str.find("S") != std::string::npos)
+					{
+						cBufferLoc = str.substr(1);
+					}
+					else
+					{
+						cBufferLoc = str.substr(1);
+					}
+					hlslbuf.loc = std::stoi(cBufferLoc);
+				}
+
+				if (variableIndex == 5)
 				{
 					std::string cBufferLoc;
 
@@ -644,7 +702,9 @@ void shader::decipherHLSL()
 		uint cbufferNum = 0;
 		if (bufData.constantContainer.size() != 0)
 		{
-			find = sourceString.find("\n%dx.alignment.legacy") + 1;
+			static const uint hostlayoutPrefixLen = (uint)strlen("%hostlayout.");
+
+			find = sourceString.find("\n%hostlayout") + 1;
 
 			while (true)
 			{
@@ -665,15 +725,15 @@ void shader::decipherHLSL()
 				}
 
 				find2 = 0;
-				
-				auto find3 = line.find("%dx.alignment.legacy");
+
+				auto find3 = line.find("%hostlayout");
 
 				if (find3 == std::string::npos)
 				{
 					break;
 				}
-				
-				find3 += 21;
+
+				find3 += hostlayoutPrefixLen;
 
 				find2 = line.find(" ");
 
