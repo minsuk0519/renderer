@@ -8,6 +8,7 @@
 
 #include <dxgi1_6.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -199,8 +200,15 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
 
                 float* aabbSize = msh::getMesh(meshID)->getData()->boundData.halfExtent;
 
+                float safeExtent[3] =
+                {
+                    (std::max)(aabbSize[msh::AXIS_X], 1e-6f),
+                    (std::max)(aabbSize[msh::AXIS_Y], 1e-6f),
+                    (std::max)(aabbSize[msh::AXIS_Z], 1e-6f)
+                };
+
                 debugProjectionBuffer->uploadBuffer(sizeof(float) * 4 * 4, 0, &viewProj);
-                debugProjectionBuffer->uploadBuffer(sizeof(float) * 3, sizeof(float) * 4 * 4, &aabbSize);
+                debugProjectionBuffer->uploadBuffer(sizeof(float) * 3, sizeof(float) * 4 * 4, safeExtent);
             }
         }
 
