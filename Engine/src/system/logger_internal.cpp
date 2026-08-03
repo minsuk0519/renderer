@@ -10,6 +10,8 @@ namespace logger
 	{
 		spdlog::cfg::load_env_levels();
 
+		spdlog::flush_on(spdlog::level::err);
+
 		spdlog::info("Initialize logger...");
 	}
 
