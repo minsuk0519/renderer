@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <vector>
 #include <system/defines.hpp>
 #include <render/descriptorheap.hpp>
 #include <render/buffer.hpp>
@@ -84,6 +85,12 @@ private:
 	buffer* localClusterSizeBuffer = nullptr;
 	buffer* clusterArgsBuffer = nullptr;
 	buffer* fbDepth = nullptr;
+
+	buffer* hzbDepth = nullptr;
+	uint hzbMipCount = 0;
+	std::vector<descriptor> hzbMipUAV;
+	std::vector<descriptor> hzbMipSRV;
+	std::vector<D3D12_RESOURCE_STATES> hzbMipState;
 
 #if	ENGINE_DEBUG_BUFFER
 	buffer* outDebugBuffer = nullptr;

@@ -17,6 +17,9 @@
 #include <d3dx12.h>
 #include <DirectXMath.h>
 
+#include <algorithm>
+#include <cmath>
+
 //TODO
 uint vsync = 0;
 
@@ -247,6 +250,40 @@ bool renderer::createFrameResources()
 		fbDepth = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE | buf::RESOURCE_CLEAR, DXGI_FORMAT_D32_FLOAT, sWidth, sHeight, 1);
 	}
 
+	{
+		hzbMipCount = (uint)std::floor(std::log2((double)(std::max)(sWidth, sHeight))) + 1;
+
+		hzbDepth = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_FLOAT, sWidth, sHeight, (UINT16)hzbMipCount);
+
+		hzbMipUAV.clear();
+		hzbMipSRV.clear();
+		hzbMipUAV.reserve(hzbMipCount);
+		hzbMipSRV.reserve(hzbMipCount);
+		hzbMipState.assign(hzbMipCount, D3D12_RESOURCE_STATE_COMMON);
+
+		for (uint m = 0; m < hzbMipCount; ++m)
+		{
+			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+			uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
+			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+			uavDesc.Texture2D.MipSlice = m;
+			uavDesc.Texture2D.PlaneSlice = 0;
+
+			hzbMipUAV.push_back(render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, hzbDepth, &uavDesc));
+
+			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+			srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			srvDesc.Texture2D.MostDetailedMip = m;
+			srvDesc.Texture2D.MipLevels = 1;
+			srvDesc.Texture2D.PlaneSlice = 0;
+			srvDesc.Texture2D.ResourceMinLODClamp = 0;
+
+			hzbMipSRV.push_back(render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, hzbDepth, &srvDesc));
+		}
+	}
+
 	for (int i = 0; i < FRAME_COUNT; ++i)
 	{
 		Microsoft::WRL::ComPtr<ID3D12Resource> resource;
@@ -442,7 +479,19 @@ void renderer::preDraw(float dt)
 		//msh->setBuffer(cmdList, false);
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, (D3D12_GPU_DESCRIPTOR_HANDLE)debugProjection);
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_DEBUG_MESHVIEW_ID, 1, &debugFBMeshID);
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_DEBUG_MESHVIEW_ID, 1, &debugFBMeshID);
+
+		descriptor* debugUnifiedVertexBufferSRV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
+		descriptor* debugUnifiedIndexBufferSRV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
+		descriptor* debugMeshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
+		descriptor* debugLodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
+		descriptor* debugClusterInfoBufferSRV = ubManager->clusterInfoBuffer->getDesc(buf::GBF_SRV);
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, debugUnifiedVertexBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, debugUnifiedIndexBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, debugMeshInfoBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LOD_INFO_BUFFER, debugLodInfoBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_CLUSTER_INFO_BUFFER, debugClusterInfoBufferSRV->getHandle());
 
 		msh->draw(cmdList);
 
@@ -452,7 +501,7 @@ void renderer::preDraw(float dt)
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
-		//debugFBRequest = false;
+		debugFBRequest = false;
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
@@ -777,6 +826,71 @@ void renderer::draw(float dt)
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
+
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Generate HZB", sizeof("Generate HZB"));
+
+	{
+		auto hzbCmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
+
+		//bound once for the whole pass; CopyTextureRegion below doesn't need a PSO but re-binding
+		//would Reset() the command list and discard already-recorded work, so bind first
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GENHZB);
+
+		//a. copy scene depth (fbDepth, D32_FLOAT) -> HZB mip 0 (R32_FLOAT, copy-compatible family)
+		{
+			CD3DX12_RESOURCE_BARRIER preCopyBarriers[2];
+
+			preCopyBarriers[0] = fbDepth->getTransition(D3D12_RESOURCE_STATE_COPY_SOURCE);
+			preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[0], D3D12_RESOURCE_STATE_COPY_DEST, 0);
+			hzbMipState[0] = D3D12_RESOURCE_STATE_COPY_DEST;
+
+			hzbCmdList->ResourceBarrier(2, preCopyBarriers);
+
+			CD3DX12_TEXTURE_COPY_LOCATION srcLoc(fbDepth->getResource(), 0);
+			CD3DX12_TEXTURE_COPY_LOCATION dstLoc(hzbDepth->getResource(), 0);
+
+			hzbCmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
+
+			CD3DX12_RESOURCE_BARRIER postCopyBarriers[2];
+
+			postCopyBarriers[0] = fbDepth->getTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
+			postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, 0);
+			hzbMipState[0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			hzbCmdList->ResourceBarrier(2, postCopyBarriers);
+		}
+
+		//b. reduce mip 0 -> 1 -> ... -> N-1 via max-reduction (PSO_GENHZB), one dispatch per mip
+		for (uint m = 1; m < hzbMipCount; ++m)
+		{
+			CD3DX12_RESOURCE_BARRIER dstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[m], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, m);
+			hzbMipState[m] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+
+			hzbCmdList->ResourceBarrier(1, &dstBarrier);
+
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_HZB_SRC, hzbMipSRV[m - 1].getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST, hzbMipUAV[m].getHandle());
+
+			uint dstW = (std::max)(1u, e_globWindow.width() >> m);
+			uint dstH = (std::max)(1u, e_globWindow.height() >> m);
+
+			uint texSize[3] = { dstW, dstH, 1 };
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_HZBCONST, 3, texSize);
+
+			hzbCmdList->Dispatch((dstW + 7) / 8, (dstH + 7) / 8, 1);
+
+			CD3DX12_RESOURCE_BARRIER srcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, m);
+			hzbMipState[m] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+			hzbCmdList->ResourceBarrier(1, &srcBarrier);
+		}
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ hzbCmdList });
+
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+	}
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 

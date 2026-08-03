@@ -133,6 +133,15 @@
 #define CBV_UTILSCONSTS					GET_HLSL_LOC_CBV(0)
 ////////////////////utils Buffer Ends
 
+////////////////////HZB Buffer Begin
+//t0 src mip
+#define SRV_HZB_SRC			GET_HLSL_LOC_SRV(0)
+//u0 dst mip
+#define UAV_HZB_DST			GET_HLSL_LOC_UAV(0)
+//b0 hzb constants
+#define CBV_HZBCONST		GET_HLSL_LOC_CBV(0)
+////////////////////HZB Buffer Ends
+
 #if ENGINE_DEBUG_MESH
 ////////////////////meshviewer Buffer Begin
 //b0 meshviewer constants
