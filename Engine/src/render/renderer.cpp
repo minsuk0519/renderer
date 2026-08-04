@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 //TODO
 uint vsync = 0;
@@ -397,7 +398,11 @@ void renderer::uploadCopyGPUBuffer(ID3D12Resource* resource, void* data, uint si
 
 	cmdList->Reset(render::getCmdQueue(render::QUEUE_COPY)->getAllocator().Get(), nullptr);
 
-	cmdList->CopyBufferRegion(resource, 0, uploadBuffer->getResource(), offset, size);
+	{
+		render::ScopedGPUEvent uploadEvent(cmdList.Get(), "Buffer Upload");
+
+		cmdList->CopyBufferRegion(resource, 0, uploadBuffer->getResource(), offset, size);
+	}
 
 	render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 	render::getCmdQueue(render::QUEUE_COPY)->flush();
@@ -458,60 +463,56 @@ void renderer::preDraw(float dt)
 #if ENGINE_DEBUG_MESH
 	if (debugFBRequest)
 	{
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "DebugMeshDraw", sizeof("DebugMeshDraw"));
-
 		auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 		mesh* msh = msh::getMesh((msh::MESH_INDEX)debugFBMeshID);
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_WIREFRAME);
 
-		debugFB->openFB(cmdList, true);
+		{
+			render::ScopedGPUEvent debugMeshEvent(cmdList.Get(), "DebugMeshDraw");
 
-		CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
-		CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
+			debugFB->openFB(cmdList, true);
 
-		cmdList->RSSetViewports(1, &viewport);
-		cmdList->RSSetScissorRects(1, &scissorRect);
+			CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ 0.0f, 0.0f, (float)e_globWindow.width(), (float)e_globWindow.height() };
+			CD3DX12_RECT scissorRect = CD3DX12_RECT{ 0, 0, (long)e_globWindow.width(), (long)e_globWindow.height() };
 
-		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-		//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmdList->RSSetViewports(1, &viewport);
+			cmdList->RSSetScissorRects(1, &scissorRect);
 
-		//msh->setBuffer(cmdList, false);
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+			//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, (D3D12_GPU_DESCRIPTOR_HANDLE)debugProjection);
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_DEBUG_MESHVIEW_ID, 1, &debugFBMeshID);
+			//msh->setBuffer(cmdList, false);
 
-		descriptor* debugUnifiedVertexBufferSRV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
-		descriptor* debugUnifiedIndexBufferSRV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
-		descriptor* debugMeshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
-		descriptor* debugLodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
-		descriptor* debugClusterInfoBufferSRV = ubManager->clusterInfoBuffer->getDesc(buf::GBF_SRV);
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, (D3D12_GPU_DESCRIPTOR_HANDLE)debugProjection);
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_DEBUG_MESHVIEW_ID, 1, &debugFBMeshID);
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, debugUnifiedVertexBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, debugUnifiedIndexBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, debugMeshInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LOD_INFO_BUFFER, debugLodInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_CLUSTER_INFO_BUFFER, debugClusterInfoBufferSRV->getHandle());
+			descriptor* debugUnifiedVertexBufferSRV = ubManager->unifiedVertexBuffer->getDesc(buf::GBF_SRV);
+			descriptor* debugUnifiedIndexBufferSRV = ubManager->unifiedIndexBuffer->getDesc(buf::GBF_SRV);
+			descriptor* debugMeshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
+			descriptor* debugLodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
+			descriptor* debugClusterInfoBufferSRV = ubManager->clusterInfoBuffer->getDesc(buf::GBF_SRV);
 
-		msh->draw(cmdList);
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, debugUnifiedVertexBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, debugUnifiedIndexBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, debugMeshInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LOD_INFO_BUFFER, debugLodInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_CLUSTER_INFO_BUFFER, debugClusterInfoBufferSRV->getHandle());
 
-		debugFB->closeFB(cmdList);
+			msh->draw(cmdList);
+
+			debugFB->closeFB(cmdList);
+		}
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
 		debugFBRequest = false;
-
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
 #endif // #if ENGINE_DEBUG_MESH
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "InstanceCull", sizeof("InstanceCull"));
-
 	e_globWorld.instanceCulling();
-
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 }
 
 void renderer::setUpTerrain()
@@ -532,10 +533,14 @@ void renderer::setUpTerrain()
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENNOISE);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_NOISE, noise->getDesc(buf::GBF_UAV)->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_NOISECONST, 2, &renderGuiSetting::noiseConstants);
+		{
+			render::ScopedGPUEvent noiseEvent(computeCmdList.Get(), "GenNoise");
 
-		computeCmdList->Dispatch(513, 513, 1);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_NOISE, noise->getDesc(buf::GBF_UAV)->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_NOISECONST, 2, &renderGuiSetting::noiseConstants);
+
+			computeCmdList->Dispatch(513, 513, 1);
+		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
@@ -547,12 +552,16 @@ void renderer::setUpTerrain()
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENTERRAIN);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_VERT, terrainVert[0]->getDesc(buf::GBF_UAV)->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_NORM, terrainVert[1]->getDesc(buf::GBF_UAV)->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_TERRAIN_NOISE, noise->getDesc(buf::GBF_SRV)->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_TERRAINCONST, 1, &renderGuiSetting::terrainConstants);
+		{
+			render::ScopedGPUEvent terrainEvent(computeCmdList.Get(), "GenTerrain");
 
-		computeCmdList->Dispatch(74, 74, 1);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_VERT, terrainVert[0]->getDesc(buf::GBF_UAV)->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_NORM, terrainVert[1]->getDesc(buf::GBF_UAV)->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_TERRAIN_NOISE, noise->getDesc(buf::GBF_SRV)->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_TERRAINCONST, 1, &renderGuiSetting::terrainConstants);
+
+			computeCmdList->Dispatch(74, 74, 1);
+		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
@@ -564,9 +573,13 @@ void renderer::setUpTerrain()
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_GENTERRAININDEX);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_INDEX, terrainVert[2]->getDesc(buf::GBF_UAV)->getHandle());
+		{
+			render::ScopedGPUEvent terrainIndexEvent(computeCmdList.Get(), "GenTerrainIndex");
 
-		computeCmdList->Dispatch(64, 64, 1);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TERRAIN_INDEX, terrainVert[2]->getDesc(buf::GBF_UAV)->getHandle());
+
+			computeCmdList->Dispatch(64, 64, 1);
+		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
@@ -586,11 +599,7 @@ struct cmdConsts
 
 void renderer::setUp()
 {
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Generate Terrain", sizeof("Generate Terrain"));
-
 	setUpTerrain();
-	
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 
 	{
 		//todo stride
@@ -598,8 +607,6 @@ void renderer::setUp()
 	}
 
 #if ENGINE_DEBUG_DEBUGCAM
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Setup WireFrame Buffer", sizeof("Setup WireFrame Buffer"));
-
 	{
 		float cubeVertices[] =
 		{
@@ -628,11 +635,7 @@ void renderer::setUp()
 		};
 		AABBwireframeBuffer[2] = e_globBufAllocator.alloc(reinterpret_cast<char*>(cubeIndicesLine), 24 * sizeof(uint), 2, buf::GBF_NONE, buf::RESOURCE_NONE);
 	}
-
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 #endif // #if ENGINE_DEBUG_DEBUGCAM
-
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Create Triangle Buffer", sizeof("Create Triangle Buffer"));
 
 	{
 		//create triangle vertex
@@ -657,8 +660,6 @@ void renderer::setUp()
 
 		sceneTriangleBuffer = e_globBufAllocator.alloc(reinterpret_cast<char*>(triangleVertices), 9 * sizeof(float), 3, buf::GBF_NONE, buf::RESOURCE_NONE);
 	}
-
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 }
 
 void renderer::draw(float dt)
@@ -698,48 +699,50 @@ void renderer::draw(float dt)
 	ssaoSRV[1] = ssaoTex[1]->getDesc(buf::GBF_SRV);
 	ssaoSRV[2] = ssaoTex[2]->getDesc(buf::GBF_SRV);
 
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "InitCluster", sizeof("InitCluster"));
-
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_INITCLUSTER);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
+		{
+			render::ScopedGPUEvent initClusterEvent(computeCmdList.Get(), "InitCluster");
 
-		computeCmdList->Dispatch(1, 1, 1);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
+
+			computeCmdList->Dispatch(1, 1, 1);
+		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
-	
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
-
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->BeginEvent(1, "Triangle Processing", sizeof("Triangle Processing"));
 
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_UPLOADLOCALOBJ);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTEROFFSET_BUFFER, clusteroffsetUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
+		{
+			render::ScopedGPUEvent uploadObjEvent(computeCmdList.Get(), "UploadLocalObj");
 
-		unsigned char* cbvDataBegin;
-		cmdConstBuffer->mapBuffer(&cbvDataBegin);
-		uint objCount = e_globWorld.submitObjects(cbvDataBegin);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTEROFFSET_BUFFER, clusteroffsetUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
 
-		memcpy(cbvDataBegin + 64 * 4 * 4, &objCount, 4);
+			unsigned char* cbvDataBegin;
+			cmdConstBuffer->mapBuffer(&cbvDataBegin);
+			uint objCount = e_globWorld.submitObjects(cbvDataBegin);
 
-		cmdConstBuffer->unmapBuffer();
+			memcpy(cbvDataBegin + 64 * 4 * 4, &objCount, 4);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, cmdConstBuffer->getDesc(buf::GBF_CBV)->getHandle());
+			cmdConstBuffer->unmapBuffer();
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, cmdConstBuffer->getDesc(buf::GBF_CBV)->getHandle());
 
-		computeCmdList->Dispatch(objCount, 1, 1);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
+
+			computeCmdList->Dispatch(objCount, 1, 1);
+		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
@@ -747,28 +750,30 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_CULLCLUSTER);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_INFO_BUFFER, clusterInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_ARGS_BUFFER, clusteroffsetSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERARGS_BUFFER, vertexIDBufferUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_BOUNDS_BUFFER, clusterBoundBufferSRV->getHandle());
+		{
+			render::ScopedGPUEvent cullClusterEvent(computeCmdList.Get(), "CullCluster");
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_INFO_BUFFER, clusterInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_ARGS_BUFFER, clusteroffsetSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERARGS_BUFFER, vertexIDBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CLUSTER_BOUNDS_BUFFER, clusterBoundBufferSRV->getHandle());
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 
 #if ENGINE_DEBUG_BUFFER
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
 #endif // #if ENGINE_DEBUG_BUFFER
 
-		computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_CULLCLUSTER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), sizeof(uint), nullptr, 0);
+			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_CULLCLUSTER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), sizeof(uint), nullptr, 0);
+		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
-
-	render::getCmdQueue(render::QUEUE_COMPUTE)->getQueue()->EndEvent();
 
 #if ENGINE_DEBUG_DEBUGCAM
 	if (e_globWorld.getMainCam()->viewportType != cam::VIEWPORT_FULL)
@@ -781,23 +786,23 @@ void renderer::draw(float dt)
 
 		e_globWorld.setupCam(cmdList, false, true);
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
+		{
+			render::ScopedGPUEvent gbufferDebugEvent(cmdList.Get(), "Draw GBuffer (Debug Cam)");
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 
-		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 5 * sizeof(uint), nullptr, 0);
+			cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 5 * sizeof(uint), nullptr, 0);
 
-		gbufferDebugFB->closeFB(cmdList);
+			gbufferDebugFB->closeFB(cmdList);
+		}
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
-
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
@@ -810,7 +815,7 @@ void renderer::draw(float dt)
 	e_globWorld.setupCam(cmdList, true, true);
 
 	{
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw GBuffer", sizeof("Draw GBuffer"));
+		render::ScopedGPUEvent gbufferEvent(cmdList.Get(), "Draw GBuffer");
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
@@ -827,64 +832,67 @@ void renderer::draw(float dt)
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
-
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Generate HZB", sizeof("Generate HZB"));
-
 	{
 		auto hzbCmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
-		//bound once for the whole pass; CopyTextureRegion below doesn't need a PSO but re-binding
-		//would Reset() the command list and discard already-recorded work, so bind first
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GENHZB);
 
-		//a. copy scene depth (fbDepth, D32_FLOAT) -> HZB mip 0 (R32_FLOAT, copy-compatible family)
 		{
-			CD3DX12_RESOURCE_BARRIER preCopyBarriers[2];
+			render::ScopedGPUEvent hzbEvent(hzbCmdList.Get(), "Generate HZB");
 
-			preCopyBarriers[0] = fbDepth->getTransition(D3D12_RESOURCE_STATE_COPY_SOURCE);
-			preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[0], D3D12_RESOURCE_STATE_COPY_DEST, 0);
-			hzbMipState[0] = D3D12_RESOURCE_STATE_COPY_DEST;
+			{
+				render::ScopedGPUEvent hzbCopyEvent(hzbCmdList.Get(), "HZB Copy Depth");
 
-			hzbCmdList->ResourceBarrier(2, preCopyBarriers);
+				CD3DX12_RESOURCE_BARRIER preCopyBarriers[2];
 
-			CD3DX12_TEXTURE_COPY_LOCATION srcLoc(fbDepth->getResource(), 0);
-			CD3DX12_TEXTURE_COPY_LOCATION dstLoc(hzbDepth->getResource(), 0);
+				preCopyBarriers[0] = fbDepth->getTransition(D3D12_RESOURCE_STATE_COPY_SOURCE);
+				preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[0], D3D12_RESOURCE_STATE_COPY_DEST, 0);
+				hzbMipState[0] = D3D12_RESOURCE_STATE_COPY_DEST;
 
-			hzbCmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
+				hzbCmdList->ResourceBarrier(2, preCopyBarriers);
 
-			CD3DX12_RESOURCE_BARRIER postCopyBarriers[2];
+				CD3DX12_TEXTURE_COPY_LOCATION srcLoc(fbDepth->getResource(), 0);
+				CD3DX12_TEXTURE_COPY_LOCATION dstLoc(hzbDepth->getResource(), 0);
 
-			postCopyBarriers[0] = fbDepth->getTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
-			postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, 0);
-			hzbMipState[0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+				hzbCmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
 
-			hzbCmdList->ResourceBarrier(2, postCopyBarriers);
-		}
+				CD3DX12_RESOURCE_BARRIER postCopyBarriers[2];
 
-		//b. reduce mip 0 -> 1 -> ... -> N-1 via max-reduction (PSO_GENHZB), one dispatch per mip
-		for (uint m = 1; m < hzbMipCount; ++m)
-		{
-			CD3DX12_RESOURCE_BARRIER dstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[m], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, m);
-			hzbMipState[m] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				postCopyBarriers[0] = fbDepth->getTransition(D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, 0);
+				hzbMipState[0] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
-			hzbCmdList->ResourceBarrier(1, &dstBarrier);
+				hzbCmdList->ResourceBarrier(2, postCopyBarriers);
+			}
 
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_HZB_SRC, hzbMipSRV[m - 1].getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST, hzbMipUAV[m].getHandle());
+			for (uint m = 1; m < hzbMipCount; ++m)
+			{
+				char hzbEventName[32];
+				snprintf(hzbEventName, sizeof(hzbEventName), "genHZB Mip %u", m);
 
-			uint dstW = (std::max)(1u, e_globWindow.width() >> m);
-			uint dstH = (std::max)(1u, e_globWindow.height() >> m);
+				render::ScopedGPUEvent hzbMipEvent(hzbCmdList.Get(), hzbEventName);
 
-			uint texSize[3] = { dstW, dstH, 1 };
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_HZBCONST, 3, texSize);
+				CD3DX12_RESOURCE_BARRIER dstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[m], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, m);
+				hzbMipState[m] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 
-			hzbCmdList->Dispatch((dstW + 7) / 8, (dstH + 7) / 8, 1);
+				hzbCmdList->ResourceBarrier(1, &dstBarrier);
 
-			CD3DX12_RESOURCE_BARRIER srcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, m);
-			hzbMipState[m] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+				render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_HZB_SRC, hzbMipSRV[m - 1].getHandle());
+				render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST, hzbMipUAV[m].getHandle());
 
-			hzbCmdList->ResourceBarrier(1, &srcBarrier);
+				uint dstW = (std::max)(1u, e_globWindow.width() >> m);
+				uint dstH = (std::max)(1u, e_globWindow.height() >> m);
+
+				uint texSize[3] = { dstW, dstH, 1 };
+				render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_HZBCONST, 3, texSize);
+
+				hzbCmdList->Dispatch((dstW + 7) / 8, (dstH + 7) / 8, 1);
+
+				CD3DX12_RESOURCE_BARRIER srcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, m);
+				hzbMipState[m] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+				hzbCmdList->ResourceBarrier(1, &srcBarrier);
+			}
 		}
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ hzbCmdList });
@@ -892,32 +900,32 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 	}
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
-
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw SSAO", sizeof("Draw SSAO"));
-
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_SSAO);
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[0]->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_AOCONST, 4, &renderGuiSetting::aoConstants);
-		uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+		{
+			render::ScopedGPUEvent ssaoEvent(computeCmdList.Get(), "Draw SSAO");
 
-		computeCmdList->Dispatch(e_globWindow.width() / 8, e_globWindow.height() / 8, 1);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[0]->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_AOCONST, 4, &renderGuiSetting::aoConstants);
+			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+
+			computeCmdList->Dispatch(e_globWindow.width() / 8, e_globWindow.height() / 8, 1);
+		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Blur AO", sizeof("Blur AO"));
+	static constexpr const char* ssaoBlurNames[2] = { "SSAO_BlurHorizontal", "SSAO_BlurVertical" };
 
 	for(uint i = 0; i < 2; ++i)
 	{
@@ -925,85 +933,95 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO((render::PSO_INDEX)((uint)render::PSO_SSAOBLURX + i));
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[i]->getHandle());
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAOBLUR, ssaoUAV[i + 1]->getHandle());
-		uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
-		render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+		{
+			render::ScopedGPUEvent ssaoBlurEvent(computeCmdList.Get(), ssaoBlurNames[i]);
 
-		computeCmdList->Dispatch(e_globWindow.width() / 8, e_globWindow.height() / 8, 1);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[i]->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAOBLUR, ssaoUAV[i + 1]->getHandle());
+			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+
+			computeCmdList->Dispatch(e_globWindow.width() / 8, e_globWindow.height() / 8, 1);
+		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
-
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_PBR);
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw light", sizeof("Draw light"));
+	{
+		render::ScopedGPUEvent lightEvent(cmdList.Get(), "Draw light");
 
-	swapchainFB[frameIndex]->openFB(cmdList, true);
+		swapchainFB[frameIndex]->openFB(cmdList, true);
 
 #if ENGINE_DEBUG_DEBUGCAM
-	if (e_globWorld.getMainCam()->viewportType != cam::VIEWPORT_FULL)
-	{
-		e_globWorld.setupCam(cmdList, false, false);
+		if (e_globWorld.getMainCam()->viewportType != cam::VIEWPORT_FULL)
+		{
+			render::ScopedGPUEvent pbrDebugEvent(cmdList.Get(), "PBR Debug View");
 
-		setVertexBuffer(cmdList, 0, sceneTriangleBuffer);
+			e_globWorld.setupCam(cmdList, false, false);
 
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferDebugFB->getDescHandle(0));
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferDebugFB->getDescHandle(1));
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferDebugFB->getDescHandle(2));
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, camDesc->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoSRV[2]->getHandle());
-		renderGuiSetting::guiSetting a;
-		a.features = 0;
-		a.debugDraw = false;
-		a.AABBDraw = false;
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &a);
-		uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_SCREEN, 2, screenSize);
+			setVertexBuffer(cmdList, 0, sceneTriangleBuffer);
 
-		cmdList->DrawInstanced(3, 1, 0, 0);
-	}
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferDebugFB->getDescHandle(0));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferDebugFB->getDescHandle(1));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferDebugFB->getDescHandle(2));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, camDesc->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoSRV[2]->getHandle());
+			renderGuiSetting::guiSetting a;
+			a.features = 0;
+			a.debugDraw = false;
+			a.AABBDraw = false;
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &a);
+			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_SCREEN, 2, screenSize);
+
+			cmdList->DrawInstanced(3, 1, 0, 0);
+		}
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
-	e_globWorld.setupCam(cmdList, true, false);
+		{
+			render::ScopedGPUEvent pbrEvent(cmdList.Get(), "PBR");
 
-	setVertexBuffer(cmdList, 0, sceneTriangleBuffer);
+			e_globWorld.setupCam(cmdList, true, false);
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferFB->getDescHandle(3));
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MATERIAL_BUFFER, materialBufferSRV->getHandle());
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, camDesc->getHandle());
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoSRV[2]->getHandle());
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &renderGuiSetting::guiDebug);
-	uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_SCREEN, 2, screenSize);
+			setVertexBuffer(cmdList, 0, sceneTriangleBuffer);
 
-	cmdList->DrawInstanced(3, 1, 0, 0);
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferFB->getDescHandle(3));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MATERIAL_BUFFER, materialBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, camDesc->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoSRV[2]->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_GUIDEBUG, 2, &renderGuiSetting::guiDebug);
+			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_SCREEN, 2, screenSize);
 
-	gui::render(cmdList.Get());
+			cmdList->DrawInstanced(3, 1, 0, 0);
+		}
 
-	swapchainFB[frameIndex]->closeFB(cmdList);
-	
+		{
+			render::ScopedGPUEvent imguiEvent(cmdList.Get(), "ImGui");
+
+			gui::render(cmdList.Get());
+		}
+
+		swapchainFB[frameIndex]->closeFB(cmdList);
+	}
+
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
-
 	if(renderGuiSetting::guiDebug.AABBDraw)
 	{
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->BeginEvent(1, "Draw AABB", sizeof("Draw AABB"));
 		unsigned char* aabbGPUAddress = nullptr;
 		AABBwireframeBuffer[1]->mapBuffer(&aabbGPUAddress);
 
@@ -1013,22 +1031,25 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_AABBDEBUGDRAW);
 
-		swapchainFB[frameIndex]->openFB(cmdList, false);
+		{
+			render::ScopedGPUEvent aabbEvent(cmdList.Get(), "Draw AABB");
 
-		e_globWorld.setupCam(cmdList, true, false);
+			swapchainFB[frameIndex]->openFB(cmdList, false);
 
-		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+			e_globWorld.setupCam(cmdList, true, false);
 
-		setVertexBuffer(cmdList, 0, AABBwireframeBuffer[0]);
-		setVertexBuffer(cmdList, 1, AABBwireframeBuffer[1]);
-		setIndexBuffer(cmdList, AABBwireframeBuffer[2]);
+			cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 
-		cmdList->DrawIndexedInstanced(24, e_globWorld.objectNum, 0, 0, 0);
+			setVertexBuffer(cmdList, 0, AABBwireframeBuffer[0]);
+			setVertexBuffer(cmdList, 1, AABBwireframeBuffer[1]);
+			setIndexBuffer(cmdList, AABBwireframeBuffer[2]);
 
-		swapchainFB[frameIndex]->closeFB(cmdList);
+			cmdList->DrawIndexedInstanced(24, e_globWorld.objectNum, 0, 0, 0);
+
+			swapchainFB[frameIndex]->closeFB(cmdList);
+		}
+
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
-
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue()->EndEvent();
 	}
 
 	TC_CONDITION(swapChain->Present(vsync, 0) == S_OK, "Failed to present the swapchain");
