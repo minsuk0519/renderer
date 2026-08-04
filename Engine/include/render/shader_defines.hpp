@@ -43,6 +43,8 @@
 ////////////////////gbuffer Buffer Begin
 //t0 cluster args
 #define SRV_GBUFFER_CLUSTERARGS		GET_HLSL_LOC_SRV(0)
+//t1 visible triangles
+#define SRV_GBUFFER_VISIBLE_TRIS		GET_HLSL_LOC_SRV(1)
 
 //b3 guiDebug
 #define CBV_GUIDEBUG				GET_HLSL_LOC_CBV(3)
@@ -122,6 +124,8 @@
 #define UAV_CLUSTERSIZE_BUFFER				GET_HLSL_LOC_UAV(3)
 //t0 cluster args buffer input
 #define SRV_CLUSTER_ARGS_BUFFER				GET_HLSL_LOC_SRV(0)
+//u5 visible triangle buffer output
+#define UAV_VISIBLE_TRI_BUFFER				GET_HLSL_LOC_UAV(5)
 ////////////////////culling Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -173,6 +177,7 @@ namespace render
 		PSO_CULLCLUSTER,       //CullCluster
 		PSO_INITCLUSTER,       //initCluster
 		PSO_GENHZB,            //genHZB
+		PSO_RASTERIZER,        //Rasterizer
 		PSO_END,
 	};
 }

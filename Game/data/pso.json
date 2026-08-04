@@ -179,6 +179,16 @@
 		],
 		"cs":true,
 		"depth":false,
-		"wireframe":false	
+		"wireframe":false
+	},{
+		"psoIndex":17,
+		"psoName":"Rasterizer",
+		"vertexIndex":21,
+		"pixelIndex":21,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

@@ -38,3 +38,6 @@ packages/
 external/*
 !external/include/glaze/
 tools/meshReconstructor/meshReconstructor.pdb
+
+.claude/
+*.md
