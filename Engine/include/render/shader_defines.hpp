@@ -156,23 +156,23 @@ namespace render
 {
 	enum PSO_INDEX
 	{
-		PSO_PBR,
-		PSO_GBUFFER,
-		PSO_WIREFRAME,
-		PSO_SSAO,
-		PSO_SSAOBLURX,
-		PSO_SSAOBLURY,
-		PSO_GENTERRAIN,
-		PSO_GENNOISE,
-		PSO_GENUNIFIED,
-		PSO_GENCMDBUF,
-		PSO_GBUFFERINDIRECT,
-		PSO_AABBDEBUGDRAW,
-		PSO_GENTERRAININDEX,
-		PSO_UPLOADLOCALOBJ,
-		PSO_CULLCLUSTER,
-		PSO_INITCLUSTER,
-		PSO_GENHZB,
+		PSO_PBR,               //PBR
+		PSO_GBUFFER,           //Gbuffer
+		PSO_WIREFRAME,         //WireframeDebug
+		PSO_SSAO,              //SSAO
+		PSO_SSAOBLURX,         //SSAO_BlurHorizontal
+		PSO_SSAOBLURY,         //SSAO_BlurVertical
+		PSO_GENTERRAIN,        //GenTerrain
+		PSO_GENNOISE,          //GenNoise
+		PSO_GENUNIFIED,        //GenUnified
+		PSO_GENCMDBUF,         //GenCmdBuf
+		PSO_GBUFFERINDIRECT,   //GbufferIndirect
+		PSO_AABBDEBUGDRAW,     //WireframeAABB
+		PSO_GENTERRAININDEX,   //GenTerrainIndex
+		PSO_UPLOADLOCALOBJ,    //UploadLocalObj
+		PSO_CULLCLUSTER,       //CullCluster
+		PSO_INITCLUSTER,       //initCluster
+		PSO_GENHZB,            //genHZB
 		PSO_END,
 	};
 }
