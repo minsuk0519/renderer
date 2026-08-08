@@ -274,3 +274,17 @@ uint tiledSwizzling(uint2 pos, uint bitsNum)
 
 	return x | (y << 1);
 }
+
+uint waveCompactToBuffer(RWByteAddressBuffer buf, uint byteOffset, uint value, out uint waveTotal)
+{
+    uint waveLocalOffset = WavePrefixSum(value);
+    waveTotal = WaveActiveSum(value);
+
+    uint base = 0;
+    if (WaveIsFirstLane())
+    {
+        buf.InterlockedAdd(byteOffset, waveTotal, base);
+    }
+
+    return WaveReadLaneFirst(base) + waveLocalOffset;
+}
