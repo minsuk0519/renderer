@@ -214,7 +214,11 @@ void camera::update(float dt)
 	projectionBuffer->uploadBuffer(sizeof(float) * 4 * 4, 0, &viewProj);
 	projectionBuffer->uploadBuffer(sizeof(float) * 3, sizeof(float) * 4 * 4, &pos);
 	projectionBuffer->uploadBuffer(sizeof(float), sizeof(float) * 4 * 4 + sizeof(float) * 3, &far_plane);
-	
+
+	projectionBuffer->uploadBuffer(sizeof(float) * 4 * 4, sizeof(float) * 4 * 4 + sizeof(float) * 4, &prevViewProj);
+	prevViewProj = viewProj;
+	prevViewProjValid = true;
+
 	if (viewportType == cam::VIEWPORT_MINI) return;
 
 	float x = 0;
