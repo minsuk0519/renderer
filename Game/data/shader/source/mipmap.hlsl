@@ -22,11 +22,11 @@ void genHZB_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint 
 	uint2 uv = uint2(groupID.x * 8 + gtid.x, groupID.y * 8 + gtid.y);
     uint ldsID = tiledSwizzling(gtid.xy, mipLevelPass - 1);
 
-    float2 centerUV = float2((uv.x + 0.5) / (texWidth - 1), (uv.y + 0.5) / (texHeight - 1));
+    float2 centerUV = float2((uv.x + 0.5) / texWidth, (uv.y + 0.5) / texHeight);
 
     float4 d = src.GatherRed(maxSampler, centerUV, 0);
-    
-    float maxDepth = max(max(d[0], d[1]), max(d[2], d[3]));
+
+    float maxDepth = min(min(d[0], d[1]), min(d[2], d[3]));
 
     //mip 1
     dst[uv.xy] = maxDepth;
@@ -45,11 +45,11 @@ void genHZB_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint 
                 d[j] = gsMaxDepth[ldsID + j * tileSize];
             }
 
-            maxDepth = max(max(d[0], d[1]), max(d[2], d[3]));
+            maxDepth = min(min(d[0], d[1]), min(d[2], d[3]));
             gsMaxDepth[ldsID] = maxDepth;
             tileSize = tileSize >> 2;
         }
 
         if(!tileSize) break;
-    }    
+    }
 }
