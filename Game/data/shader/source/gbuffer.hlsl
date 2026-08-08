@@ -3,6 +3,7 @@
 #include "include\math.hlsli"
 
 ByteAddressBuffer clusterArgs : register(t0);
+ByteAddressBuffer visibleTris : register(t1);
 
 struct PSInput
 {
@@ -44,16 +45,17 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
 
     uint vertexOffset = mesh.vertexOffset;
 
-    uint vertexIndex;
-    getVertexIndex(indexOffset + vertexID, vertexIndex);
-
-    float3 position;
-    getVertex(vertexOffset + vertexIndex, position);
-    float3 normal;
-    getNormal(vertexOffset + vertexIndex, normal);
-
     if(vertexID < indexSize)
     {
+        uint triStart = visibleTris.Load((clusterID * 64 + (vertexID / 3)) * 4);
+        uint vertexIndex;
+        getVertexIndex(triStart + (vertexID % 3), vertexIndex);
+
+        float3 position;
+        getVertex(vertexOffset + vertexIndex, position);
+        float3 normal;
+        getNormal(vertexOffset + vertexIndex, normal);
+
         viewInfo view;
         getViewInfo(objID, view);
         float3 translate = view.translate;
@@ -72,6 +74,14 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
 
         result.output = float4(clusterID,meshIndex,objID,vertexIndex);
         //result.output = uint4(clusterID, vertexIndex, indexSize, vertexID);
+    }
+    else
+    {
+        result.position = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        result.worldPos = float3(0.0f, 0.0f, 0.0f);
+        result.normal = float3(0.0f, 0.0f, 0.0f);
+        result.objID = 0;
+        result.output = uint4(0, 0, 0, 0);
     }
     return result;
 }

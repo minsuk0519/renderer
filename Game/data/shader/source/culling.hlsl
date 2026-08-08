@@ -6,6 +6,7 @@ RWByteAddressBuffer outClusterArgs : register(u1);
 RWByteAddressBuffer localClusterOffsets : register(u2);
 RWByteAddressBuffer localClusterSize : register(u3);
 RWByteAddressBuffer clsuterCmdBuffer : register(u4);
+RWByteAddressBuffer outVisibleTris : register(u5);
 
 ByteAddressBuffer clusterArgs : register(t0);
 
@@ -18,6 +19,8 @@ void initCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     {
         localClusterSize.Store(i * 4, 0);
     }
+
+    localClusterSize.Store2(10 * 4, uint2(1, 1));
 }
 
 
@@ -47,9 +50,9 @@ void uploadLocalObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
     uint clusterOffset = lod.clusterOffset;
     uint totalIndexSize = lod.indexSize;
 
-    uint offset;
-    localClusterSize.InterlockedAdd(0, clusterCount, offset);
-    
+    uint waveTotal;
+    uint offset = waveCompactToBuffer(localClusterSize, 0, clusterCount, waveTotal);
+
     for(uint i = 0; i < clusterCount; ++i)
     {
         localClusterOffsets.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedObj[localObjectIndex], i));
@@ -189,24 +192,145 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
         indexOffset = clusters.indexOffset;
     }
 
-    uint validToInt = valid ? 1 : 0;
-    localClusterSize.InterlockedAdd(4 * 4, validToInt, offset);
+    uint waveClusterCount;
+    offset = waveCompactToBuffer(localClusterSize, 9 * 4, valid ? 1 : 0, waveClusterCount);
 
     if(valid)
     {
         outClusterArgs.Store3(offset * 4 * 3, uint3(indexOffset, indexSize, packedID));
     }
+}
+
+groupshared uint gsWaveCounts[2];
+
+[numthreads(CLUSTER_THREAD_NUM, 1, 1)]
+void rasterizer_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+{
+    bool valid = true;
+
+    uint survivorCount = localClusterSize.Load(9 * 4);
+
+    if(groupID.x >= survivorCount)
+    {
+        valid = false;
+    }
+
+    uint3 rec = uint3(0, 0, 0);
+    if(valid)
+    {
+        rec = outClusterArgs.Load3(groupID.x * 4 * 3);
+    }
+
+    uint indexOffset = rec.x;
+    uint indexSize = min(rec.y, CLUSTER_THREAD_NUM * 3);
+    uint packedID = rec.z;
+
+    uint t = gtid.x;
+
+    valid = valid && (t * 3 + 2 < indexSize);
+
+    bool visible = false;
+    uint firstIndex = 0;
+
+    if(valid)
+    {
+        uint meshIndex = (packedID & 0xFFFF) >> 3;
+        uint objID = packedID >> 16;
+
+        meshInfo mesh;
+        getMeshInfo(meshIndex, mesh);
+
+        viewInfo view;
+        getViewInfo(objID, view);
+        float3 translate = view.translate;
+        float3 scale = view.scale;
+        float4 rotation = view.rotation;
+
+        firstIndex = indexOffset + t * 3;
+
+        float4 clip[3];
+        bool nearPlaneInvalid = false;
+
+        for(uint i = 0; i < 3; ++i)
+        {
+            uint vi;
+            getVertexIndex(firstIndex + i, vi);
+
+            float3 pos;
+            getVertex(mesh.vertexOffset + vi, pos);
+
+            float3 worldPos = transformToWorld(scale, rotation, translate, pos);
+
+            clip[i] = mul(proj.viewProj, float4(worldPos, 1.0f));
+
+            if(clip[i].w <= 0.0f)
+            {
+                nearPlaneInvalid = true;
+            }
+        }
+
+        if(nearPlaneInvalid)
+        {
+            visible = true;
+        }
+        else
+        {
+            float2 s[3];
+            for(uint j = 0; j < 3; ++j)
+            {
+                float2 ndc = clip[j].xy / clip[j].w;
+                s[j] = float2((ndc.x * 0.5f + 0.5f) * screenWidth, (0.5f - ndc.y * 0.5f) * screenHeight);
+            }
+
+            float area2 = (s[1].x - s[0].x) * (s[2].y - s[0].y) - (s[2].x - s[0].x) * (s[1].y - s[0].y);
+
+            bool backFacing = area2 >= 0.0f;
+
+            float minX = min(s[0].x, min(s[1].x, s[2].x));
+            float maxX = max(s[0].x, max(s[1].x, s[2].x));
+            float minY = min(s[0].y, min(s[1].y, s[2].y));
+            float maxY = max(s[0].y, max(s[1].y, s[2].y));
+
+            bool subPixel = (ceil(minX - 0.5f) > floor(maxX - 0.5f)) || (ceil(minY - 0.5f) > floor(maxY - 0.5f));
+
+            visible = !backFacing && !subPixel;
+        }
+    }
+
+    //hardcoded 32: target hardware is wave32 (see gsWaveCounts comment)
+    uint waveIndex = threadID.x / 32;
+
+    uint visibleToInt = visible ? 1 : 0;
+    uint waveLocalOffset = WavePrefixSum(visibleToInt);
+    uint waveTotal = WaveActiveSum(visibleToInt);
+
+    if (WaveIsFirstLane())
+    {
+        gsWaveCounts[waveIndex] = waveTotal;
+    }
 
     GroupMemoryBarrierWithGroupSync();
 
-    if(threadID.x == 0)
+    uint indexTotal = gsWaveCounts[0] + gsWaveCounts[1];
+    uint slot = (waveIndex == 0 ? 0 : gsWaveCounts[0]) + waveLocalOffset;
+
+    if (visible)
     {
-        uint totalSize = localClusterSize.Load(4 * 4);
+        outVisibleTris.Store((groupID.x * CLUSTER_THREAD_NUM + slot) * 4, firstIndex);
+    }
+
+    if (threadID.x == 0 && groupID.x < survivorCount)
+    {
+        outClusterArgs.Store((groupID.x * 3 + 1) * 4, indexTotal * 3);
+    }
+
+    if(threadID.x == 0 && groupID.x == 0)
+    {
         localClusterSize.Store4(5 * 4, uint4(
-                3 * CLUSTER_THREAD_NUM,                       //VertexCountPerInstance
-                totalSize,                                    //InstanceCount
-                0,                                            //StartVertexLocation
-                0                                             //StartInstanceLocation
+                3 * CLUSTER_THREAD_NUM,   //VertexCountPerInstance
+                survivorCount,            //InstanceCount 
+                0,                        //StartVertexLocation
+                0                         //StartInstanceLocation
         ));
     }
 }

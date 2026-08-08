@@ -84,6 +84,7 @@ private:
 	buffer* localClusterOffsetBuffer = nullptr;
 	buffer* localClusterSizeBuffer = nullptr;
 	buffer* clusterArgsBuffer = nullptr;
+	buffer* visibleTriBuffer = nullptr;
 	buffer* fbDepth = nullptr;
 
 	buffer* hzbDepth = nullptr;
