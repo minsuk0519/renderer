@@ -10,7 +10,29 @@ RWByteAddressBuffer outVisibleTris : register(u5);
 
 ByteAddressBuffer clusterArgs : register(t0);
 
+Texture2D<float> hzb : register(t1);
+
+cbuffer cb_hzbCull : register(b0)
+{
+    uint hzbWidth;
+    uint hzbHeight;
+    uint hzbMipCount;
+    uint hzbCullEnable;
+};
+
+#define HZB_SAMPLING_PIXEL_SIZE 4
+
 #define CLUSTER_THREAD_NUM 64
+
+int calculateMip(int4 pixelRect)
+{
+    const int maxTexelOffset = HZB_SAMPLING_PIXEL_SIZE - 1;
+    const int mipBias = (int)log2((float)HZB_SAMPLING_PIXEL_SIZE) - 1;
+    int2 axisMips = firstbithigh(pixelRect.zw - pixelRect.xy);
+    int mip = max(max(axisMips.x, axisMips.y) - mipBias, 0);
+    mip += any((pixelRect.zw >> mip) - (pixelRect.xy >> mip) > maxTexelOffset) ? 1 : 0;
+    return mip;
+}
 
 [numthreads(1, 1, 1)]
 void initCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
@@ -177,6 +199,86 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
             else if(!(sideFlag & (1 << 4)))
             {
                 if(!(sideFlag & (1 << 3)) || !(sideFlag & (1 << 5))) vis = false;
+            }
+        }
+
+        if(vis && hzbCullEnable != 0)
+        {
+            float4 corners[8];
+            corners[0] = mul(proj.prevViewProj, float4(LB, 1.0f));
+            corners[1] = mul(proj.prevViewProj, float4(LB + right, 1.0f));
+            corners[2] = mul(proj.prevViewProj, float4(LB + up, 1.0f));
+            corners[3] = mul(proj.prevViewProj, float4(LB + right + up, 1.0f));
+            corners[4] = mul(proj.prevViewProj, float4(LB + forward, 1.0f));
+            corners[5] = mul(proj.prevViewProj, float4(LB + forward + right, 1.0f));
+            corners[6] = mul(proj.prevViewProj, float4(LB + forward + up, 1.0f));
+            corners[7] = mul(proj.prevViewProj, float4(LB + forward + right + up, 1.0f));
+
+            bool nearPlaneCross = false;
+            for(uint c = 0; c < 8; ++c)
+            {
+                if(corners[c].w <= 0.0f) nearPlaneCross = true;
+            }
+
+            if(!nearPlaneCross)
+            {
+                float minX = 1e30f, minY = 1e30f;
+                float maxX = -1e30f, maxY = -1e30f;
+                float clusterNearestZ = -1e30f;
+
+                for(uint c2 = 0; c2 < 8; ++c2)
+                {
+                    float2 ndc = corners[c2].xy / corners[c2].w;
+                    float z = corners[c2].z / corners[c2].w;
+
+                    float px = (ndc.x * 0.5f + 0.5f) * hzbWidth;
+                    float py = (0.5f - ndc.y * 0.5f) * hzbHeight;
+
+                    minX = min(minX, px);
+                    minY = min(minY, py);
+                    maxX = max(maxX, px);
+                    maxY = max(maxY, py);
+
+                    clusterNearestZ = max(clusterNearestZ, z);
+                }
+
+                if(maxX >= 0.0f && maxY >= 0.0f && minX < (float)hzbWidth && minY < (float)hzbHeight)
+                {
+                    int4 rect = int4(floor(minX), floor(minY), ceil(maxX), ceil(maxY));
+
+                    rect.x = clamp(rect.x, 0, (int)hzbWidth - 1);
+                    rect.y = clamp(rect.y, 0, (int)hzbHeight - 1);
+                    rect.z = clamp(rect.z, 0, (int)hzbWidth - 1);
+                    rect.w = clamp(rect.w, 0, (int)hzbHeight - 1);
+
+                    rect.z = max(rect.z, rect.x);
+                    rect.w = max(rect.w, rect.y);
+
+                    int mip = calculateMip(rect);
+                    mip = min(mip, (int)hzbMipCount - 1);
+
+                    uint mipW = max(1u, hzbWidth >> mip);
+                    uint mipH = max(1u, hzbHeight >> mip);
+
+                    int2 texelMin = rect.xy >> mip;
+                    int2 texelMax = rect.zw >> mip;
+
+                    texelMin.x = clamp(texelMin.x, 0, (int)mipW - 1);
+                    texelMin.y = clamp(texelMin.y, 0, (int)mipH - 1);
+                    texelMax.x = clamp(texelMax.x, 0, (int)mipW - 1);
+                    texelMax.y = clamp(texelMax.y, 0, (int)mipH - 1);
+
+                    float hzbFarthestZ = 1e30f;
+                    for(int ty = texelMin.y; ty <= texelMax.y; ++ty)
+                    {
+                        for(int tx = texelMin.x; tx <= texelMax.x; ++tx)
+                        {
+                            hzbFarthestZ = min(hzbFarthestZ, hzb.Load(int3(tx, ty, mip)));
+                        }
+                    }
+
+                    if(clusterNearestZ < hzbFarthestZ) vis = false;
+                }
             }
         }
     }

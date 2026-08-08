@@ -126,6 +126,10 @@
 #define SRV_CLUSTER_ARGS_BUFFER				GET_HLSL_LOC_SRV(0)
 //u5 visible triangle buffer output
 #define UAV_VISIBLE_TRI_BUFFER				GET_HLSL_LOC_UAV(5)
+//t1 hzb (previous frame depth pyramid)
+#define SRV_CULLING_HZB						GET_HLSL_LOC_SRV(1)
+//b0 hzb cull constants
+#define CBV_CULLING_HZBCONST				GET_HLSL_LOC_CBV(0)
 ////////////////////culling Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -186,7 +190,7 @@ namespace consts
 {
 	constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
 	constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
-	constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 + 4);
+	constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 + 4 + 4 * 4);
 }
 
 //define flags

@@ -61,6 +61,7 @@ namespace renderGuiSetting
 	float terrainConstants = 500.0f;
 
 	bool ssaoEnabled = true;
+	bool hzbCullEnabled = true;
 }
 
 void bindglobalBuffers()
@@ -284,6 +285,19 @@ bool renderer::createFrameResources()
 
 			hzbMipSRV.push_back(render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, hzbDepth, &srvDesc));
 		}
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC fullSrvDesc = {};
+		fullSrvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+		fullSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		fullSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		fullSrvDesc.Texture2D.MostDetailedMip = 0;
+		fullSrvDesc.Texture2D.MipLevels = hzbMipCount;
+		fullSrvDesc.Texture2D.PlaneSlice = 0;
+		fullSrvDesc.Texture2D.ResourceMinLODClamp = 0;
+
+		hzbFullSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, hzbDepth, &fullSrvDesc);
+
+		hzbReady = false;
 	}
 
 	for (int i = 0; i < FRAME_COUNT; ++i)
@@ -444,6 +458,7 @@ void renderer::guiSetting()
 
 	ImGui::Checkbox("SSAO", &renderGuiSetting::ssaoEnabled);
 	ImGui::Checkbox("ShowAABB", &renderGuiSetting::guiDebug.AABBDraw);
+	ImGui::Checkbox("HZB Cluster Occlusion", &renderGuiSetting::hzbCullEnabled);
 
 	if(renderGuiSetting::ssaoEnabled) renderGuiSetting::guiDebug.features |= FEATURE_AO;
 	else renderGuiSetting::guiDebug.features &= ~FEATURE_AO;
@@ -767,6 +782,12 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CULLING_HZB, hzbFullSRV.getHandle());
+
+			bool hzbCullEnable = hzbReady && renderGuiSetting::hzbCullEnabled && e_globWorld.getMainCam()->hasPrevViewProj();
+			uint hzbConsts[4] = { e_globWindow.width(), e_globWindow.height(), hzbMipCount, hzbCullEnable ? 1u : 0u };
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_HZBCONST, 4, hzbConsts);
+
 #if ENGINE_DEBUG_BUFFER
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
 #endif // #if ENGINE_DEBUG_BUFFER
@@ -931,6 +952,8 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ hzbCmdList });
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
+
+		hzbReady = true;
 	}
 
 	{

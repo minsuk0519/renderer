@@ -92,6 +92,8 @@ private:
 	std::vector<descriptor> hzbMipUAV;
 	std::vector<descriptor> hzbMipSRV;
 	std::vector<D3D12_RESOURCE_STATES> hzbMipState;
+	descriptor hzbFullSRV;
+	bool hzbReady = false;
 
 #if	ENGINE_DEBUG_BUFFER
 	buffer* outDebugBuffer = nullptr;
