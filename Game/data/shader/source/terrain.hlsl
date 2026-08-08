@@ -115,6 +115,6 @@ void genTerrainIndex_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThread
 	uint indexBottomLeft = getIndex(baseU, baseV + 1);
 	uint indexTopRight = getIndex(baseU + 1, baseV);
 
-	indexOut.Store3(((squareIndex) * 2 + 0) * 4 * 3, uint3(index, indexTopRight, indexBottomLeft));
+	indexOut.Store3(((squareIndex) * 2 + 0) * 4 * 3, uint3(index, indexBottomLeft, indexTopRight));
 	indexOut.Store3(((squareIndex) * 2 + 1) * 4 * 3, uint3(indexTopRight, indexBottomLeft, indexBottomRight));
 }
