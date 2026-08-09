@@ -11,7 +11,8 @@ struct PSInput
     float3 worldPos : WORLD_POS;
     float3 normal   : NORMAL;
     uint objID      : OBJECTID;
-    
+    nointerpolation uint2 visID : VISID;
+
     uint4 output    : OUTPUT;
 };
 
@@ -21,6 +22,7 @@ struct PSOutput
     uint normTex      	: SV_TARGET1;
     uint objID      	: SV_TARGET2;
     uint debugID      	: SV_TARGET3;
+    uint2 visID         : SV_TARGET4;
 };
 
 cbuffer cb_objectIdentification : register(b2)
@@ -71,6 +73,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         scaledNorm.z = normal.z * scale.z;
         result.normal = normalize(quatRotate(rotation, scaledNorm));
         result.objID = objID;
+        result.visID = uint2(triStart, packedID);
 
         result.output = float4(clusterID,meshIndex,objID,vertexIndex);
         //result.output = uint4(clusterID, vertexIndex, indexSize, vertexID);
@@ -81,6 +84,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         result.worldPos = float3(0.0f, 0.0f, 0.0f);
         result.normal = float3(0.0f, 0.0f, 0.0f);
         result.objID = 0;
+        result.visID = uint2(0, 0);
         result.output = uint4(0, 0, 0, 0);
     }
     return result;
@@ -94,6 +98,7 @@ PSInput gbuffer_vs(float3 position : VPOSITION, float3 normal : VNORMAL)
     result.worldPos = worldPos.xyz;
     result.position = mul(proj.viewProj, worldPos);
     result.objID = 0;
+    result.visID = uint2(0, 0);
 
     result.output.x = 0;
     result.output.y = 0;
@@ -115,8 +120,9 @@ PSOutput gbuffer_ps(PSInput input)
     result.position = float4(position, 1.0f);
     result.normTex = encodeOct(normal);
     result.objID = input.objID;
-    
+    result.visID = input.visID;
+
     result.debugID = input.output.x + 1;//input.output.x;
-    
+
     return result;
 }

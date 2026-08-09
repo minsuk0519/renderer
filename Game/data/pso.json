@@ -19,7 +19,8 @@
 			2,
 			42,
 			42,
-			42
+			42,
+			17
 		],
 		"cs":false,
 		"depth":true,
@@ -114,11 +115,12 @@
 			2,
 			42,
 			42,
-			42
+			42,
+			17
 		],
 		"cs":false,
 		"depth":true,
-		"wireframe":false	
+		"wireframe":false
 	},{
 		"psoIndex":11,
 		"psoName":"WireframeAABB",
