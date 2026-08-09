@@ -9,6 +9,7 @@ RWByteAddressBuffer clsuterCmdBuffer : register(u4);
 RWByteAddressBuffer outVisibleTris : register(u5);
 RWByteAddressBuffer outOccludedClusters : register(u6);
 RWByteAddressBuffer debugStats : register(u7);
+RWByteAddressBuffer clusterIndirection : register(u8);
 
 ByteAddressBuffer clusterArgs : register(t0);
 
@@ -49,12 +50,12 @@ int calculateMip(int4 pixelRect)
 [numthreads(1, 1, 1)]
 void initCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
 {
-    for(uint i = 0; i < 16; ++i)
+    for(uint i = 0; i < 24; ++i)
     {
         localClusterSize.Store(i * 4, 0);
     }
 
-    localClusterSize.Store2(10 * 4, uint2(1, 1));
+    localClusterSize.Store2(17 * 4, uint2(1, 1));
 
     for(uint j = 0; j < 32; ++j)
     {
@@ -396,10 +397,13 @@ void cullCluster_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPost)
 
     uint waveClusterCount;
     offset = waveCompactToBuffer(localClusterSize, 9 * 4, valid ? 1 : 0, waveClusterCount);
+    uint waveLocalCount;
+    uint localIndex = waveCompactToBuffer(localClusterSize, 16 * 4, valid ? 1 : 0, waveLocalCount);
 
     if(valid)
     {
         outClusterArgs.Store3(offset * 4 * 3, uint3(indexOffset, indexSize, packedID));
+        clusterIndirection.Store(localIndex * 4, offset);
     }
 }
 
@@ -433,7 +437,7 @@ void prepPostArgs_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     }
 
     // Pass 2 reuses the survivor/draw slots; pass 1's draw has already consumed them.
-    localClusterSize.Store(9 * 4, 0);
+    localClusterSize.Store(16 * 4, 0);
     localClusterSize.Store4(5 * 4, uint4(0, 0, 0, 0));
 }
 
@@ -444,17 +448,19 @@ void rasterizer_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, u
 {
     bool valid = true;
 
-    uint survivorCount = localClusterSize.Load(9 * 4);
+    uint drawCount = localClusterSize.Load(16 * 4);
 
-    if(groupID.x >= survivorCount)
+    if(groupID.x >= drawCount)
     {
         valid = false;
     }
 
+    uint clusterSlot = valid ? clusterIndirection.Load(groupID.x * 4) : 0;
+
     uint3 rec = uint3(0, 0, 0);
     if(valid)
     {
-        rec = outClusterArgs.Load3(groupID.x * 4 * 3);
+        rec = outClusterArgs.Load3(clusterSlot * 4 * 3);
     }
 
     uint indexOffset = rec.x;
@@ -552,12 +558,12 @@ void rasterizer_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, u
 
     if (visible)
     {
-        outVisibleTris.Store((groupID.x * CLUSTER_THREAD_NUM + slot) * 4, firstIndex);
+        outVisibleTris.Store((clusterSlot * CLUSTER_THREAD_NUM + slot) * 4, firstIndex);
     }
 
-    if (threadID.x == 0 && groupID.x < survivorCount)
+    if (threadID.x == 0 && groupID.x < drawCount)
     {
-        outClusterArgs.Store((groupID.x * 3 + 1) * 4, indexTotal * 3);
+        outClusterArgs.Store((clusterSlot * 3 + 1) * 4, indexTotal * 3);
 
         uint prevTriCandidates;
         debugStats.InterlockedAdd(4 * 4, indexSize / 3, prevTriCandidates);
@@ -569,7 +575,7 @@ void rasterizer_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, u
     {
         localClusterSize.Store4(5 * 4, uint4(
                 3 * CLUSTER_THREAD_NUM,   //VertexCountPerInstance
-                survivorCount,            //InstanceCount 
+                drawCount,                //InstanceCount
                 0,                        //StartVertexLocation
                 0                         //StartInstanceLocation
         ));

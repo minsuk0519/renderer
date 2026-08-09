@@ -128,7 +128,8 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	commandBuffer = e_globBufAllocator.alloc(nullptr, (MAX_OBJECTS * 2 + 1) * sizeof(uint) * 5, 1, buf::GBF_UAV | buf::GBF_CBV, 0);
 	objectConstBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_OBJ_SIZE * 256, 1, buf::GBF_CBV, 0);
 	localClusterOffsetBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * sizeof(uint) * 2, 1, buf::GBF_UAV | buf::GBF_SRV, 0);
-	localClusterSizeBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 16, 1, buf::GBF_UAV, 0);
+	localClusterSizeBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 24, 1, buf::GBF_UAV, 0);
+	clusterIndirectionBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * sizeof(uint), 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	occludedClusterBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * sizeof(uint) * 3, 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	debugStatsBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 32, 1, buf::GBF_UAV, 0);
 	debugStatsReadback = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 32, 1, 0, buf::RESOURCE_READBACK);
@@ -840,6 +841,8 @@ void renderer::draw(float dt)
 	descriptor* clusteroffsetSRV = localClusterOffsetBuffer->getDesc(buf::GBF_SRV);
 	descriptor* occludedClusterBufferUAV = occludedClusterBuffer->getDesc(buf::GBF_UAV);
 	descriptor* occludedClusterBufferSRV = occludedClusterBuffer->getDesc(buf::GBF_SRV);
+	descriptor* clusterIndirectionUAV = clusterIndirectionBuffer->getDesc(buf::GBF_UAV);
+	descriptor* clusterIndirectionSRV = clusterIndirectionBuffer->getDesc(buf::GBF_SRV);
 	descriptor* debugStatsUAV = debugStatsBuffer->getDesc(buf::GBF_UAV);
 	descriptor* meshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
 	descriptor* lodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
@@ -945,6 +948,7 @@ void renderer::draw(float dt)
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_OCCLUDED_CLUSTERS, occludedClusterBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_INDIRECTION, clusterIndirectionUAV->getHandle());
 
 			hzbCullEnable = hzbReady && renderGuiSetting::hzbCullEnabled && e_globWorld.getMainCam()->hasPrevViewProj();
 			uint hzbConsts[4] = { e_globWindow.width(), e_globWindow.height(), hzbMipCount, hzbCullEnable ? 1u : 0u };
@@ -973,6 +977,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISIBLE_TRI_BUFFER, visibleTriBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_INDIRECTION, clusterIndirectionUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
@@ -988,7 +993,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
 #endif // #if ENGINE_DEBUG_BUFFER
 
-			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_RASTERIZER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 9 * sizeof(uint), nullptr, 0);
+			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_RASTERIZER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 16 * sizeof(uint), nullptr, 0);
 		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
@@ -1014,6 +1019,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDIRECTION, clusterIndirectionSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 
@@ -1043,6 +1049,7 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDIRECTION, clusterIndirectionSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 
@@ -1121,6 +1128,7 @@ void renderer::draw(float dt)
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CULLING_HZB, hzbFullSRV.getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_INDIRECTION, clusterIndirectionUAV->getHandle());
 
 			uint hzbPostConsts[4] = { e_globWindow.width(), e_globWindow.height(), hzbMipCount, renderGuiSetting::hzbCullEnabled ? 1u : 0u };
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_HZBCONST, 4, hzbPostConsts);
@@ -1152,6 +1160,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISIBLE_TRI_BUFFER, visibleTriBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_INDIRECTION, clusterIndirectionUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
@@ -1167,7 +1176,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
 #endif // #if ENGINE_DEBUG_BUFFER
 
-			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_RASTERIZER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 9 * sizeof(uint), nullptr, 0);
+			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_RASTERIZER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 16 * sizeof(uint), nullptr, 0);
 		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
@@ -1273,6 +1282,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDIRECTION, clusterIndirectionSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 

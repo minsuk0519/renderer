@@ -85,6 +85,7 @@ private:
 	buffer* localClusterOffsetBuffer = nullptr;
 	buffer* localClusterSizeBuffer = nullptr;
 	buffer* occludedClusterBuffer = nullptr;
+	buffer* clusterIndirectionBuffer = nullptr;
 	buffer* debugStatsBuffer = nullptr;
 	buffer* debugStatsReadback = nullptr;
 	uint clusterStatsFrameCounter = 0;

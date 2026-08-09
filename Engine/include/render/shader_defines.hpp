@@ -45,6 +45,8 @@
 #define SRV_GBUFFER_CLUSTERARGS		GET_HLSL_LOC_SRV(0)
 //t1 visible triangles
 #define SRV_GBUFFER_VISIBLE_TRIS		GET_HLSL_LOC_SRV(1)
+//t2 cluster indirection
+#define SRV_GBUFFER_INDIRECTION			GET_HLSL_LOC_SRV(2)
 
 //b3 guiDebug
 #define CBV_GUIDEBUG				GET_HLSL_LOC_CBV(3)
@@ -126,6 +128,8 @@
 #define SRV_CLUSTER_ARGS_BUFFER				GET_HLSL_LOC_SRV(0)
 //u5 visible triangle buffer output
 #define UAV_VISIBLE_TRI_BUFFER				GET_HLSL_LOC_UAV(5)
+//u8 cluster indirection buffer output
+#define UAV_CLUSTER_INDIRECTION				GET_HLSL_LOC_UAV(8)
 //t1 hzb (previous frame depth pyramid)
 #define SRV_CULLING_HZB						GET_HLSL_LOC_SRV(1)
 //b0 hzb cull constants

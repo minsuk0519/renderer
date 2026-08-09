@@ -4,6 +4,7 @@
 
 ByteAddressBuffer clusterArgs : register(t0);
 ByteAddressBuffer visibleTris : register(t1);
+ByteAddressBuffer clusterIndirection : register(t2);
 
 struct PSInput
 {
@@ -34,9 +35,11 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
 {
     PSInput result;
 
-    uint indexOffset = clusterArgs.Load((clusterID * 3 + 0) * 4);
-    uint indexSize = clusterArgs.Load((clusterID * 3 + 1) * 4);
-    uint packedID = clusterArgs.Load((clusterID * 3 + 2) * 4);
+    uint clusterSlot = clusterIndirection.Load(clusterID * 4);
+
+    uint indexOffset = clusterArgs.Load((clusterSlot * 3 + 0) * 4);
+    uint indexSize = clusterArgs.Load((clusterSlot * 3 + 1) * 4);
+    uint packedID = clusterArgs.Load((clusterSlot * 3 + 2) * 4);
 
     uint objectInfo = packedID & ((1 << 16) - 1);
     uint meshIndex = objectInfo >> 3;
@@ -49,7 +52,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
 
     if(vertexID < indexSize)
     {
-        uint triStart = visibleTris.Load((clusterID * 64 + (vertexID / 3)) * 4);
+        uint triStart = visibleTris.Load((clusterSlot * 64 + (vertexID / 3)) * 4);
         uint vertexIndex;
         getVertexIndex(triStart + (vertexID % 3), vertexIndex);
 
@@ -75,8 +78,8 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         result.objID = objID;
         result.visID = uint2(triStart, packedID);
 
-        result.output = float4(clusterID,meshIndex,objID,vertexIndex);
-        //result.output = uint4(clusterID, vertexIndex, indexSize, vertexID);
+        result.output = float4(clusterSlot,meshIndex,objID,vertexIndex);
+        //result.output = uint4(clusterSlot, vertexIndex, indexSize, vertexID);
     }
     else
     {
