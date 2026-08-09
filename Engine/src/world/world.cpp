@@ -57,17 +57,17 @@ void world::instanceCulling()
 		{
 			//if drawn previous frame, we will put it on the first pass
 			//TODO : some obj will be drawn first pass no matter if they are drawn previous frame
-			//if (obj->wasVisible())
+			if (obj->wasVisible())
 			{
 				cameraObjectIndex[cameraObjNum[0]] = i;
 				++cameraObjNum[0];
 			}
 			//second pass
-			//else
-			//{
-			//	cameraObjectIndex[MAX_OBJECTS - 1 - cameraObjNum[1]] = i;
-			//	++cameraObjNum[1];
-			//}
+			else
+			{
+				cameraObjectIndex[MAX_OBJECTS - 1 - cameraObjNum[1]] = i;
+				++cameraObjNum[1];
+			}
 
 			vis = true;
 
@@ -189,6 +189,12 @@ uint world::submitObjects(void* cbvLoc)
 		location += 1;
 	}
 
+	for (uint j = 0; j < cameraObjNum[1]; ++j)
+	{
+		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].submit(static_cast<void*>(location), cameraObjNum[0] + j);
+		location += 1;
+	}
+
 	return cameraObjNum[0];
 }
 
@@ -203,6 +209,14 @@ void world::uploadObjectInfo(void* viewInfoLoc, void* materialLoc)
 		viewInfoGpuAddress += sizeof(uint) * 10;
 		materialGpuAddress += sizeof(uint) * 5;
 	}
+
+	for (uint j = 0; j < cameraObjNum[1]; ++j)
+	{
+		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].uploadViewInfo(viewInfoGpuAddress);
+		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].uploadMaterial(materialGpuAddress);
+		viewInfoGpuAddress += sizeof(uint) * 10;
+		materialGpuAddress += sizeof(uint) * 5;
+	}
 }
 
 void world::boundData(void* cbvLoc)
@@ -211,6 +225,12 @@ void world::boundData(void* cbvLoc)
 	for (uint i = 0; i < cameraObjNum[0]; ++i)
 	{
 		objects[cameraObjectIndex[i]].boundData(gpuAddress);
+		gpuAddress += 6 * sizeof(float);
+	}
+
+	for (uint j = 0; j < cameraObjNum[1]; ++j)
+	{
+		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].boundData(gpuAddress);
 		gpuAddress += 6 * sizeof(float);
 	}
 }
