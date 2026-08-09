@@ -131,5 +131,17 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":21
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"cullCluster_post_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":22
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"prepPostArgs_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":23
 	}
 ]

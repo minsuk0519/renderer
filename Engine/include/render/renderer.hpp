@@ -53,6 +53,7 @@ private:
 	bool checkFeatureSupport(DXGI_FEATURE feature);
 	bool createSwapChain();
 	bool createFrameResources();
+	void generateHZB();
 
 private:
 	//created from engine
@@ -83,6 +84,9 @@ private:
 	buffer* objectConstBuffer = nullptr;
 	buffer* localClusterOffsetBuffer = nullptr;
 	buffer* localClusterSizeBuffer = nullptr;
+	buffer* occludedClusterBuffer = nullptr;
+	buffer* clusterStatsReadback = nullptr;
+	uint clusterStatsFrameCounter = 0;
 	buffer* clusterArgsBuffer = nullptr;
 	buffer* visibleTriBuffer = nullptr;
 	buffer* fbDepth = nullptr;

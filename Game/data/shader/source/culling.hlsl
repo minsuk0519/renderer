@@ -7,6 +7,7 @@ RWByteAddressBuffer localClusterOffsets : register(u2);
 RWByteAddressBuffer localClusterSize : register(u3);
 RWByteAddressBuffer clsuterCmdBuffer : register(u4);
 RWByteAddressBuffer outVisibleTris : register(u5);
+RWByteAddressBuffer outOccludedClusters : register(u6);
 
 ByteAddressBuffer clusterArgs : register(t0);
 
@@ -37,7 +38,7 @@ int calculateMip(int4 pixelRect)
 [numthreads(1, 1, 1)]
 void initCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
 {
-    for(uint i = 0; i < 12; ++i)
+    for(uint i = 0; i < 16; ++i)
     {
         localClusterSize.Store(i * 4, 0);
     }
@@ -100,14 +101,13 @@ void setSideFlag(float4 pos, inout uint flag)
     flag |= (zValue > 1.0f) ? (1 << 6) : (1 << 7);
 }
 
-[numthreads(CLUSTER_THREAD_NUM, 1, 1)]
-void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+void cullCluster_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPost)
 {
     bool valid = true;
 
     uint clusterArgsIndex = (groupID.x * CLUSTER_THREAD_NUM + gtid.x);
 
-    uint localClusterSizeValue = localClusterSize.Load(0);
+    uint localClusterSizeValue = isPost ? localClusterSize.Load(12 * 4) : localClusterSize.Load(0);
 
     if(localClusterSizeValue <= clusterArgsIndex)
     {
@@ -142,6 +142,7 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
 
 //aabb culling
     bool vis = true;
+    bool occludedByHZB = false;
 
     if(valid)
     {
@@ -151,7 +152,7 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
         float3 translate = view.translate;
         float3 scale = view.scale;
         float4 rotation = view.rotation;
-        
+
         float3 LB = transformToWorld(scale, rotation, translate, aabbLeftBottom);
 
         //get up right front vector from quat
@@ -161,58 +162,63 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
         up *= aabbhExtent.y * scale.y * 2.0f;
         forward *= aabbhExtent.z * scale.z * 2.0f;
 
-        float4 startPos = mul(proj.viewProj, float4(LB, 1.0f));
-        float4 debug = startPos;
-
-        float4 deltaX = mul(proj.viewProj, float4(right, 0.0f));
-        float4 deltaY = mul(proj.viewProj, float4(up, 0.0f));
-        float4 deltaZ = mul(proj.viewProj, float4(forward, 0.0f));
-
-        float2 clipCoord = startPos.xy / startPos.w;
-        //0-2 left mid right
-        //3-5 up mid down
-        //6-7 back front
-        uint sideFlag = 0;
-        setSideFlag(startPos, sideFlag);
-        startPos += deltaX;
-        setSideFlag(startPos, sideFlag);
-        startPos += deltaY;
-        setSideFlag(startPos, sideFlag);
-        startPos -= deltaX;
-        setSideFlag(startPos, sideFlag);
-        startPos += deltaZ;
-        setSideFlag(startPos, sideFlag);
-        startPos += deltaX;
-        setSideFlag(startPos, sideFlag);
-        startPos -= deltaY;
-        setSideFlag(startPos, sideFlag);
-        startPos -= deltaX;
-
-        //fully behind
-        if(!(sideFlag & (1 << 7))) vis = false;
-        else
+        if(!isPost)
         {
-            if(!(sideFlag & (1 << 1)))
+            float4 startPos = mul(proj.viewProj, float4(LB, 1.0f));
+            float4 debug = startPos;
+
+            float4 deltaX = mul(proj.viewProj, float4(right, 0.0f));
+            float4 deltaY = mul(proj.viewProj, float4(up, 0.0f));
+            float4 deltaZ = mul(proj.viewProj, float4(forward, 0.0f));
+
+            float2 clipCoord = startPos.xy / startPos.w;
+            //0-2 left mid right
+            //3-5 up mid down
+            //6-7 back front
+            uint sideFlag = 0;
+            setSideFlag(startPos, sideFlag);
+            startPos += deltaX;
+            setSideFlag(startPos, sideFlag);
+            startPos += deltaY;
+            setSideFlag(startPos, sideFlag);
+            startPos -= deltaX;
+            setSideFlag(startPos, sideFlag);
+            startPos += deltaZ;
+            setSideFlag(startPos, sideFlag);
+            startPos += deltaX;
+            setSideFlag(startPos, sideFlag);
+            startPos -= deltaY;
+            setSideFlag(startPos, sideFlag);
+            startPos -= deltaX;
+
+            //fully behind
+            if(!(sideFlag & (1 << 7))) vis = false;
+            else
             {
-                if(!(sideFlag & (1 << 0)) || !(sideFlag & (1 << 2))) vis = false;
-            }
-            else if(!(sideFlag & (1 << 4)))
-            {
-                if(!(sideFlag & (1 << 3)) || !(sideFlag & (1 << 5))) vis = false;
+                if(!(sideFlag & (1 << 1)))
+                {
+                    if(!(sideFlag & (1 << 0)) || !(sideFlag & (1 << 2))) vis = false;
+                }
+                else if(!(sideFlag & (1 << 4)))
+                {
+                    if(!(sideFlag & (1 << 3)) || !(sideFlag & (1 << 5))) vis = false;
+                }
             }
         }
 
         if(vis && hzbCullEnable != 0)
         {
+            float4x4 reprojMat = isPost ? proj.viewProj : proj.prevViewProj;
+
             float4 corners[8];
-            corners[0] = mul(proj.prevViewProj, float4(LB, 1.0f));
-            corners[1] = mul(proj.prevViewProj, float4(LB + right, 1.0f));
-            corners[2] = mul(proj.prevViewProj, float4(LB + up, 1.0f));
-            corners[3] = mul(proj.prevViewProj, float4(LB + right + up, 1.0f));
-            corners[4] = mul(proj.prevViewProj, float4(LB + forward, 1.0f));
-            corners[5] = mul(proj.prevViewProj, float4(LB + forward + right, 1.0f));
-            corners[6] = mul(proj.prevViewProj, float4(LB + forward + up, 1.0f));
-            corners[7] = mul(proj.prevViewProj, float4(LB + forward + right + up, 1.0f));
+            corners[0] = mul(reprojMat, float4(LB, 1.0f));
+            corners[1] = mul(reprojMat, float4(LB + right, 1.0f));
+            corners[2] = mul(reprojMat, float4(LB + up, 1.0f));
+            corners[3] = mul(reprojMat, float4(LB + right + up, 1.0f));
+            corners[4] = mul(reprojMat, float4(LB + forward, 1.0f));
+            corners[5] = mul(reprojMat, float4(LB + forward + right, 1.0f));
+            corners[6] = mul(reprojMat, float4(LB + forward + up, 1.0f));
+            corners[7] = mul(reprojMat, float4(LB + forward + right + up, 1.0f));
 
             bool nearPlaneCross = false;
             for(uint c = 0; c < 8; ++c)
@@ -277,13 +283,30 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
                         }
                     }
 
-                    if(clusterNearestZ < hzbFarthestZ) vis = false;
+                    if(clusterNearestZ < hzbFarthestZ) { vis = false; occludedByHZB = true; }
                 }
             }
         }
     }
 
     valid = valid && vis;
+
+    if (!isPost)
+    {
+        uint hzbOccludedCount = WaveActiveCountBits(occludedByHZB);
+        if (WaveIsFirstLane() && hzbOccludedCount > 0)
+        {
+            uint prevValue;
+            localClusterSize.InterlockedAdd(4 * 4, hzbOccludedCount, prevValue);
+        }
+
+        uint occludedWaveCount;
+        uint occludedOffset = waveCompactToBuffer(localClusterSize, 12 * 4, occludedByHZB ? 1 : 0, occludedWaveCount);
+        if (occludedByHZB)
+        {
+            outOccludedClusters.Store3(occludedOffset * 4 * 3, uint3(lodIndex, packedID, clusterIndex));
+        }
+    }
 
     uint offset = 0;
     if(valid)
@@ -301,6 +324,28 @@ void cullCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     {
         outClusterArgs.Store3(offset * 4 * 3, uint3(indexOffset, indexSize, packedID));
     }
+}
+
+[numthreads(CLUSTER_THREAD_NUM, 1, 1)]
+void cullCluster_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex)
+{
+    cullCluster_internal(groupID, gtid, threadID, false);
+}
+
+[numthreads(CLUSTER_THREAD_NUM, 1, 1)]
+void cullCluster_post_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex)
+{
+    cullCluster_internal(groupID, gtid, threadID, true);
+}
+
+[numthreads(1, 1, 1)]
+void prepPostArgs_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex)
+{
+    uint occludedCount = localClusterSize.Load(12 * 4);
+    localClusterSize.Store3(13 * 4, uint3((occludedCount + CLUSTER_THREAD_NUM - 1) / CLUSTER_THREAD_NUM, 1, 1));
+
+    localClusterSize.Store(9 * 4, 0);
+    localClusterSize.Store4(5 * 4, uint4(0, 0, 0, 0));
 }
 
 groupshared uint gsWaveCounts[2];

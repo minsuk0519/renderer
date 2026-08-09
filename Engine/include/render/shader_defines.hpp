@@ -130,6 +130,8 @@
 #define SRV_CULLING_HZB						GET_HLSL_LOC_SRV(1)
 //b0 hzb cull constants
 #define CBV_CULLING_HZBCONST				GET_HLSL_LOC_CBV(0)
+//u6 occluded cluster list output
+#define UAV_OCCLUDED_CLUSTERS				GET_HLSL_LOC_UAV(6)
 ////////////////////culling Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -182,6 +184,8 @@ namespace render
 		PSO_INITCLUSTER,       //initCluster
 		PSO_GENHZB,            //genHZB
 		PSO_RASTERIZER,        //Rasterizer
+		PSO_CULLCLUSTER_POST,  //CullClusterPost
+		PSO_PREPPOSTARGS,      //PrepPostArgs
 		PSO_END,
 	};
 }

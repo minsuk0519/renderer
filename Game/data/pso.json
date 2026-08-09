@@ -190,5 +190,25 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":18,
+		"psoName":"CullClusterPost",
+		"vertexIndex":22,
+		"pixelIndex":22,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":19,
+		"psoName":"PrepPostArgs",
+		"vertexIndex":23,
+		"pixelIndex":23,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]
