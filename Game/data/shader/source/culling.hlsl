@@ -8,6 +8,7 @@ RWByteAddressBuffer localClusterSize : register(u3);
 RWByteAddressBuffer clsuterCmdBuffer : register(u4);
 RWByteAddressBuffer outVisibleTris : register(u5);
 RWByteAddressBuffer outOccludedClusters : register(u6);
+RWByteAddressBuffer debugStats : register(u7);
 
 ByteAddressBuffer clusterArgs : register(t0);
 
@@ -19,6 +20,16 @@ cbuffer cb_hzbCull : register(b0)
     uint hzbHeight;
     uint hzbMipCount;
     uint hzbCullEnable;
+};
+
+cbuffer cb_cullDebug : register(b1)
+{
+    uint clusterCullEnable;
+};
+
+cbuffer cb_rasterDebug : register(b2)
+{
+    uint triCullEnable;
 };
 
 #define HZB_SAMPLING_PIXEL_SIZE 4
@@ -44,6 +55,11 @@ void initCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     }
 
     localClusterSize.Store2(10 * 4, uint2(1, 1));
+
+    for(uint j = 0; j < 32; ++j)
+    {
+        debugStats.Store(j * 4, 0);
+    }
 }
 
 
@@ -137,6 +153,15 @@ void cullCluster_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPost)
         valid = false;
     }
 
+    {
+        uint candidateCount = WaveActiveCountBits(valid);
+        if (WaveIsFirstLane() && candidateCount > 0)
+        {
+            uint prevCandidates;
+            debugStats.InterlockedAdd(0 * 4, candidateCount, prevCandidates);
+        }
+    }
+
     uint3 clusterArg = clusterArgs.Load3(clusterArgsIndex * 4 * 3);
 
     uint lodIndex = clusterArg.x;
@@ -185,7 +210,7 @@ void cullCluster_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPost)
         up *= aabbhExtent.y * scale.y * 2.0f;
         forward *= aabbhExtent.z * scale.z * 2.0f;
 
-        if(!isPost)
+        if(!isPost && clusterCullEnable != 0)
         {
             float4 startPos = mul(proj.viewProj, float4(LB, 1.0f));
             float4 debug = startPos;
@@ -229,7 +254,18 @@ void cullCluster_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPost)
             }
         }
 
-        if(vis && hzbCullEnable != 0)
+        if (!isPost)
+        {
+            bool frustumCulled = valid && !vis && !occludedByHZB;
+            uint frustumCulledCount = WaveActiveCountBits(frustumCulled);
+            if (WaveIsFirstLane() && frustumCulledCount > 0)
+            {
+                uint prevFrustum;
+                debugStats.InterlockedAdd(1 * 4, frustumCulledCount, prevFrustum);
+            }
+        }
+
+        if(vis && clusterCullEnable != 0 && hzbCullEnable != 0)
         {
             float4x4 reprojMat = isPost ? proj.viewProj : proj.prevViewProj;
 
@@ -312,7 +348,25 @@ void cullCluster_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPost)
         }
     }
 
+    {
+        uint debugOccludedCount = WaveActiveCountBits(occludedByHZB);
+        if (WaveIsFirstLane() && debugOccludedCount > 0)
+        {
+            uint prevDebugOccluded;
+            debugStats.InterlockedAdd(2 * 4, debugOccludedCount, prevDebugOccluded);
+        }
+    }
+
     valid = valid && vis;
+
+    {
+        uint debugSurvivorCount = WaveActiveCountBits(valid);
+        if (WaveIsFirstLane() && debugSurvivorCount > 0)
+        {
+            uint prevDebugSurvivors;
+            debugStats.InterlockedAdd(3 * 4, debugSurvivorCount, prevDebugSurvivors);
+        }
+    }
 
     if (!isPost)
     {
@@ -366,6 +420,17 @@ void prepPostArgs_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
 {
     uint occludedCount = localClusterSize.Load(12 * 4);
     localClusterSize.Store3(13 * 4, uint3((occludedCount + CLUSTER_THREAD_NUM - 1) / CLUSTER_THREAD_NUM, 1, 1));
+
+    // Snapshot pass-1's live debug counters [0..7] into [8..15], then zero
+    // [0..7] so pass 2 accumulates its own counters from scratch.
+    for(uint i = 0; i < 8; ++i)
+    {
+        debugStats.Store((8 + i) * 4, debugStats.Load(i * 4));
+    }
+    for(uint k = 0; k < 8; ++k)
+    {
+        debugStats.Store(k * 4, 0);
+    }
 
     // Pass 2 reuses the survivor/draw slots; pass 1's draw has already consumed them.
     localClusterSize.Store(9 * 4, 0);
@@ -464,7 +529,7 @@ void rasterizer_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, u
 
             bool subPixel = (ceil(minX - 0.5f) > floor(maxX - 0.5f)) || (ceil(minY - 0.5f) > floor(maxY - 0.5f));
 
-            visible = !backFacing && !subPixel;
+            visible = (triCullEnable == 0) ? true : (!backFacing && !subPixel);
         }
     }
 
@@ -493,6 +558,11 @@ void rasterizer_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, u
     if (threadID.x == 0 && groupID.x < survivorCount)
     {
         outClusterArgs.Store((groupID.x * 3 + 1) * 4, indexTotal * 3);
+
+        uint prevTriCandidates;
+        debugStats.InterlockedAdd(4 * 4, indexSize / 3, prevTriCandidates);
+        uint prevTriSurvivors;
+        debugStats.InterlockedAdd(5 * 4, indexTotal, prevTriSurvivors);
     }
 
     if(threadID.x == 0 && groupID.x == 0)

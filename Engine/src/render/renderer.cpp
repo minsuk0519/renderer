@@ -62,6 +62,8 @@ namespace renderGuiSetting
 
 	bool ssaoEnabled = true;
 	bool hzbCullEnabled = true;
+	bool clusterCullEnabled = true;
+	bool triCullEnabled = true;
 }
 
 void bindglobalBuffers()
@@ -128,7 +130,8 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	localClusterOffsetBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * sizeof(uint) * 2, 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	localClusterSizeBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 16, 1, buf::GBF_UAV, 0);
 	occludedClusterBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * sizeof(uint) * 3, 1, buf::GBF_UAV | buf::GBF_SRV, 0);
-	clusterStatsReadback = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 16, 1, 0, buf::RESOURCE_READBACK);
+	debugStatsBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 32, 1, buf::GBF_UAV, 0);
+	debugStatsReadback = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 32, 1, 0, buf::RESOURCE_READBACK);
 	clusterArgsBuffer = e_globBufAllocator.alloc(nullptr, (MAX_CLUSTERS / THREADS_NUM_CLUSTERS) * sizeof(uint), 1, buf::GBF_UAV, 0);
 	visibleTriBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * THREADS_NUM_CLUSTERS * sizeof(uint), 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
@@ -455,13 +458,20 @@ const char* debugDrawVersion[]
 	"SSAO",
 };
 
+void renderer::guiCullingToggles()
+{
+	ImGui::Checkbox("HZB Cluster Occlusion", &renderGuiSetting::hzbCullEnabled);
+	ImGui::Checkbox("Cluster Culling", &renderGuiSetting::clusterCullEnabled);
+	ImGui::Checkbox("Triangle Culling", &renderGuiSetting::triCullEnabled);
+}
+
 void renderer::guiSetting()
 {
 	gui::comboBox("DebugDraw", debugDrawVersion, 5, renderGuiSetting::guiDebug.debugDraw);
 
 	ImGui::Checkbox("SSAO", &renderGuiSetting::ssaoEnabled);
 	ImGui::Checkbox("ShowAABB", &renderGuiSetting::guiDebug.AABBDraw);
-	ImGui::Checkbox("HZB Cluster Occlusion", &renderGuiSetting::hzbCullEnabled);
+	guiCullingToggles();
 
 	if(renderGuiSetting::ssaoEnabled) renderGuiSetting::guiDebug.features |= FEATURE_AO;
 	else renderGuiSetting::guiDebug.features &= ~FEATURE_AO;
@@ -475,6 +485,62 @@ void renderer::guiSetting()
 			ImGui::DragFloat("Radius##SSAO", &renderGuiSetting::aoConstants.R, 0.1f, 0.0f, 5.0f);
 			ImGui::DragInt("Num##SSAO", &renderGuiSetting::aoConstants.num, 1.0f, 1, 100);
 		}
+	}
+}
+
+const renderer::cullStats& renderer::getCullStats() const
+{
+	return cullStatsData;
+}
+
+const float* renderer::getClusterSurvivorHistory() const
+{
+	return clusterSurvivorHistory.data();
+}
+
+const float* renderer::getTriSurvivorHistory() const
+{
+	return triSurvivorHistory.data();
+}
+
+uint renderer::getCullStatsHistoryOffset() const
+{
+	return (cullStatsHistoryHead + 1) % CULLSTATS_HISTORY;
+}
+
+uint renderer::getHZBMipCount() const
+{
+	return hzbMipCount;
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE renderer::getHZBMipHandle(uint mip) const
+{
+	uint clampedMip = hzbMipCount > 0 ? (std::min)(mip, hzbMipCount - 1) : 0;
+	return hzbMipSRV[clampedMip].getHandle();
+}
+
+void renderer::getHZBMipSize(uint mip, uint& w, uint& h) const
+{
+	w = (std::max)(1u, e_globWindow.width() >> mip);
+	h = (std::max)(1u, e_globWindow.height() >> mip);
+}
+
+void renderer::transitionHZBForGui(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+{
+	std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
+
+	for (uint m = 0; m < hzbMipCount; ++m)
+	{
+		if (hzbMipState[m] != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+		{
+			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[m], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, m));
+			hzbMipState[m] = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		}
+	}
+
+	if (!barriers.empty())
+	{
+		cmdList->ResourceBarrier((UINT)barriers.size(), barriers.data());
 	}
 }
 
@@ -768,6 +834,7 @@ void renderer::draw(float dt)
 	descriptor* clusteroffsetSRV = localClusterOffsetBuffer->getDesc(buf::GBF_SRV);
 	descriptor* occludedClusterBufferUAV = occludedClusterBuffer->getDesc(buf::GBF_UAV);
 	descriptor* occludedClusterBufferSRV = occludedClusterBuffer->getDesc(buf::GBF_SRV);
+	descriptor* debugStatsUAV = debugStatsBuffer->getDesc(buf::GBF_UAV);
 	descriptor* meshInfoBufferSRV = ubManager->meshInfoBuffer->getDesc(buf::GBF_SRV);
 	descriptor* lodInfoBufferSRV = ubManager->lodInfoBuffer->getDesc(buf::GBF_SRV);
 	descriptor* clusterInfoBufferSRV = ubManager->clusterInfoBuffer->getDesc(buf::GBF_SRV);
@@ -805,6 +872,7 @@ void renderer::draw(float dt)
 			render::ScopedGPUEvent initClusterEvent(computeCmdList.Get(), "InitCluster");
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
 
 			computeCmdList->Dispatch(1, 1, 1);
 		}
@@ -870,10 +938,14 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CULLING_HZB, hzbFullSRV.getHandle());
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_OCCLUDED_CLUSTERS, occludedClusterBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
 
 			hzbCullEnable = hzbReady && renderGuiSetting::hzbCullEnabled && e_globWorld.getMainCam()->hasPrevViewProj();
 			uint hzbConsts[4] = { e_globWindow.width(), e_globWindow.height(), hzbMipCount, hzbCullEnable ? 1u : 0u };
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_HZBCONST, 4, hzbConsts);
+
+			uint clusterCullFlag = renderGuiSetting::clusterCullEnabled ? 1u : 0u;
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_DEBUG, 1, &clusterCullFlag);
 
 #if ENGINE_DEBUG_BUFFER
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
@@ -894,6 +966,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERARGS_BUFFER, vertexIDBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISIBLE_TRI_BUFFER, visibleTriBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
@@ -901,6 +974,9 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+
+			uint triCullFlag = renderGuiSetting::triCullEnabled ? 1u : 0u;
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_RASTER_DEBUG, 1, &triCullFlag);
 
 #if ENGINE_DEBUG_BUFFER
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
@@ -1009,6 +1085,7 @@ void renderer::draw(float dt)
 			render::ScopedGPUEvent prepPostArgsEvent(computeCmdList.Get(), "PrepPostArgs");
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
 
 			computeCmdList->Dispatch(1, 1, 1);
 		}
@@ -1037,9 +1114,13 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CULLING_HZB, hzbFullSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
 
 			uint hzbPostConsts[4] = { e_globWindow.width(), e_globWindow.height(), hzbMipCount, renderGuiSetting::hzbCullEnabled ? 1u : 0u };
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_HZBCONST, 4, hzbPostConsts);
+
+			uint clusterCullPostFlag = renderGuiSetting::clusterCullEnabled ? 1u : 0u;
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_DEBUG, 1, &clusterCullPostFlag);
 
 #if ENGINE_DEBUG_BUFFER
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
@@ -1064,6 +1145,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERARGS_BUFFER, vertexIDBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISIBLE_TRI_BUFFER, visibleTriBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
@@ -1071,6 +1153,9 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+
+			uint triCullPostFlag = renderGuiSetting::triCullEnabled ? 1u : 0u;
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_RASTER_DEBUG, 1, &triCullPostFlag);
 
 #if ENGINE_DEBUG_BUFFER
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBufferUAV->getHandle());
@@ -1082,6 +1167,90 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+
+		// End-of-frame debug-stats readback: at this point [0..7] hold pass-2's
+		// live counters and [8..15] hold pass-1's snapshot taken by
+		// prepPostArgs_cs earlier this frame. The compute list was already
+		// Close()'d by the execute() above, so it must be reopened via
+		// bindPSO before recording anything else into it.
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_RASTERIZER);
+
+		{
+			render::ScopedGPUEvent debugStatsCopyEvent(computeCmdList.Get(), "Copy DebugStats Readback");
+
+			CD3DX12_RESOURCE_BARRIER toCopySrc = CD3DX12_RESOURCE_BARRIER::Transition(
+				debugStatsBuffer->getResource(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			computeCmdList->ResourceBarrier(1, &toCopySrc);
+
+			computeCmdList->CopyBufferRegion(debugStatsReadback->getResource(), 0, debugStatsBuffer->getResource(), 0, sizeof(uint) * 32);
+
+			CD3DX12_RESOURCE_BARRIER toUAV = CD3DX12_RESOURCE_BARRIER::Transition(
+				debugStatsBuffer->getResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			computeCmdList->ResourceBarrier(1, &toUAV);
+		}
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+
+		{
+			ID3D12Resource* statsResource = debugStatsReadback->getResource();
+			CD3DX12_RANGE statsReadRange(0, sizeof(uint) * 32);
+			unsigned char* statsPtr = nullptr;
+			HRESULT statsMapResult = statsResource->Map(0, &statsReadRange, reinterpret_cast<void**>(&statsPtr));
+
+			if (SUCCEEDED(statsMapResult))
+			{
+				uint slots[32] = {};
+				memcpy(slots, statsPtr, sizeof(uint) * 32);
+
+				CD3DX12_RANGE statsWrittenRange(0, 0);
+				statsResource->Unmap(0, &statsWrittenRange);
+
+				cullStatsData.pass1.clusterCandidates = slots[8];
+				cullStatsData.pass1.clusterFrustumCulled = slots[9];
+				cullStatsData.pass1.clusterOccluded = slots[10];
+				cullStatsData.pass1.clusterSurvivors = slots[11];
+				cullStatsData.pass1.triCandidates = slots[12];
+				cullStatsData.pass1.triSurvivors = slots[13];
+
+				cullStatsData.pass2.clusterCandidates = slots[0];
+				cullStatsData.pass2.clusterFrustumCulled = slots[1];
+				cullStatsData.pass2.clusterOccluded = slots[2];
+				cullStatsData.pass2.clusterSurvivors = slots[3];
+				cullStatsData.pass2.triCandidates = slots[4];
+				cullStatsData.pass2.triSurvivors = slots[5];
+
+				cullStatsData.instancesTotal = e_globWorld.objectNum;
+				cullStatsData.instancesPass1 = e_globWorld.cameraObjNum[0];
+				cullStatsData.instancesPass2 = e_globWorld.cameraObjNum[1];
+				cullStatsData.hzbActive = hzbCullEnable;
+
+				float survivorTotal = (float)(cullStatsData.pass1.clusterSurvivors + cullStatsData.pass2.clusterSurvivors);
+				float triSurvivorTotal = (float)(cullStatsData.pass1.triSurvivors + cullStatsData.pass2.triSurvivors);
+
+				cullStatsHistoryHead = (cullStatsHistoryHead + 1) % CULLSTATS_HISTORY;
+				clusterSurvivorHistory[cullStatsHistoryHead] = survivorTotal;
+				triSurvivorHistory[cullStatsHistoryHead] = triSurvivorTotal;
+
+				if ((clusterStatsFrameCounter % 60) == 0)
+				{
+					char statsLog[512];
+					snprintf(statsLog, sizeof(statsLog),
+						"[ClusterStats] pass1: candidates=%u frustumCulled=%u occluded=%u survivors=%u triCandidates=%u triSurvivors=%u | pass2: candidates=%u frustumCulled=%u occluded=%u survivors=%u triCandidates=%u triSurvivors=%u | instances total=%u pass1=%u pass2=%u hzbEnabled=%u",
+						cullStatsData.pass1.clusterCandidates, cullStatsData.pass1.clusterFrustumCulled, cullStatsData.pass1.clusterOccluded, cullStatsData.pass1.clusterSurvivors, cullStatsData.pass1.triCandidates, cullStatsData.pass1.triSurvivors,
+						cullStatsData.pass2.clusterCandidates, cullStatsData.pass2.clusterFrustumCulled, cullStatsData.pass2.clusterOccluded, cullStatsData.pass2.clusterSurvivors, cullStatsData.pass2.triCandidates, cullStatsData.pass2.triSurvivors,
+						cullStatsData.instancesTotal, cullStatsData.instancesPass1, cullStatsData.instancesPass2, cullStatsData.hzbActive ? 1u : 0u);
+					TC_LOG_INFO(statsLog);
+				}
+			}
+			else
+			{
+				TC_LOG_ERROR("Failed to map DebugStats readback buffer");
+			}
+		}
+
+		++clusterStatsFrameCounter;
 	}
 
 	{
@@ -1219,6 +1388,8 @@ void renderer::draw(float dt)
 
 			cmdList->DrawInstanced(3, 1, 0, 0);
 		}
+
+		transitionHZBForGui(cmdList);
 
 		{
 			render::ScopedGPUEvent imguiEvent(cmdList.Get(), "ImGui");

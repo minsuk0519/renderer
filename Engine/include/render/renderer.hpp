@@ -85,7 +85,8 @@ private:
 	buffer* localClusterOffsetBuffer = nullptr;
 	buffer* localClusterSizeBuffer = nullptr;
 	buffer* occludedClusterBuffer = nullptr;
-	buffer* clusterStatsReadback = nullptr;
+	buffer* debugStatsBuffer = nullptr;
+	buffer* debugStatsReadback = nullptr;
 	uint clusterStatsFrameCounter = 0;
 	buffer* clusterArgsBuffer = nullptr;
 	buffer* visibleTriBuffer = nullptr;
@@ -119,6 +120,36 @@ private:
 	buffer* sceneTriangleBuffer = nullptr;
 
 	buffer* uploadBuffer = nullptr;
+
+public:
+	struct cullPassStats
+	{
+		uint clusterCandidates = 0;
+		uint clusterFrustumCulled = 0;
+		uint clusterOccluded = 0;
+		uint clusterSurvivors = 0;
+		uint triCandidates = 0;
+		uint triSurvivors = 0;
+	};
+
+	struct cullStats
+	{
+		cullPassStats pass1{};
+		cullPassStats pass2{};
+		uint instancesTotal = 0;
+		uint instancesPass1 = 0;
+		uint instancesPass2 = 0;
+		bool hzbActive = false;
+	};
+
+	static constexpr uint CULLSTATS_HISTORY = 120;
+
+private:
+	cullStats cullStatsData;
+	std::array<float, CULLSTATS_HISTORY> clusterSurvivorHistory{};
+	std::array<float, CULLSTATS_HISTORY> triSurvivorHistory{};
+	uint cullStatsHistoryHead = 0;
+
 public:
 	framebuffer* getFrameBuffer() const;
 	framebuffer* getDebugFrameBuffer() const;
@@ -128,6 +159,17 @@ public:
 #endif // #if ENGINE_DEBUG_MESH
 
 	void guiSetting();
+	void guiCullingToggles();
+
+	const cullStats& getCullStats() const;
+	const float* getClusterSurvivorHistory() const;
+	const float* getTriSurvivorHistory() const;
+	uint getCullStatsHistoryOffset() const;
+
+	uint getHZBMipCount() const;
+	D3D12_GPU_DESCRIPTOR_HANDLE getHZBMipHandle(uint mip) const;
+	void getHZBMipSize(uint mip, uint& w, uint& h) const;
+	void transitionHZBForGui(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 
 	render::UBManager* ubManager;
 	void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID, uint flags);

@@ -132,6 +132,12 @@
 #define CBV_CULLING_HZBCONST				GET_HLSL_LOC_CBV(0)
 //u6 occluded cluster list output
 #define UAV_OCCLUDED_CLUSTERS				GET_HLSL_LOC_UAV(6)
+//u7 debug stats buffer output
+#define UAV_CULLING_DEBUG_STATS				GET_HLSL_LOC_UAV(7)
+//b1 cluster-cull debug toggle
+#define CBV_CULLING_DEBUG					GET_HLSL_LOC_CBV(1)
+//b2 triangle-cull debug toggle
+#define CBV_RASTER_DEBUG					GET_HLSL_LOC_CBV(2)
 ////////////////////culling Buffer Ends
 
 ////////////////////utils Buffer Begin
