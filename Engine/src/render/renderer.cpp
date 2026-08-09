@@ -975,6 +975,31 @@ void renderer::draw(float dt)
 
 	generateHZB();
 
+	if (e_globWorld.cameraObjNum[1] > 0)
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_UPLOADPOSTOBJ);
+
+		{
+			render::ScopedGPUEvent uploadPostObjEvent(computeCmdList.Get(), "UploadPostObj");
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_OCCLUDED_CLUSTERS, occludedClusterBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, cmdConstBuffer->getDesc(buf::GBF_CBV)->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
+
+			const uint CLUSTER_THREAD_NUM_CPU = 64;
+			uint postCount = e_globWorld.cameraObjNum[1];
+			computeCmdList->Dispatch((postCount + CLUSTER_THREAD_NUM_CPU - 1) / CLUSTER_THREAD_NUM_CPU, 1, 1);
+		}
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
@@ -1087,31 +1112,6 @@ void renderer::draw(float dt)
 	}
 
 	generateHZB();
-
-	if (e_globWorld.cameraObjNum[1] > 0)
-	{
-		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_UPLOADPOSTOBJ);
-
-		{
-			render::ScopedGPUEvent uploadPostObjEvent(computeCmdList.Get(), "UploadPostObj");
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_OCCLUDED_CLUSTERS, occludedClusterBufferUAV->getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, clustersizeUAV->getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, cmdConstBuffer->getDesc(buf::GBF_CBV)->getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, lodInfoBufferSRV->getHandle());
-
-			const uint CLUSTER_THREAD_NUM_CPU = 64;
-			uint postCount = e_globWorld.cameraObjNum[1];
-			computeCmdList->Dispatch((postCount + CLUSTER_THREAD_NUM_CPU - 1) / CLUSTER_THREAD_NUM_CPU, 1, 1);
-		}
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
-	}
 
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();

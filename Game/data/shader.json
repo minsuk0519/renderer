@@ -143,5 +143,11 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":23
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"uploadPostObj_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":24
 	}
 ]

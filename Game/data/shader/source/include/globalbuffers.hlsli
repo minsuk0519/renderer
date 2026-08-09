@@ -22,7 +22,9 @@ cbuffer cb_cmdBuf : register(b63)
     //objID, meshIndex
     uint4 cbObj[MAX_OBJ_NUM / 4];
     uint objCount;
-    uint3 pad;
+    uint postObjOffset;
+    uint postObjCount;
+    uint pad;
 }
 //objID, meshIndex, lod
 //16 : 13 : 3

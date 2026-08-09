@@ -186,6 +186,7 @@ namespace render
 		PSO_RASTERIZER,        //Rasterizer
 		PSO_CULLCLUSTER_POST,  //CullClusterPost
 		PSO_PREPPOSTARGS,      //PrepPostArgs
+		PSO_UPLOADPOSTOBJ,     //UploadPostObj
 		PSO_END,
 	};
 }

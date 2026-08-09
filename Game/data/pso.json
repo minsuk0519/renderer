@@ -210,5 +210,15 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":20,
+		"psoName":"UploadPostObj",
+		"vertexIndex":24,
+		"pixelIndex":24,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

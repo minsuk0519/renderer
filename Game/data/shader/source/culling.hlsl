@@ -47,22 +47,23 @@ void initCluster_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
 }
 
 
-[numthreads(CLUSTER_THREAD_NUM, 1, 1)]
-void uploadLocalObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+void uploadLocalObj_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPost)
 {
-    int localObjectIndex = gtid.x + groupID.x * CLUSTER_THREAD_NUM;
-    int j = 0;
-    int k = 0;
+    uint localObjectIndex = gtid.x + groupID.x * CLUSTER_THREAD_NUM;
 
-    if(localObjectIndex >= objCount)
+    uint count = isPost ? postObjCount : objCount;
+
+    if(localObjectIndex >= count)
     {
         return;
     }
 
-    uint packedID = packedObj[localObjectIndex] & ((1 << 16) - 1);
+    uint srcIndex = isPost ? (postObjOffset + localObjectIndex) : localObjectIndex;
+
+    uint packedID = packedObj[srcIndex] & ((1 << 16) - 1);
     uint meshIndex = packedID >> 3;
-    uint objID = packedObj[localObjectIndex] >> 16;
-    
+    uint objID = packedObj[srcIndex] >> 16;
+
     meshInfo mesh;
     getMeshInfo(meshIndex, mesh);
     uint lodIndex = mesh.lodOffset + (packedID & 0x7);
@@ -74,20 +75,42 @@ void uploadLocalObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
     uint totalIndexSize = lod.indexSize;
 
     uint waveTotal;
-    uint offset = waveCompactToBuffer(localClusterSize, 0, clusterCount, waveTotal);
+    uint offset = waveCompactToBuffer(localClusterSize, isPost ? (12 * 4) : 0, clusterCount, waveTotal);
 
     for(uint i = 0; i < clusterCount; ++i)
     {
-        localClusterOffsets.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedObj[localObjectIndex], i));
+        if(isPost)
+        {
+            outOccludedClusters.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedObj[srcIndex], i));
+        }
+        else
+        {
+            localClusterOffsets.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedObj[srcIndex], i));
+        }
     }
 
-    GroupMemoryBarrierWithGroupSync();
-
-    if(threadID.x == 0)
+    if (!isPost)
     {
-        uint totalSize = localClusterSize.Load(0);
-        localClusterSize.Store3(4, uint3((1 + (totalSize - 1) / CLUSTER_THREAD_NUM), 1, 1));
+        GroupMemoryBarrierWithGroupSync();
+
+        if(threadID.x == 0)
+        {
+            uint totalSize = localClusterSize.Load(0);
+            localClusterSize.Store3(4, uint3((1 + (totalSize - 1) / CLUSTER_THREAD_NUM), 1, 1));
+        }
     }
+}
+
+[numthreads(CLUSTER_THREAD_NUM, 1, 1)]
+void uploadLocalObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+{
+    uploadLocalObj_internal(groupID, gtid, threadID, false);
+}
+
+[numthreads(CLUSTER_THREAD_NUM, 1, 1)]
+void uploadPostObj_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex )
+{
+    uploadLocalObj_internal(groupID, gtid, threadID, true);
 }
 
 void setSideFlag(float4 pos, inout uint flag)
@@ -344,6 +367,7 @@ void prepPostArgs_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     uint occludedCount = localClusterSize.Load(12 * 4);
     localClusterSize.Store3(13 * 4, uint3((occludedCount + CLUSTER_THREAD_NUM - 1) / CLUSTER_THREAD_NUM, 1, 1));
 
+    // Pass 2 reuses the survivor/draw slots; pass 1's draw has already consumed them.
     localClusterSize.Store(9 * 4, 0);
     localClusterSize.Store4(5 * 4, uint4(0, 0, 0, 0));
 }
