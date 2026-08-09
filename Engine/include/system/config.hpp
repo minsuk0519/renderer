@@ -28,6 +28,10 @@ constexpr uint MAX_OBJECTS = 256;
 constexpr uint MAX_CLUSTERS = MAX_OBJECTS * 1024;
 constexpr uint MAX_VERTICES = 16777216;
 
+static_assert(MAX_OBJECTS <= (1u << 8), "visID encoding allots 8 bits to objID");
+static_assert(MAX_CLUSTERS <= (1u << 18), "visID encoding allots 18 bits to clusterSlot");
+static_assert(THREADS_NUM_CLUSTERS <= (1u << 6), "visID encoding allots 6 bits to localTri");
+
 constexpr uint MAX_MESHES = 16;
 constexpr uint MAX_MESHES_LOD = 128;
 constexpr uint MAX_MESHES_CLUSTERS = 8096;

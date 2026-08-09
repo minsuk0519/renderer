@@ -81,3 +81,25 @@ uint encodeOct(float3 v)
 	
     return optimal;
 }
+
+// ========== visID packing (32-bit layout) ==========
+// Layout (bit 31 down to bit 0):
+//   bits [31:24]  = instanceID (8 bits, range [0, 255])
+//   bits [23:6]   = clusterSlot (18 bits, range [0, 262143])
+//   bits [5:0]    = localTri (6 bits, range [0, 63])
+
+#define VISID_TRI_BITS 6        // CLUSTER_THREAD_NUM == 64 == THREADS_NUM_CLUSTERS (config.hpp:26)
+#define VISID_CLUSTER_BITS 18   // MAX_CLUSTERS == MAX_OBJECTS*1024 == 262144 (config.hpp:28)
+#define VISID_OBJ_BITS 8        // MAX_OBJECTS == 256 (config.hpp:27)
+
+uint encodeVisID(uint objID, uint clusterSlot, uint localTri)
+{
+    return (objID << 24) | ((clusterSlot & 0x3FFFF) << 6) | (localTri & 0x3F);
+}
+
+void decodeVisID(uint v, out uint objID, out uint clusterSlot, out uint localTri)
+{
+    objID = v >> 24;
+    clusterSlot = (v >> 6) & 0x3FFFF;
+    localTri = v & 0x3F;
+}

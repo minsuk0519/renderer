@@ -327,7 +327,7 @@ bool renderer::createFrameResources()
 	//objInfo
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//visID
-	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32G32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferFB->attachDepth(fbDepth, 0.0f);
 
 #if ENGINE_DEBUG_DEBUGCAM
@@ -342,7 +342,7 @@ bool renderer::createFrameResources()
 	//debugID
 	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	//visID
-	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32G32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferDebugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferDebugFB->attachDepth(fbDepth, 0.0f);
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
