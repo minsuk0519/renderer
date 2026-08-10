@@ -12,7 +12,7 @@ struct PSInput
     float3 worldPos : WORLD_POS;
     float3 normal   : NORMAL;
     uint objID      : OBJECTID;
-    nointerpolation uint visID : VISID;
+    uint visID : VISID;
 
     uint4 output    : OUTPUT;
 };
@@ -76,7 +76,7 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         scaledNorm.z = normal.z * scale.z;
         result.normal = normalize(quatRotate(rotation, scaledNorm));
         result.objID = objID;
-        result.visID = encodeVisID(objID, clusterSlot, vertexID / 3);
+        result.visID = encodeVisID(clusterSlot, vertexID / 3);
 
         result.output = float4(clusterSlot,meshIndex,objID,vertexIndex);
         //result.output = uint4(clusterSlot, vertexIndex, indexSize, vertexID);
