@@ -5,6 +5,8 @@ Texture2D<uint> visIDGbuffer : register(t0);
 Texture2D<float> sceneDepth : register(t1);
 ByteAddressBuffer clusterArgs : register(t2);
 RWByteAddressBuffer materialPixelCounts : register(u0);
+RWByteAddressBuffer materialMemoryOffset : register(u1);
+RWByteAddressBuffer materialPixelArgs : register(u2);
 
 struct visBufferSample
 {
@@ -54,6 +56,11 @@ void visBuffer_initMaterialCount_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_
     for (uint i = threadIndex; i < slotsToInitialize; i += 64)
     {
         materialPixelCounts.Store(i * 4, 0);
+    }
+
+    if (threadIndex == 0)
+    {
+        materialPixelArgs.Store4(0, uint4(0, 1, 1, 0));
     }
 }
 
@@ -110,4 +117,17 @@ void visBuffer_materialCount_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_Grou
             materialPixelCounts.InterlockedAdd(waveMin * 4, waveHits, prev);
         }
     }
+}
+
+[numthreads(64, 1, 1)]
+void visBuffer_materialOffset_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID)
+{
+    uint materialIndex = groupID.x * 64 + gtid.x;
+
+    uint count = materialPixelCounts.Load(materialIndex * 4);
+
+    uint waveTotal;
+    uint offset = waveCompactToBuffer(materialPixelArgs, 0, count, waveTotal);
+
+    materialMemoryOffset.Store(materialIndex * 4, offset);
 }

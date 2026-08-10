@@ -161,5 +161,11 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":26
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_materialOffset_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":27
 	}
 ]

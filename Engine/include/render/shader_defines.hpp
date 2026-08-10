@@ -153,6 +153,10 @@
 #define SRV_VISBUFFER_CLUSTERARGS   GET_HLSL_LOC_SRV(2)
 //u0 material visbuffer counts
 #define UAV_VISBUFFER_MATCOUNTS		GET_HLSL_LOC_UAV(0)
+//u1 per-material memory offset
+#define UAV_VISBUFFER_MEMOFFSET     GET_HLSL_LOC_UAV(1)
+//u2 material pixel allocation args/cursor
+#define UAV_VISBUFFER_ARGS          GET_HLSL_LOC_UAV(2)
 ////////////////////visBuffer Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -210,6 +214,7 @@ namespace render
 		PSO_UPLOADPOSTOBJ,     //UploadPostObj
 		PSO_VISBUFFERINITMATERIALCOUNT,  //VisBufferInitMaterialCount
 		PSO_VISBUFFERMATERIALCOUNT,      //VisBufferMaterialCount
+		PSO_VISBUFFERMATERIALOFFSET,     //VisBufferMaterialOffset
 		PSO_END,
 	};
 }

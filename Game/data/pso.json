@@ -242,5 +242,15 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":23,
+		"psoName":"VisBufferMaterialOffset",
+		"vertexIndex":27,
+		"pixelIndex":27,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]
