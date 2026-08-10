@@ -89,6 +89,7 @@ private:
 	buffer* debugStatsBuffer = nullptr;
 	buffer* debugStatsReadback = nullptr;
 	uint clusterStatsFrameCounter = 0;
+	buffer* materialPixelCountsBuffer = nullptr;
 	buffer* clusterArgsBuffer = nullptr;
 	buffer* visibleTriBuffer = nullptr;
 	buffer* fbDepth = nullptr;

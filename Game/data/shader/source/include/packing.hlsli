@@ -102,3 +102,29 @@ void decodeVisID(uint v, out uint clusterSlot, out uint localTri)
     clusterSlot = (v >> 6) & 0x3FFFF;
     localTri = v & 0x3F;
 }
+
+// ========== packedID packing (32-bit layout) ==========
+// Layout (MSB -> LSB):
+//   bits [31:16] = objID     (16 bits) — also the material ID and the instance ID; < MAX_OBJECTS (256)
+//   bits [15:3]  = meshIndex (13 bits)
+//   bits [2:0]   = lod       (3 bits)
+// Produced CPU-side by object::submit (Engine/src/world/object.cpp:78).
+#define PACKEDID_LOD_BITS  3
+#define PACKEDID_MESH_BITS 13
+
+uint encodePackedID(uint objID, uint meshIndex, uint lod)
+{
+    return (objID << 16) | (meshIndex << 3) | (lod & 0x7);
+}
+
+void decodePackedID(uint packed, out uint objID, out uint meshIndex, out uint lod)
+{
+    objID = packed >> 16;
+    meshIndex = (packed >> 3) & 0x1FFF;
+    lod = packed & 0x7;
+}
+
+uint packedIDToObjID(uint packed)
+{
+    return packed >> 16;
+}

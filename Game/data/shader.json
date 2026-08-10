@@ -149,5 +149,17 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":24
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_initMaterialCount_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":25
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_materialCount_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":26
 	}
 ]

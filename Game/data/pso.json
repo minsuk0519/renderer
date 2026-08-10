@@ -222,5 +222,25 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":21,
+		"psoName":"VisBufferInitMaterialCount",
+		"vertexIndex":25,
+		"pixelIndex":25,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":22,
+		"psoName":"VisBufferMaterialCount",
+		"vertexIndex":26,
+		"pixelIndex":26,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

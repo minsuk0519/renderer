@@ -144,6 +144,17 @@
 #define CBV_RASTER_DEBUG					GET_HLSL_LOC_CBV(2)
 ////////////////////culling Buffer Ends
 
+////////////////////visBuffer Buffer Begin
+//t0 visID gbuffer
+#define SRV_VISBUFFER_VISID         GET_HLSL_LOC_SRV(0)
+//t1 scene depth (HZB mip 0)
+#define SRV_VISBUFFER_DEPTH         GET_HLSL_LOC_SRV(1)
+//t2 cluster args (vertexIDBuffer)
+#define SRV_VISBUFFER_CLUSTERARGS   GET_HLSL_LOC_SRV(2)
+//u0 material visbuffer counts
+#define UAV_VISBUFFER_MATCOUNTS		GET_HLSL_LOC_UAV(0)
+////////////////////visBuffer Buffer Ends
+
 ////////////////////utils Buffer Begin
 //u0 util src buffer output
 #define UAV_UTILS_DST_BUFFER			GET_HLSL_LOC_UAV(0)
@@ -197,6 +208,8 @@ namespace render
 		PSO_CULLCLUSTER_POST,  //CullClusterPost
 		PSO_PREPPOSTARGS,      //PrepPostArgs
 		PSO_UPLOADPOSTOBJ,     //UploadPostObj
+		PSO_VISBUFFERINITMATERIALCOUNT,  //VisBufferInitMaterialCount
+		PSO_VISBUFFERMATERIALCOUNT,      //VisBufferMaterialCount
 		PSO_END,
 	};
 }

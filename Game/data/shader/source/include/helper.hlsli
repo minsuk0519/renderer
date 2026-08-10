@@ -4,9 +4,11 @@ static const uint vertexMax = 16777216;
 static const uint clusterMax = 262144;
 static const uint clusterSize = 64;
 static const uint MAX_OBJ_NUM = 256;
+static const uint MAX_MATERIAL_NUM = 256;
 static const float3 DEBUG_COL = float3(1,0,0);
 static const uint SCREENWIDTH = 1600;
 static const uint SCREENHEIGHT = 900;
+static const uint INVALID_ID = 0xFFFFFFFFU;
 
 #define e 2.718281828459045f
 
