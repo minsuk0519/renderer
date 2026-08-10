@@ -13,7 +13,7 @@ class framebuffer
 private:
 	std::vector<buffer*> FBOs;
 
-	DirectX::XMFLOAT4 clearColor;
+	std::vector<DirectX::XMFLOAT4> clearColors;
 
 	buffer* depthBuffer = nullptr;
 	float clearDepth = 1.0f;
