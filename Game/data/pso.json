@@ -252,5 +252,15 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":24,
+		"psoName":"VisBufferPixelInfo",
+		"vertexIndex":28,
+		"pixelIndex":28,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

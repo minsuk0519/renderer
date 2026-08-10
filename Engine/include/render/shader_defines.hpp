@@ -157,6 +157,10 @@
 #define UAV_VISBUFFER_MEMOFFSET     GET_HLSL_LOC_UAV(1)
 //u2 material pixel allocation args/cursor
 #define UAV_VISBUFFER_ARGS          GET_HLSL_LOC_UAV(2)
+//u3 per-material full-block / straggler write cursors
+#define UAV_VISBUFFER_BLOCKCURSOR   GET_HLSL_LOC_UAV(3)
+//u4 per-pixel material info records
+#define UAV_VISBUFFER_PIXELINFO     GET_HLSL_LOC_UAV(4)
 ////////////////////visBuffer Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -215,6 +219,7 @@ namespace render
 		PSO_VISBUFFERINITMATERIALCOUNT,  //VisBufferInitMaterialCount
 		PSO_VISBUFFERMATERIALCOUNT,      //VisBufferMaterialCount
 		PSO_VISBUFFERMATERIALOFFSET,     //VisBufferMaterialOffset
+		PSO_VISBUFFERPIXELINFO,          //VisBufferPixelInfo
 		PSO_END,
 	};
 }

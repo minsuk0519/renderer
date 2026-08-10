@@ -290,3 +290,12 @@ uint waveCompactToBuffer(RWByteAddressBuffer buf, uint byteOffset, uint value, o
 
     return WaveReadLaneFirst(base) + waveLocalOffset;
 }
+
+uint blockSwizzle8x4(uint2 localPos)
+{
+    return  (localPos.x & 1)
+         | ((localPos.y & 1) << 1)
+         | ((localPos.x & 2) << 1)
+         | ((localPos.y & 2) << 2)
+         | ((localPos.x & 4) << 2);
+}
