@@ -37,13 +37,12 @@ bool visBuffer_traverse(uint2 pixel, out visBufferSample result)
 
     result.packedID = clusterArgs.Load((clusterSlot * 3 + 2) * 4);
 
-    uint objID = INVALID_ID;
-    decodePackedID(result.packedID, objID, result.meshIndex, result.lod);
+    decodePackedID(result.packedID, result.objID, result.meshIndex, result.lod);
 
     result.clusterSlot = clusterSlot;
     result.localTri = localTri;
 
-    return objID < MAX_MATERIAL_NUM;
+    return result.objID < MAX_MATERIAL_NUM;
 }
 
 [numthreads(64, 1, 1)]
