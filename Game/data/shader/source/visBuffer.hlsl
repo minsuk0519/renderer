@@ -50,7 +50,7 @@ bool visBuffer_traverse(uint2 pixel, out visBufferSample result)
 void visBuffer_initMaterialCount_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID)
 {
     uint threadIndex = gtid.x;
-    uint slotsToInitialize = MAX_MATERIAL_NUM + 4;  // 256 + 4 debug slots
+    uint slotsToInitialize = MAX_MATERIAL_NUM;
 
     for (uint i = threadIndex; i < slotsToInitialize; i += 64)
     {
@@ -74,6 +74,10 @@ void visBuffer_materialCount_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_Grou
         if(visBuffer_traverse(p, s))
         {
             matID[i] = s.objID;
+        }
+        else
+        {
+            matID[i] = INVALID_ID;
         }
     }
 
