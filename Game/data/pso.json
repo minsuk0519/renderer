@@ -262,5 +262,15 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":25,
+		"psoName":"VisBufferGbufferArgs",
+		"vertexIndex":29,
+		"pixelIndex":29,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

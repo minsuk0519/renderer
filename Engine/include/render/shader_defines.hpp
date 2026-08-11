@@ -161,6 +161,8 @@
 #define UAV_VISBUFFER_BLOCKCURSOR   GET_HLSL_LOC_UAV(3)
 //u4 per-pixel material info records
 #define UAV_VISBUFFER_PIXELINFO     GET_HLSL_LOC_UAV(4)
+//u5 per-material gbuffer indirect-dispatch args
+#define UAV_VISBUFFER_GBUFFERARGS   GET_HLSL_LOC_UAV(5)
 ////////////////////visBuffer Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -220,6 +222,7 @@ namespace render
 		PSO_VISBUFFERMATERIALCOUNT,      //VisBufferMaterialCount
 		PSO_VISBUFFERMATERIALOFFSET,     //VisBufferMaterialOffset
 		PSO_VISBUFFERPIXELINFO,          //VisBufferPixelInfo
+		PSO_VISBUFFERGBUFFERARGS,        //VisBufferGbufferArgs
 		PSO_END,
 	};
 }

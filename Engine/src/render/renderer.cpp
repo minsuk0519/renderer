@@ -138,6 +138,7 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	materialPixelArgsBuffer    = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 4, 1, buf::GBF_UAV, 0);
 	materialBlockCursorBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 2 * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
 	materialPixelInfoBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * e_globWindow.width() * e_globWindow.height(), 1, buf::GBF_UAV, 0);
+	materialGbufferArgsBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 4 * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
 	clusterArgsBuffer = e_globBufAllocator.alloc(nullptr, (MAX_CLUSTERS / THREADS_NUM_CLUSTERS) * sizeof(uint), 1, buf::GBF_UAV, 0);
 	visibleTriBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * THREADS_NUM_CLUSTERS * sizeof(uint), 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
@@ -864,6 +865,7 @@ void renderer::draw(float dt)
 	descriptor* materialPixelArgsUAV = materialPixelArgsBuffer->getDesc(buf::GBF_UAV);
 	descriptor* materialBlockCursorUAV = materialBlockCursorBuffer->getDesc(buf::GBF_UAV);
 	descriptor* materialPixelInfoUAV = materialPixelInfoBuffer->getDesc(buf::GBF_UAV);
+	descriptor* materialGbufferArgsUAV = materialGbufferArgsBuffer->getDesc(buf::GBF_UAV);
 #if	ENGINE_DEBUG_BUFFER
 	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
 #endif // #if ENGINE_DEBUG_BUFFER
@@ -1395,6 +1397,25 @@ void renderer::draw(float dt)
 			uint quadW = (e_globWindow.width() + 1) / 2;
 			uint quadH = (e_globWindow.height() + 1) / 2;
 			computeCmdList->Dispatch((quadW + 7) / 8, (quadH + 3) / 4, 1);
+		}
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_VISBUFFERGBUFFERARGS);
+
+		{
+			render::ScopedGPUEvent visBufferGbufferArgsEvent(computeCmdList.Get(), "VisBufferGbufferArgs");
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_MATCOUNTS, materialCountsUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_GBUFFERARGS, materialGbufferArgsUAV->getHandle());
+
+			computeCmdList->Dispatch(4, 1, 1);
 		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });

@@ -1,6 +1,8 @@
 #include "include\common.hlsli"
 #include "include\packing.hlsli"
 
+#define GBUFFER_RECORD_THREAD_NUM 32
+
 Texture2D<uint> visIDGbuffer : register(t0);
 Texture2D<float> sceneDepth : register(t1);
 ByteAddressBuffer clusterArgs : register(t2);
@@ -9,6 +11,12 @@ RWByteAddressBuffer materialMemoryOffset : register(u1);
 RWByteAddressBuffer materialPixelArgs : register(u2);
 RWByteAddressBuffer materialBlockCursor : register(u3);
 RWByteAddressBuffer materialPixelInfo : register(u4);
+//   [0] = materialID   -- consumed as a root constant by the command signature's leading
+//                         D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT desc
+//   [1] = ThreadGroupCountX = ceil(materialPixelCounts[m] / GBUFFER_RECORD_THREAD_NUM)
+//   [2] = ThreadGroupCountY = 1
+//   [3] = ThreadGroupCountZ = 1
+RWByteAddressBuffer materialGbufferArgs : register(u5);
 
 struct visBufferSample
 {
@@ -235,4 +243,16 @@ void visBuffer_pixelInfo_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThr
             materialPixelInfo.Store(slot * 4, encodeQuadRecord(topLeft, validMask));
         }
     }
+}
+[numthreads(64, 1, 1)]
+void visBuffer_gbufferArgs_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID)
+{
+    uint materialIndex = groupID.x * 64 + gtid.x;
+
+    uint count = materialPixelCounts.Load(materialIndex * 4);
+
+    // count == 0 yields X == 0: a legal, zero-work indirect dispatch.
+    uint groupCount = (count + GBUFFER_RECORD_THREAD_NUM - 1) / GBUFFER_RECORD_THREAD_NUM;
+
+    materialGbufferArgs.Store4(materialIndex * 16, uint4(materialIndex, groupCount, 1, 1));
 }

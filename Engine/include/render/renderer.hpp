@@ -94,6 +94,7 @@ private:
 	buffer* materialPixelArgsBuffer = nullptr;
 	buffer* materialBlockCursorBuffer = nullptr;
 	buffer* materialPixelInfoBuffer = nullptr;
+	buffer* materialGbufferArgsBuffer = nullptr;
 	buffer* clusterArgsBuffer = nullptr;
 	buffer* visibleTriBuffer = nullptr;
 	buffer* fbDepth = nullptr;
