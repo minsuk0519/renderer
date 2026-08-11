@@ -151,6 +151,8 @@
 #define SRV_VISBUFFER_DEPTH         GET_HLSL_LOC_SRV(1)
 //t2 cluster args (vertexIDBuffer)
 #define SRV_VISBUFFER_CLUSTERARGS   GET_HLSL_LOC_SRV(2)
+//t3 per-cluster visible triangle table
+#define SRV_VISBUFFER_VISIBLE_TRIS  GET_HLSL_LOC_SRV(3)
 //u0 material visbuffer counts
 #define UAV_VISBUFFER_MATCOUNTS		GET_HLSL_LOC_UAV(0)
 //u1 per-material memory offset
@@ -163,6 +165,12 @@
 #define UAV_VISBUFFER_PIXELINFO     GET_HLSL_LOC_UAV(4)
 //u5 per-material gbuffer indirect-dispatch args
 #define UAV_VISBUFFER_GBUFFERARGS   GET_HLSL_LOC_UAV(5)
+//u6 deferred gbuffer world position output
+#define UAV_VISBUFFER_POSITION      GET_HLSL_LOC_UAV(6)
+//u7 deferred gbuffer oct-encoded normal output
+#define UAV_VISBUFFER_NORMAL        GET_HLSL_LOC_UAV(7)
+//b0 per-command material id root constant (set by ExecuteIndirect, never by sendData)
+#define CBV_VISBUFFER_MATERIALID    GET_HLSL_LOC_CBV(0)
 ////////////////////visBuffer Buffer Ends
 
 ////////////////////utils Buffer Begin
@@ -223,6 +231,8 @@ namespace render
 		PSO_VISBUFFERMATERIALOFFSET,     //VisBufferMaterialOffset
 		PSO_VISBUFFERPIXELINFO,          //VisBufferPixelInfo
 		PSO_VISBUFFERGBUFFERARGS,        //VisBufferGbufferArgs
+		PSO_VISBUFFERGBUFFERCLEAR,       //VisBufferGbufferClear
+		PSO_VISBUFFERGBUFFER,            //VisBufferGbuffer
 		PSO_END,
 	};
 }

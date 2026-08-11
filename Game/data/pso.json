@@ -272,5 +272,25 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":26,
+		"psoName":"VisBufferGbufferClear",
+		"vertexIndex":30,
+		"pixelIndex":30,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":27,
+		"psoName":"VisBufferGbuffer",
+		"vertexIndex":31,
+		"pixelIndex":31,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

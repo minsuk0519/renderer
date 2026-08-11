@@ -519,19 +519,22 @@ namespace buf
     char* viewAllocator::allocateUAVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
     {
         D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
-        //we will forcely use R32 for UAVs since we will use our own packing unpacking for raw byte buffer
-        view.Format = DXGI_FORMAT_R32_FLOAT;
         if (bufDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D)
         {
+            view.Format = bufDesc.Format;
             view.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+            view.Texture2D.MipSlice = 0;
+            view.Texture2D.PlaneSlice = 0;
         }
         else
         {
+            //we will forcely use R32 for UAVs since we will use our own packing unpacking for raw byte buffer
+            view.Format = DXGI_FORMAT_R32_FLOAT;
             view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+            view.Buffer.FirstElement = 0;
+            view.Buffer.NumElements = buf->header.dataSize / sizeof(float);
         }
-        view.Buffer.FirstElement = 0;
-        view.Buffer.NumElements = buf->header.dataSize / sizeof(float);
-        
+
         descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
 
         *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, buf, &view);

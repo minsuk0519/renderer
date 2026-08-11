@@ -139,6 +139,8 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	materialBlockCursorBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 2 * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
 	materialPixelInfoBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * e_globWindow.width() * e_globWindow.height(), 1, buf::GBF_UAV, 0);
 	materialGbufferArgsBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 4 * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
+	gbufferPositionTex = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32G32B32A32_FLOAT, e_globWindow.width(), e_globWindow.height());
+	gbufferNormalTex   = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_UINT, e_globWindow.width(), e_globWindow.height());
 	clusterArgsBuffer = e_globBufAllocator.alloc(nullptr, (MAX_CLUSTERS / THREADS_NUM_CLUSTERS) * sizeof(uint), 1, buf::GBF_UAV, 0);
 	visibleTriBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * THREADS_NUM_CLUSTERS * sizeof(uint), 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
@@ -357,7 +359,7 @@ bool renderer::createFrameResources()
 	debugFB->attachDepth(fbDepth, 0.0f);
 
 	{
-		std::vector<render::cmdSigData> sigData[3];
+		std::vector<render::cmdSigData> sigData[4];
 
 		//sigData[0].push_back({ D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT, CBV_SCREEN, 1 });
 
@@ -365,6 +367,10 @@ bool renderer::createFrameResources()
 		render::getpipelinestate(render::PSO_CULLCLUSTER)->setCommandSignature(sigData[1]);
 		render::getpipelinestate(render::PSO_RASTERIZER)->setCommandSignature(sigData[2]);
 		render::getpipelinestate(render::PSO_CULLCLUSTER_POST)->setCommandSignature(sigData[1]);
+
+		sigData[3].push_back({ D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT, CBV_VISBUFFER_MATERIALID, 1 });
+
+		render::getpipelinestate(render::PSO_VISBUFFERGBUFFER)->setCommandSignature(sigData[3]);
 	}
 
 	return true;
@@ -866,6 +872,10 @@ void renderer::draw(float dt)
 	descriptor* materialBlockCursorUAV = materialBlockCursorBuffer->getDesc(buf::GBF_UAV);
 	descriptor* materialPixelInfoUAV = materialPixelInfoBuffer->getDesc(buf::GBF_UAV);
 	descriptor* materialGbufferArgsUAV = materialGbufferArgsBuffer->getDesc(buf::GBF_UAV);
+	descriptor* gbufferPositionUAV = gbufferPositionTex->getDesc(buf::GBF_UAV);
+	descriptor* gbufferNormalUAV   = gbufferNormalTex->getDesc(buf::GBF_UAV);
+	descriptor* gbufferPositionSRV = gbufferPositionTex->getDesc(buf::GBF_SRV);
+	descriptor* gbufferNormalSRV   = gbufferNormalTex->getDesc(buf::GBF_SRV);
 #if	ENGINE_DEBUG_BUFFER
 	descriptor* outDebugBufferUAV = outDebugBuffer->getDesc(buf::GBF_UAV);
 #endif // #if ENGINE_DEBUG_BUFFER
@@ -1426,13 +1436,68 @@ void renderer::draw(float dt)
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_VISBUFFERGBUFFERCLEAR);
+
+		{
+			render::ScopedGPUEvent visBufferGbufferClearEvent(computeCmdList.Get(), "VisBufferGbufferClear");
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_POSITION, gbufferPositionUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_NORMAL, gbufferNormalUAV->getHandle());
+			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+
+			computeCmdList->Dispatch((e_globWindow.width() + 7) / 8, (e_globWindow.height() + 7) / 8, 1);
+		}
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_VISBUFFERGBUFFER);
+
+		{
+			render::ScopedGPUEvent visBufferGbufferEvent(computeCmdList.Get(), "VisBufferGbuffer");
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_VISID, gbufferFB->getDescHandle(4));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_DEPTH, hzbMipSRV[0].getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_MATCOUNTS, materialCountsUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_MEMOFFSET, materialMemOffsetUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_PIXELINFO, materialPixelInfoUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_POSITION, gbufferPositionUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_NORMAL, gbufferNormalUAV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
+			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
+
+			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_VISBUFFERGBUFFER)->getCmdSignature(),
+				MAX_OBJECTS, materialGbufferArgsBuffer->getResource(), 0, nullptr, 0);
+		}
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_SSAO);
 
 		{
 			render::ScopedGPUEvent ssaoEvent(computeCmdList.Get(), "Draw SSAO");
 
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferPositionSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferNormalSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[0]->getHandle());
@@ -1459,8 +1524,8 @@ void renderer::draw(float dt)
 		{
 			render::ScopedGPUEvent ssaoBlurEvent(computeCmdList.Get(), ssaoBlurNames[i]);
 
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferPositionSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferNormalSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[i]->getHandle());
@@ -1514,8 +1579,8 @@ void renderer::draw(float dt)
 
 			setVertexBuffer(cmdList, 0, sceneTriangleBuffer);
 
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferFB->getDescHandle(0));
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferFB->getDescHandle(1));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferPositionSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferNormalSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferFB->getDescHandle(3));
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MATERIAL_BUFFER, materialBufferSRV->getHandle());

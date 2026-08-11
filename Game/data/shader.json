@@ -179,5 +179,17 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":29
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_gbufferClear_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":30
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_gbuffer_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":31
 	}
 ]
