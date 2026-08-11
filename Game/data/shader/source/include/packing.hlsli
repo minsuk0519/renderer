@@ -128,3 +128,23 @@ uint packedIDToObjID(uint packed)
 {
     return packed >> 16;
 }
+
+// ========== quad record packing (32-bit layout) ==========
+// Layout (MSB -> LSB):
+//   bits [31:18] = x         (14 bits) — quad top-left PIXEL x, max 16383
+//   bits [17:4]  = y         (14 bits) — quad top-left PIXEL y, max 16383
+//   bits [3:0]   = validMask (4 bits)  — bit j set => pixel (x,y) + (j & 1, j >> 1)
+//                                        belongs to the material owning this record
+// One record per (quad, material) pair. A quad straddling N materials emits N records,
+// one into each material's region, with disjoint validMasks.
+uint encodeQuadRecord(uint2 topLeftPixel, uint validMask)
+{
+    return ((topLeftPixel.x & 0x3FFF) << 18) | ((topLeftPixel.y & 0x3FFF) << 4) | (validMask & 0xF);
+}
+
+void decodeQuadRecord(uint record, out uint2 topLeftPixel, out uint validMask)
+{
+    topLeftPixel.x = (record >> 18) & 0x3FFF;
+    topLeftPixel.y = (record >> 4) & 0x3FFF;
+    validMask = record & 0xF;
+}

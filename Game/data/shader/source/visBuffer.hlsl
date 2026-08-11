@@ -103,16 +103,17 @@ void visBuffer_materialCount_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_Grou
             break;
         }
 
-        uint laneHits = 0;
+        uint laneMask = 0;
         [unroll]
         for (uint j = 0; j < 4; ++j)
         {
             if (matID[j] == waveMin)
             {
-                ++laneHits;
+                laneMask |= (1u << j);
                 matID[j] = INVALID_ID;
             }
         }
+        uint laneHits = (laneMask != 0) ? 1 : 0;   // one RECORD per quad per material, not one per pixel
 
         uint waveHits = WaveActiveSum(laneHits);
 
@@ -137,51 +138,64 @@ void visBuffer_materialOffset_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_Gro
     materialMemoryOffset.Store(materialIndex * 4, offset);
 }
 
+// material present in its quad. NO early return: the wave reductions need every lane.
 [numthreads(8, 4, 1)]
 void visBuffer_pixelInfo_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID)
 {
-    uint2 pixel = uint2(groupID.x * 8 + gtid.x, groupID.y * 4 + gtid.y);
+    uint2 quad = uint2(groupID.x * 8 + gtid.x, groupID.y * 4 + gtid.y);
+    uint2 topLeft = quad * 2;
 
-    visBufferSample s;
-    bool valid = visBuffer_traverse(pixel, s);
+    uint matID[4];
 
-    uint matID = valid ? s.objID : INVALID_ID;
+    [unroll]
+    for (uint i = 0; i < 4; ++i)
+    {
+        // Same sub-pixel mapping as visBuffer_materialCount_cs:77 — validMask bit i
+        // MUST correspond to this offset.
+        uint2 p = topLeft + uint2(i & 1, i >> 1);
 
-    // A block is full iff every lane is covered AND every lane agrees on the material.
-    // A fully-covered but mixed-material block is full for neither material.
-    uint waveMin = WaveActiveMin(matID);
-    uint waveMax = WaveActiveMax(matID);
+        visBufferSample s;
+        matID[i] = visBuffer_traverse(p, s) ? s.objID : INVALID_ID;
+    }
+
+    // A quad is full iff all 4 pixels are covered and share one material.
+    bool quadFull = (matID[0] == matID[1]) && (matID[0] == matID[2]) && (matID[0] == matID[3])
+                 && (matID[0] != INVALID_ID);
+    uint quadMat = quadFull ? matID[0] : INVALID_ID;
+
+    uint waveMin = WaveActiveMin(quadMat);
+    uint waveMax = WaveActiveMax(quadMat);
     bool blockFull = (waveMin == waveMax) && (waveMin != INVALID_ID);
 
-    uint linearPixel = pixel.y * screenWidth + pixel.x;
-
-    // ---- full-block path: ONE atomic reserves all 32 slots ----
+    // ---- full-block path: ONE atomic reserves all 32 records ----
     if (blockFull)
     {
-        // Wave-uniform branch: matID, waveMin and blockFull are all wave reductions,
-        // so WaveIsFirstLane()/WaveReadLaneFirst() are valid here.
-        uint base = materialMemoryOffset.Load(matID * 4);
+        uint base = materialMemoryOffset.Load(quadMat * 4);
 
         uint blockStart = 0;
         if (WaveIsFirstLane())
         {
-            materialBlockCursor.InterlockedAdd((matID * 2 + 0) * 4, 32, blockStart);
+            materialBlockCursor.InterlockedAdd((quadMat * 2 + 0) * 4, 32, blockStart);
         }
         blockStart = WaveReadLaneFirst(blockStart);
 
         uint slot = base + blockStart + blockSwizzle8x4(gtid.xy);
 
-        materialPixelInfo.Store2(slot * 8, uint2(linearPixel, s.visID));
+        materialPixelInfo.Store(slot * 4, encodeQuadRecord(topLeft, 0xF));
     }
 
-    // ---- straggler path: ONE atomic per DISTINCT material in the wave ----
-    uint strayMat = (!blockFull && valid) ? matID : INVALID_ID;
-    uint strayIdx = 0;
+    uint pm[4];
+    [unroll]
+    for (uint k = 0; k < 4; ++k)
+    {
+        pm[k] = blockFull ? INVALID_ID : matID[k];
+    }
 
-    uint iterCap = WaveGetLaneCount();
+    uint iterCap = 4 * WaveGetLaneCount();
     for (uint iter = 0; iter < iterCap; ++iter)
     {
-        uint m = WaveActiveMin(strayMat);
+        uint laneMin = min(min(pm[0], pm[1]), min(pm[2], pm[3]));
+        uint m = WaveActiveMin(laneMin);
 
         // Wave-uniform: every lane breaks on the same iteration.
         if (m == INVALID_ID)
@@ -189,9 +203,20 @@ void visBuffer_pixelInfo_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThr
             break;
         }
 
-        bool isMatch = (strayMat == m);
-        uint rank  = WavePrefixCountBits(isMatch);   // this lane's index within the subset
-        uint total = WaveActiveCountBits(isMatch);   // subset size, wave-uniform
+        uint validMask = 0;
+        [unroll]
+        for (uint j = 0; j < 4; ++j)
+        {
+            if (pm[j] == m)
+            {
+                validMask |= (1u << j);
+                pm[j] = INVALID_ID;              // retire this material's sub-pixels
+            }
+        }
+
+        bool isMatch = (validMask != 0);
+        uint rank  = WavePrefixCountBits(isMatch);
+        uint total = WaveActiveCountBits(isMatch);
 
         uint strayBase = 0;
         if (WaveIsFirstLane())
@@ -202,19 +227,12 @@ void visBuffer_pixelInfo_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThr
 
         if (isMatch)
         {
-            strayIdx = strayBase + rank;
-            strayMat = INVALID_ID;                   // retire
+            uint base  = materialMemoryOffset.Load(m * 4);
+            uint count = materialPixelCounts.Load(m * 4);
+
+            uint slot = base + count - 1 - (strayBase + rank);
+
+            materialPixelInfo.Store(slot * 4, encodeQuadRecord(topLeft, validMask));
         }
-    }
-
-    if (!blockFull && valid)
-    {
-        // Stragglers grow downward from the back of the region.
-        uint base  = materialMemoryOffset.Load(matID * 4);
-        uint count = materialPixelCounts.Load(matID * 4);
-
-        uint slot = base + count - 1 - strayIdx;
-
-        materialPixelInfo.Store2(slot * 8, uint2(linearPixel, s.visID));
     }
 }

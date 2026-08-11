@@ -137,7 +137,7 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	materialMemoryOffsetBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
 	materialPixelArgsBuffer    = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 4, 1, buf::GBF_UAV, 0);
 	materialBlockCursorBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 2 * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
-	materialPixelInfoBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 2 * e_globWindow.width() * e_globWindow.height(), 1, buf::GBF_UAV, 0);
+	materialPixelInfoBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * e_globWindow.width() * e_globWindow.height(), 1, buf::GBF_UAV, 0);
 	clusterArgsBuffer = e_globBufAllocator.alloc(nullptr, (MAX_CLUSTERS / THREADS_NUM_CLUSTERS) * sizeof(uint), 1, buf::GBF_UAV, 0);
 	visibleTriBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * THREADS_NUM_CLUSTERS * sizeof(uint), 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
@@ -1392,9 +1392,9 @@ void renderer::draw(float dt)
 			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
 
-			uint width = e_globWindow.width();
-			uint height = e_globWindow.height();
-			computeCmdList->Dispatch((width + 7) / 8, (height + 3) / 4, 1);
+			uint quadW = (e_globWindow.width() + 1) / 2;
+			uint quadH = (e_globWindow.height() + 1) / 2;
+			computeCmdList->Dispatch((quadW + 7) / 8, (quadH + 3) / 4, 1);
 		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
