@@ -362,9 +362,11 @@ bool renderer::createFrameResources()
 	gbufferDebugFB->attachDepth(fbDepth, 0.0f);
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
+#if ENGINE_DEBUG_MESH
 	debugFB = new framebuffer();
 	debugFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R8_UNORM, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	debugFB->attachDepth(fbDepth, 0.0f);
+#endif // #if ENGINE_DEBUG_MESH
 
 	{
 		std::vector<render::cmdSigData> sigData[4];
@@ -463,12 +465,12 @@ framebuffer* renderer::getFrameBuffer() const
 	return gbufferFB;
 }
 
+#if ENGINE_DEBUG_MESH
 framebuffer* renderer::getDebugFrameBuffer() const
 {
 	return debugFB;
 }
 
-#if ENGINE_DEBUG_MESH
 void renderer::debugFrameBufferRequest(uint debugMeshID, UINT64 projPtr)
 {
 	debugFBRequest = true;

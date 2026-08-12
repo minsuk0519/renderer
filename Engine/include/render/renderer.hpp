@@ -162,9 +162,9 @@ private:
 
 public:
 	framebuffer* getFrameBuffer() const;
-	framebuffer* getDebugFrameBuffer() const;
 
 #if ENGINE_DEBUG_MESH
+	framebuffer* getDebugFrameBuffer() const;
 	void debugFrameBufferRequest(uint debugMeshID, UINT64 projPtr);
 #endif // #if ENGINE_DEBUG_MESH
 

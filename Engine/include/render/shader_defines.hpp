@@ -11,7 +11,9 @@
 
 ////////////////////global Buffer Begin
 //u63 debug buffer
+#if ENGINE_DEBUG_BUFFER
 #define UAV_GLOBAL_DEBUG_BUFFER		GET_HLSL_LOC_UAV(63)
+#endif // #if ENGINE_DEBUG_BUFFER
 
 //t63 position
 #define SRV_VERTEX_BUFFER			GET_HLSL_LOC_SRV(63)

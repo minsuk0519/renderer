@@ -113,6 +113,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
         ImGui::EndTabItem();
     }
 
+#if ENGINE_DEBUG_MESH
     static bool openDebugWindow = false;
     if (ImGui::BeginTabItem("Mesh"))
     {
@@ -220,6 +221,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     {
         openDebugWindow = false;
     }
+#endif // #if ENGINE_DEBUG_MESH
 
     if (ImGui::BeginTabItem("World"))
     {
