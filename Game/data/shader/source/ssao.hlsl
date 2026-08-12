@@ -3,6 +3,7 @@
 
 Texture2D<float3> positionGbuffer : register(t0);
 Texture2D<uint> normalTexGbuffer : register(t1);
+Texture2D<float> sceneDepth : register(t2);
 
 RWTexture2D<float> aoBuffer : register(u0);
 
@@ -21,8 +22,8 @@ void ssao_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint th
 	
 	float3 position = positionGbuffer[uv];
 	float3 normal = decodeOct(normalTexGbuffer[uv]);
-	
-	if(normalTexGbuffer[uv] == 0)
+
+	if(sceneDepth[uv] <= 0.0f)
 	{
 		aoBuffer[uv] = 1;
 		return;
@@ -46,8 +47,8 @@ void ssao_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint th
 			clamp(uv.y + screenHeight * h * sin(theta), 0, screenHeight - 1));
 		
 		float3 Pi = positionGbuffer[adjPos];
-		
-		if(normalTexGbuffer[adjPos] == 0)
+
+		if(sceneDepth[adjPos] <= 0.0f)
 		{
 			continue;
 		}

@@ -8,6 +8,7 @@ Texture2D<uint> visIDGbuffer : register(t0);
 Texture2D<float> sceneDepth : register(t1);
 ByteAddressBuffer clusterArgs : register(t2);
 ByteAddressBuffer visibleTris : register(t3);
+ByteAddressBuffer clusterIndirection : register(t4);
 RWByteAddressBuffer materialPixelCounts : register(u0);
 RWByteAddressBuffer materialMemoryOffset : register(u1);
 RWByteAddressBuffer materialPixelArgs : register(u2);
@@ -267,19 +268,6 @@ void visBuffer_gbufferArgs_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupT
     materialGbufferArgs.Store4(materialIndex * 16, uint4(materialIndex, groupCount, 1, 1));
 }
 
-[numthreads(8, 8, 1)]
-void visBuffer_gbufferClear_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID)
-{
-    uint2 pixel = uint2(groupID.x * 8 + gtid.x, groupID.y * 8 + gtid.y);
-
-    if (pixel.x >= screenWidth || pixel.y >= screenHeight)
-    {
-        return;
-    }
-
-    gbufferPosition[pixel] = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    gbufferNormal[pixel]   = 0;
-}
 
 struct gbufferTriangle
 {
@@ -435,4 +423,70 @@ void visBuffer_gbuffer_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThrea
         gbufferPosition[pixel] = float4(worldPos, 1.0f);
         gbufferNormal[pixel]   = encodeOct(normalize(worldNormal));
     }
+}
+struct visBufferPSInput
+{
+    float4 position : SV_POSITION;
+    nointerpolation uint visID : VISID;
+    nointerpolation uint clusterSlot : CLUSTERSLOT;
+};
+
+struct visBufferPSOutput
+{
+    uint debugID : SV_TARGET0;   // -> gbufferFB FBO[3]
+    uint visID   : SV_TARGET1;   // -> gbufferFB FBO[4]
+};
+
+visBufferPSInput visBuffer_vs(uint vertexID : SV_VertexID, uint clusterID : SV_InstanceID)
+{
+    visBufferPSInput result;
+
+    uint clusterSlot = clusterIndirection.Load(clusterID * 4);
+
+    uint indexSize = clusterArgs.Load((clusterSlot * 3 + 1) * 4);
+    uint packedID  = clusterArgs.Load((clusterSlot * 3 + 2) * 4);
+
+    uint objID, meshIndex, lod;
+    decodePackedID(packedID, objID, meshIndex, lod);
+
+    meshInfo mesh;
+    getMeshInfo(meshIndex, mesh);
+
+    if (vertexID < indexSize)
+    {
+        // 64 == per-cluster triangle capacity, matching VISID_TRI_BITS == 6.
+        uint triStart = visibleTris.Load((clusterSlot * 64 + (vertexID / 3)) * 4);
+        uint vertexIndex;
+        getVertexIndex(triStart + (vertexID % 3), vertexIndex);
+
+        float3 position;
+        getVertex(mesh.vertexOffset + vertexIndex, position);
+
+        viewInfo view;
+        getViewInfo(objID, view);
+
+        float3 worldPos = transformToWorld(view.scale, view.rotation, view.translate, position);
+
+        result.position    = mul(proj.viewProj, float4(worldPos, 1.0f));
+        result.visID       = encodeVisID(clusterSlot, vertexID / 3);
+        result.clusterSlot = clusterSlot;
+    }
+    else
+    {
+        result.position    = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        result.visID       = 0;
+        result.clusterSlot = 0;
+    }
+
+    return result;
+}
+
+visBufferPSOutput visBuffer_ps(visBufferPSInput input)
+{
+    visBufferPSOutput result;
+
+    result.debugID = input.clusterSlot + 1;
+    result.visID   = input.visID;
+
+    return result;
 }

@@ -181,15 +181,21 @@
 		"shaderIndex":29
 	},{
 		"shaderFile":"data/shader/source/visBuffer.hlsl",
-		"entryPoint":"visBuffer_gbufferClear_cs",
+		"entryPoint":"visBuffer_gbuffer_cs",
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":30
 	},{
 		"shaderFile":"data/shader/source/visBuffer.hlsl",
-		"entryPoint":"visBuffer_gbuffer_cs",
-		"target":"cs_6_5",
-		"shaderType":2,
+		"entryPoint":"visBuffer_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
 		"shaderIndex":31
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_ps",
+		"target":"ps_6_5",
+		"shaderType":1,
+		"shaderIndex":32
 	}
 ]

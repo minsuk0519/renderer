@@ -338,6 +338,14 @@ bool renderer::createFrameResources()
 	gbufferFB->createAddFBO(sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	gbufferFB->attachDepth(fbDepth, 0.0f);
 
+	visBufferFB = new framebuffer();
+	//debugID (shares gbufferFB FBO[3])
+	visBufferFB->attachResource(gbufferFB->getFBOResource(3), sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	//visID (shares gbufferFB FBO[4])
+	visBufferFB->attachResource(gbufferFB->getFBOResource(4), sWidth, sHeight, DXGI_FORMAT_R32_UINT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	//same fbDepth object as gbufferFB -- one shared depth-state tracker
+	visBufferFB->attachDepth(fbDepth, 0.0f);
+
 #if ENGINE_DEBUG_DEBUGCAM
 	//should be sync with gbufferFB
 	gbufferDebugFB = new framebuffer();
@@ -364,6 +372,7 @@ bool renderer::createFrameResources()
 		//sigData[0].push_back({ D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT, CBV_SCREEN, 1 });
 
 		render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->setCommandSignature(sigData[0]);
+		render::getpipelinestate(render::PSO_VISBUFFER)->setCommandSignature(sigData[0]);
 		render::getpipelinestate(render::PSO_CULLCLUSTER)->setCommandSignature(sigData[1]);
 		render::getpipelinestate(render::PSO_RASTERIZER)->setCommandSignature(sigData[2]);
 		render::getpipelinestate(render::PSO_CULLCLUSTER_POST)->setCommandSignature(sigData[1]);
@@ -1058,9 +1067,9 @@ void renderer::draw(float dt)
 
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFERINDIRECT);
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_VISBUFFER);
 
-	gbufferFB->openFB(cmdList, true);
+	visBufferFB->openFB(cmdList, true);
 
 	e_globWorld.setupCam(cmdList, true, true);
 
@@ -1069,16 +1078,16 @@ void renderer::draw(float dt)
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDIRECTION, clusterIndirectionSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VISBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VISBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VISBUFFER_INDIRECTION, clusterIndirectionSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 
-		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 5 * sizeof(uint), nullptr, 0);
+		cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_VISBUFFER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 5 * sizeof(uint), nullptr, 0);
 	}
 
-	gbufferFB->closeFB(cmdList);
+	visBufferFB->closeFB(cmdList);
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
@@ -1291,9 +1300,9 @@ void renderer::draw(float dt)
 	}
 
 	{
-		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_GBUFFERINDIRECT);
+		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_VISBUFFER);
 
-		gbufferFB->openFB(cmdList, false);
+		visBufferFB->openFB(cmdList, false);
 
 		e_globWorld.setupCam(cmdList, true, true);
 
@@ -1302,16 +1311,16 @@ void renderer::draw(float dt)
 
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_INDEX_BUFFER, unifiedIndexBufferUAV->getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_GBUFFER_INDIRECTION, clusterIndirectionSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VISBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VISBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VISBUFFER_INDIRECTION, clusterIndirectionSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MESHINFO_BUFFER, meshInfoBufferSRV->getHandle());
 
-			cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_GBUFFERINDIRECT)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 5 * sizeof(uint), nullptr, 0);
+			cmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_VISBUFFER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 5 * sizeof(uint), nullptr, 0);
 		}
 
-		gbufferFB->closeFB(cmdList);
+		visBufferFB->closeFB(cmdList);
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->execute({ cmdList });
 
@@ -1436,27 +1445,6 @@ void renderer::draw(float dt)
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
-		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_VISBUFFERGBUFFERCLEAR);
-
-		{
-			render::ScopedGPUEvent visBufferGbufferClearEvent(computeCmdList.Get(), "VisBufferGbufferClear");
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_POSITION, gbufferPositionUAV->getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_NORMAL, gbufferNormalUAV->getHandle());
-			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
-
-			computeCmdList->Dispatch((e_globWindow.width() + 7) / 8, (e_globWindow.height() + 7) / 8, 1);
-		}
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
-	}
-
-	{
-		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
-
 		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_VISBUFFERGBUFFER);
 
 		{
@@ -1498,7 +1486,7 @@ void renderer::draw(float dt)
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferPositionSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferNormalSRV->getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_SSAO_DEPTH, hzbMipSRV[0].getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[0]->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_AOCONST, 4, &renderGuiSetting::aoConstants);
@@ -1526,7 +1514,6 @@ void renderer::draw(float dt)
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferPositionSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferNormalSRV->getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[i]->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAOBLUR, ssaoUAV[i + 1]->getHandle());
@@ -1559,8 +1546,9 @@ void renderer::draw(float dt)
 
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferDebugFB->getDescHandle(0));
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferDebugFB->getDescHandle(1));
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_OBJID, gbufferDebugFB->getDescHandle(2));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_VISID, gbufferDebugFB->getDescHandle(4));
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferDebugFB->getDescHandle(3));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MATERIAL_BUFFER, materialBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoSRV[2]->getHandle());
@@ -1581,8 +1569,9 @@ void renderer::draw(float dt)
 
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_POSITION, gbufferPositionSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_NORM, gbufferNormalSRV->getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_OBJID, gbufferFB->getDescHandle(2));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_VISID, gbufferFB->getDescHandle(4));
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_DEBUG, gbufferFB->getDescHandle(3));
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_MATERIAL_BUFFER, materialBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_LIGHT_AO, ssaoSRV[2]->getHandle());

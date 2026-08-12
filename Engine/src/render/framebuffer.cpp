@@ -88,3 +88,10 @@ D3D12_GPU_DESCRIPTOR_HANDLE framebuffer::getDescHandle(uint FBOIndex)
 
 	return FBOs[FBOIndex]->getDesc(buf::GBF_SRV)->getHandle();
 }
+
+ID3D12Resource* framebuffer::getFBOResource(uint FBOIndex)
+{
+	TC_ASSERT(FBOIndex < FBOs.size());
+
+	return FBOs[FBOIndex]->getResource();
+}

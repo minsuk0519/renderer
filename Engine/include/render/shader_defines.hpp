@@ -57,15 +57,19 @@
 #define SRV_LIGHT_POSITION		GET_HLSL_LOC_SRV(0)
 //t1 normal gbuffer
 #define SRV_LIGHT_NORM			GET_HLSL_LOC_SRV(1)
-//t2 object ID buffer
-#define SRV_LIGHT_OBJID			GET_HLSL_LOC_SRV(2)
-//t4 debug gbuffer
+//t2 visID buffer
+#define SRV_LIGHT_VISID			GET_HLSL_LOC_SRV(2)
+//t3 debug gbuffer
 #define SRV_LIGHT_DEBUG			GET_HLSL_LOC_SRV(3)
-//t5 view info
+//t4 view info
 #define SRV_LIGHT_AO			GET_HLSL_LOC_SRV(4)
+//t5 cluster args
+#define SRV_LIGHT_CLUSTERARGS		GET_HLSL_LOC_SRV(5)
 ////////////////////light Buffer Begin
 
 ////////////////////SSAO Buffer Begin
+//t2 scene depth (HZB mip 0)
+#define SRV_SSAO_DEPTH			GET_HLSL_LOC_SRV(2)
 //u0 ssao output
 #define UAV_SSAO			GET_HLSL_LOC_UAV(0)
 //u1 ssao blur output
@@ -153,6 +157,8 @@
 #define SRV_VISBUFFER_CLUSTERARGS   GET_HLSL_LOC_SRV(2)
 //t3 per-cluster visible triangle table
 #define SRV_VISBUFFER_VISIBLE_TRIS  GET_HLSL_LOC_SRV(3)
+//t4 cluster indirection
+#define SRV_VISBUFFER_INDIRECTION   GET_HLSL_LOC_SRV(4)
 //u0 material visbuffer counts
 #define UAV_VISBUFFER_MATCOUNTS		GET_HLSL_LOC_UAV(0)
 //u1 per-material memory offset
@@ -231,8 +237,8 @@ namespace render
 		PSO_VISBUFFERMATERIALOFFSET,     //VisBufferMaterialOffset
 		PSO_VISBUFFERPIXELINFO,          //VisBufferPixelInfo
 		PSO_VISBUFFERGBUFFERARGS,        //VisBufferGbufferArgs
-		PSO_VISBUFFERGBUFFERCLEAR,       //VisBufferGbufferClear
 		PSO_VISBUFFERGBUFFER,            //VisBufferGbuffer
+		PSO_VISBUFFER,                   //VisBuffer
 		PSO_END,
 	};
 }
