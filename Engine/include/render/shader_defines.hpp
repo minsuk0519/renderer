@@ -195,6 +195,12 @@
 #define SRV_HZB_SRC			GET_HLSL_LOC_SRV(0)
 //u0 dst mip
 #define UAV_HZB_DST			GET_HLSL_LOC_UAV(0)
+//u1 dst mip +1
+#define UAV_HZB_DST1		GET_HLSL_LOC_UAV(1)
+//u2 dst mip +2
+#define UAV_HZB_DST2		GET_HLSL_LOC_UAV(2)
+//u3 dst mip +3
+#define UAV_HZB_DST3		GET_HLSL_LOC_UAV(3)
 //b0 hzb constants
 #define CBV_HZBCONST		GET_HLSL_LOC_CBV(0)
 ////////////////////HZB Buffer Ends

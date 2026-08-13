@@ -823,33 +823,47 @@ void renderer::generateHZB()
 			hzbCmdList->ResourceBarrier(2, postCopyBarriers);
 		}
 
-		for (uint m = 1; m < hzbMipCount; ++m)
+		for (uint m = 1; m < hzbMipCount; m += 4)
 		{
+			uint levels = (std::min)(4u, hzbMipCount - m);
+
 			char hzbEventName[32];
-			snprintf(hzbEventName, sizeof(hzbEventName), "genHZB Mip %u", m);
+			snprintf(hzbEventName, sizeof(hzbEventName), "genHZB Mip %u-%u", m, m + levels - 1);
 
 			render::ScopedGPUEvent hzbMipEvent(hzbCmdList.Get(), hzbEventName);
 
-			CD3DX12_RESOURCE_BARRIER dstBarrier = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[m], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, m);
-			hzbMipState[m] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-
-			hzbCmdList->ResourceBarrier(1, &dstBarrier);
+			// Batch pre-barriers for all mips in this pass
+			CD3DX12_RESOURCE_BARRIER preBarriers[4];
+			for (uint k = 0; k < levels; ++k)
+			{
+				uint mipIdx = m + k;
+				preBarriers[k] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[mipIdx], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, mipIdx);
+				hzbMipState[mipIdx] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			}
+			hzbCmdList->ResourceBarrier(levels, preBarriers);
 
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_HZB_SRC, hzbMipSRV[m - 1].getHandle());
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST, hzbMipUAV[m].getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST1, hzbMipUAV[(std::min)(m + 1, hzbMipCount - 1)].getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST2, hzbMipUAV[(std::min)(m + 2, hzbMipCount - 1)].getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST3, hzbMipUAV[(std::min)(m + 3, hzbMipCount - 1)].getHandle());
 
 			uint dstW = (std::max)(1u, e_globWindow.width() >> m);
 			uint dstH = (std::max)(1u, e_globWindow.height() >> m);
 
-			uint texSize[3] = { dstW, dstH, 1 };
+			uint texSize[3] = { dstW, dstH, levels };
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_HZBCONST, 3, texSize);
 
 			hzbCmdList->Dispatch((dstW + 7) / 8, (dstH + 7) / 8, 1);
 
-			CD3DX12_RESOURCE_BARRIER srcBarrier = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, m);
-			hzbMipState[m] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-
-			hzbCmdList->ResourceBarrier(1, &srcBarrier);
+			CD3DX12_RESOURCE_BARRIER postBarriers[4];
+			for (uint k = 0; k < levels; ++k)
+			{
+				uint mipIdx = m + k;
+				postBarriers[k] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, mipIdx);
+				hzbMipState[mipIdx] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			}
+			hzbCmdList->ResourceBarrier(levels, postBarriers);
 		}
 	}
 
