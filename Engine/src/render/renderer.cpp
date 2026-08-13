@@ -1080,6 +1080,8 @@ void renderer::draw(float dt)
 
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
 
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_VISBUFFER);
+
 #if ENGINE_DEBUG_CLEARGBUFFER
 	{
 		render::ScopedGPUEvent gbufferClearEvent(cmdList.Get(), "ClearGBuffer");
@@ -1087,8 +1089,6 @@ void renderer::draw(float dt)
 		gbufferClearFB->closeFB(cmdList);
 	}
 #endif // #if ENGINE_DEBUG_CLEARGBUFFER
-
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_VISBUFFER);
 
 	visBufferFB->openFB(cmdList, true);
 
