@@ -68,6 +68,9 @@ private:
 	framebuffer* swapchainFB[FRAME_COUNT];
 	framebuffer* gbufferFB = nullptr;
 	framebuffer* visBufferFB = nullptr;
+#if ENGINE_DEBUG_CLEARGBUFFER
+	framebuffer* gbufferClearFB = nullptr;
+#endif // #if ENGINE_DEBUG_CLEARGBUFFER
 #if ENGINE_DEBUG_DEBUGCAM
 	framebuffer* gbufferDebugFB = nullptr;
 #endif // #if ENGINE_DEBUG_DEBUGCAM

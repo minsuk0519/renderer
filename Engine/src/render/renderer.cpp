@@ -139,8 +139,19 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	materialBlockCursorBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 2 * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
 	materialPixelInfoBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * e_globWindow.width() * e_globWindow.height(), 1, buf::GBF_UAV, 0);
 	materialGbufferArgsBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 4 * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
-	gbufferPositionTex = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32G32B32A32_FLOAT, e_globWindow.width(), e_globWindow.height());
-	gbufferNormalTex   = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_UINT, e_globWindow.width(), e_globWindow.height());
+	uint_8 gbufferTexViewFlags = buf::GBF_SRV | buf::GBF_UAV;
+	uint   gbufferTexResFlags  = buf::RESOURCE_TEXTURE;
+#if ENGINE_DEBUG_CLEARGBUFFER
+	gbufferTexViewFlags |= buf::GBF_RT;
+	gbufferTexResFlags  |= buf::RESOURCE_CLEAR;
+#endif // #if ENGINE_DEBUG_CLEARGBUFFER
+	gbufferPositionTex = e_globBufAllocator.alloc(nullptr, 0, 1, gbufferTexViewFlags, gbufferTexResFlags, DXGI_FORMAT_R32G32B32A32_FLOAT, e_globWindow.width(), e_globWindow.height(), 1, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferNormalTex   = e_globBufAllocator.alloc(nullptr, 0, 1, gbufferTexViewFlags, gbufferTexResFlags, DXGI_FORMAT_R32_UINT, e_globWindow.width(), e_globWindow.height(), 1, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+#if ENGINE_DEBUG_CLEARGBUFFER
+	gbufferClearFB = new framebuffer();
+	gbufferClearFB->attachResource(gbufferPositionTex->getResource(), e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	gbufferClearFB->attachResource(gbufferNormalTex->getResource(),   e_globWindow.width(), e_globWindow.height(), DXGI_FORMAT_R32_UINT,           DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+#endif // #if ENGINE_DEBUG_CLEARGBUFFER
 	clusterArgsBuffer = e_globBufAllocator.alloc(nullptr, (MAX_CLUSTERS / THREADS_NUM_CLUSTERS) * sizeof(uint), 1, buf::GBF_UAV, 0);
 	visibleTriBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * THREADS_NUM_CLUSTERS * sizeof(uint), 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
@@ -1068,6 +1079,14 @@ void renderer::draw(float dt)
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	auto cmdList = render::getCmdQueue(render::QUEUE_GRAPHIC)->getCmdList();
+
+#if ENGINE_DEBUG_CLEARGBUFFER
+	{
+		render::ScopedGPUEvent gbufferClearEvent(cmdList.Get(), "ClearGBuffer");
+		gbufferClearFB->openFB(cmdList, true);
+		gbufferClearFB->closeFB(cmdList);
+	}
+#endif // #if ENGINE_DEBUG_CLEARGBUFFER
 
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_VISBUFFER);
 
