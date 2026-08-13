@@ -25,7 +25,7 @@ public:
 	void close();
 
 	uint submitObjects(void* cbvLoc);
-	void uploadObjectViewInfo(void* cbvLoc);
+	void uploadObjectInfo(void* viewInfoLoc, void* materialLoc);
 	void boundData(void* cbvLoc);
 
 	void setupScene();
@@ -44,7 +44,7 @@ public:
 
 	//index of object that is in camera frustum
 	uint cameraObjectIndex[MAX_OBJECTS] = { 0 };
-	uint cameraObjNum = 0;
+	uint cameraObjNum[DRAW_PASS_NUM];
 
 	object* objects;
 

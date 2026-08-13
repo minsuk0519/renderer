@@ -105,7 +105,11 @@ LRESULT CALLBACK window::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
         return 0;
 
     case WM_PAINT:
-
+    {
+        PAINTSTRUCT ps;
+        BeginPaint(hWnd, &ps);
+        EndPaint(hWnd, &ps);
+    }
         return 0;
 
     case WM_LBUTTONDOWN:

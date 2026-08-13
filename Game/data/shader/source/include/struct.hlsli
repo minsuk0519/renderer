@@ -7,6 +7,7 @@ struct projection
     float4x4 viewProj;
     float3 camPos;
 	float farPlane;
+	float4x4 prevViewProj;
 };
 
 struct object

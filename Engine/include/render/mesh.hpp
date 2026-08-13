@@ -96,7 +96,6 @@ private:
 	meshData* data = nullptr;
 
 	int ID = 0;
-	uint indexCount = 0;
 
 public:
 	mesh(int index);

@@ -4,9 +4,11 @@ static const uint vertexMax = 16777216;
 static const uint clusterMax = 262144;
 static const uint clusterSize = 64;
 static const uint MAX_OBJ_NUM = 256;
+static const uint MAX_MATERIAL_NUM = 256;
 static const float3 DEBUG_COL = float3(1,0,0);
 static const uint SCREENWIDTH = 1600;
 static const uint SCREENHEIGHT = 900;
+static const uint INVALID_ID = 0xFFFFFFFFU;
 
 #define e 2.718281828459045f
 
@@ -256,4 +258,44 @@ float OctavePerlin(float x, float y, float z, int octaves)
     }
 
     return value / maxValue;
+}
+
+uint tiledSwizzling(uint2 pos, uint bitsNum)
+{
+	uint result;
+
+	uint x = 0;
+	uint y = 0;
+
+	for(uint i = 0; i < bitsNum; ++i)
+	{
+		int offset = bitsNum - i - 1;
+		x |= (pos.x & (1U << (offset))) << offset;
+		y |= (pos.y & (1U << (offset))) << offset;
+	}
+
+	return x | (y << 1);
+}
+
+uint waveCompactToBuffer(RWByteAddressBuffer buf, uint byteOffset, uint value, out uint waveTotal)
+{
+    uint waveLocalOffset = WavePrefixSum(value);
+    waveTotal = WaveActiveSum(value);
+
+    uint base = 0;
+    if (WaveIsFirstLane())
+    {
+        buf.InterlockedAdd(byteOffset, waveTotal, base);
+    }
+
+    return WaveReadLaneFirst(base) + waveLocalOffset;
+}
+
+uint blockSwizzle8x4(uint2 localPos)
+{
+    return  (localPos.x & 1)
+         | ((localPos.y & 1) << 1)
+         | ((localPos.x & 2) << 1)
+         | ((localPos.y & 2) << 2)
+         | ((localPos.x & 4) << 2);
 }

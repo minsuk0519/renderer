@@ -61,7 +61,8 @@ void readJsonBuffer(Buffer& buf, const JSON_FILE_NAME& fileIndex)
 
 	if (error.ec != glz::error_code::none)
 	{
-		std::string errorMessage = "Failed to read file : " + JSON_FILE_PATHS[fileIndex];
+		std::string errorMessage = "Failed to read file : " + JSON_FILE_PATHS[fileIndex]
+								 + " : " + glz::format_error(error, str);
 		TC_LOG_ERROR(errorMessage.c_str());
 	}
 }
@@ -74,7 +75,8 @@ void writeJsonBuffer(const Buffer& buf, const JSON_FILE_NAME& fileIndex)
 
 	if (error.ec != glz::error_code::none)
 	{
-		std::string errorMessage = "Failed to write file : " + JSON_FILE_PATHS[fileIndex];
+		std::string errorMessage = "Failed to write file : " + JSON_FILE_PATHS[fileIndex]
+								 + " : " + glz::format_error(error, str);
 		TC_LOG_ERROR(errorMessage.c_str());
 	}
 }

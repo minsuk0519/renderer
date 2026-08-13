@@ -27,7 +27,7 @@ object* world::getObjects()
 void world::sendInfo(unsigned char* cbv)
 {
 	uint* index = cameraObjectIndex;
-	uint objNum = cameraObjNum;
+	uint objNum = cameraObjNum[0];
 	for (uint i = 0; i < objNum; ++i)
 	{
 		object* obj = objects + index[i];
@@ -51,11 +51,30 @@ void world::instanceCulling()
 
 		DirectX::XMVECTOR* frustum = mainCamera->getFrustum();
 
+		bool vis = false;
+
 		if (obj->instanceCulling(frustum))
 		{
-			cameraObjectIndex[cameraObjNum] = i;
-			++cameraObjNum;
+			//if drawn previous frame, we will put it on the first pass
+			//TODO : some obj will be drawn first pass no matter if they are drawn previous frame
+			if (obj->wasVisible())
+			{
+				cameraObjectIndex[cameraObjNum[0]] = i;
+				++cameraObjNum[0];
+			}
+			//second pass
+			else
+			{
+				cameraObjectIndex[MAX_OBJECTS - 1 - cameraObjNum[1]] = i;
+				++cameraObjNum[1];
+			}
+
+			vis = true;
+
+			TC_ASSERT((cameraObjNum[0] + cameraObjNum[1]) < MAX_OBJECTS);
 		}
+
+		obj->updateVisibility(vis);
 	}
 }
 
@@ -112,6 +131,11 @@ bool world::init()
 
 	setupScene();
 
+	for (uint i = 0; i < DRAW_PASS_NUM; ++i)
+	{
+		cameraObjNum[i] = 0;
+	}
+
 	return true;
 }
 
@@ -130,7 +154,10 @@ void world::update(float dt)
 	}
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
-	cameraObjNum = 0;
+	for (uint i = 0; i < DRAW_PASS_NUM; ++i)
+	{
+		cameraObjNum[i] = 0;
+	}
 
 	mainCamera->update(dt);
 	debugCamera->update(dt);
@@ -156,31 +183,54 @@ void world::close()
 uint world::submitObjects(void* cbvLoc)
 {
 	uint* location = static_cast<uint*>(cbvLoc);
-	for (uint i = 0; i < cameraObjNum; ++i)
+	for (uint i = 0; i < cameraObjNum[0]; ++i)
 	{
 		objects[cameraObjectIndex[i]].submit(static_cast<void*>(location), i);
 		location += 1;
 	}
 
-	return cameraObjNum;
+	for (uint j = 0; j < cameraObjNum[1]; ++j)
+	{
+		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].submit(static_cast<void*>(location), cameraObjNum[0] + j);
+		location += 1;
+	}
+
+	return cameraObjNum[0];
 }
 
-void world::uploadObjectViewInfo(void* cbvLoc)
+void world::uploadObjectInfo(void* viewInfoLoc, void* materialLoc)
 {
-	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
-	for (uint i = 0; i < cameraObjNum; ++i)
+	unsigned char* viewInfoGpuAddress = reinterpret_cast<unsigned char*>(viewInfoLoc);
+	unsigned char* materialGpuAddress = reinterpret_cast<unsigned char*>(materialLoc);
+	for (uint i = 0; i < cameraObjNum[0]; ++i)
 	{
-		objects[cameraObjectIndex[i]].uploadViewInfo(gpuAddress);
-		gpuAddress += sizeof(uint) * 10;
+		objects[cameraObjectIndex[i]].uploadViewInfo(viewInfoGpuAddress);
+		objects[cameraObjectIndex[i]].uploadMaterial(materialGpuAddress);
+		viewInfoGpuAddress += sizeof(uint) * 10;
+		materialGpuAddress += sizeof(uint) * 5;
+	}
+
+	for (uint j = 0; j < cameraObjNum[1]; ++j)
+	{
+		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].uploadViewInfo(viewInfoGpuAddress);
+		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].uploadMaterial(materialGpuAddress);
+		viewInfoGpuAddress += sizeof(uint) * 10;
+		materialGpuAddress += sizeof(uint) * 5;
 	}
 }
 
 void world::boundData(void* cbvLoc)
 {
 	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
-	for (uint i = 0; i < cameraObjNum; ++i)
+	for (uint i = 0; i < cameraObjNum[0]; ++i)
 	{
 		objects[cameraObjectIndex[i]].boundData(gpuAddress);
+		gpuAddress += 6 * sizeof(float);
+	}
+
+	for (uint j = 0; j < cameraObjNum[1]; ++j)
+	{
+		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].boundData(gpuAddress);
 		gpuAddress += 6 * sizeof(float);
 	}
 }
@@ -189,7 +239,7 @@ void world::setupScene()
 {
 	//TODO
 	{
-		objects[objectNum].init(msh::MESH_CUBE, render::PSO_PBR, true);
+		objects[objectNum].init(msh::MESH_CUBE, render::PSO_PBR);
 		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ -1.0f,-0.5f,0.0f });
 		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
@@ -197,28 +247,28 @@ void world::setupScene()
 	}
 
 	{
-		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR, true);
+		objects[objectNum].init(msh::MESH_BUNNY, render::PSO_PBR);
 		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-0.5f,0.0f });
 		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 5.0f,5.0f,5.0f });
 
 		++objectNum;
 	}
 
-	//{
-	//	objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.005f,0.005f,0.005f });
+	{
+		objects[objectNum].init(msh::MESH_SPHERE, render::PSO_PBR);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 1.0f,-0.5f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.005f,0.005f,0.005f });
 
-	//	++objectNum;
-	//}
+		++objectNum;
+	}
 
-	//{
-	//	objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR, true);
-	//	objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-2.0f,0.0f });
-	//	objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
+	{
+		objects[objectNum].init(msh::MESH_TERRAIN, render::PSO_PBR);
+		objects[objectNum].getTransform()->setPosition(DirectX::XMVECTOR{ 0.0f,-2.0f,0.0f });
+		objects[objectNum].getTransform()->setScale(DirectX::XMVECTOR{ 0.2f,0.2f,0.2f });
 
-	//	++objectNum;
-	//}
+		++objectNum;
+	}
 }
 
 void world::setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull)

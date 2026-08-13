@@ -3,21 +3,27 @@
 #include "include\math.hlsli"
 
 ByteAddressBuffer clusterArgs : register(t0);
+ByteAddressBuffer visibleTris : register(t1);
+ByteAddressBuffer clusterIndirection : register(t2);
 
 struct PSInput
 {
 	float4 position : SV_POSITION;
     float3 worldPos : WORLD_POS;
-    float3 normal : NORMAL;
+    float3 normal   : NORMAL;
+    uint objID      : OBJECTID;
+    uint visID : VISID;
 
-    uint4 output : OUTPUT;
+    uint4 output    : OUTPUT;
 };
 
 struct PSOutput
 {
     float4 position     : SV_TARGET0;
     uint normTex      	: SV_TARGET1;
-    uint debugID      	: SV_TARGET2;
+    uint objID      	: SV_TARGET2;
+    uint debugID      	: SV_TARGET3;
+    uint visID          : SV_TARGET4;
 };
 
 cbuffer cb_objectIdentification : register(b2)
@@ -29,9 +35,11 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
 {
     PSInput result;
 
-    uint indexOffset = clusterArgs.Load((clusterID * 3 + 0) * 4);
-    uint indexSize = clusterArgs.Load((clusterID * 3 + 1) * 4);
-    uint packedID = clusterArgs.Load((clusterID * 3 + 2) * 4);
+    uint clusterSlot = clusterIndirection.Load(clusterID * 4);
+
+    uint indexOffset = clusterArgs.Load((clusterSlot * 3 + 0) * 4);
+    uint indexSize = clusterArgs.Load((clusterSlot * 3 + 1) * 4);
+    uint packedID = clusterArgs.Load((clusterSlot * 3 + 2) * 4);
 
     uint objectInfo = packedID & ((1 << 16) - 1);
     uint meshIndex = objectInfo >> 3;
@@ -42,23 +50,24 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
 
     uint vertexOffset = mesh.vertexOffset;
 
-    uint vertexIndex;
-    getVertexIndex(indexOffset + vertexID, vertexIndex);
-
-    float3 position;
-    getVertex(vertexOffset + vertexIndex, position);
-    float3 normal;
-    getNormal(vertexOffset + vertexIndex, normal);
-
     if(vertexID < indexSize)
     {
+        uint triStart = visibleTris.Load((clusterSlot * 64 + (vertexID / 3)) * 4);
+        uint vertexIndex;
+        getVertexIndex(triStart + (vertexID % 3), vertexIndex);
+
+        float3 position;
+        getVertex(vertexOffset + vertexIndex, position);
+        float3 normal;
+        getNormal(vertexOffset + vertexIndex, normal);
+
         viewInfo view;
         getViewInfo(objID, view);
         float3 translate = view.translate;
         float3 scale = view.scale;
         float4 rotation = view.rotation;
         float3 worldPos = transformToWorld(scale, rotation, translate, position);
-        result.worldPos = translate;//worldPos;
+        result.worldPos = worldPos;
         result.position = mul(proj.viewProj, float4(worldPos, 1.0f));
 
         float3 scaledNorm;
@@ -66,9 +75,20 @@ PSInput gbufferIndirect_vs(uint vertexID : SV_VertexID, uint clusterID : SV_Inst
         scaledNorm.y = normal.y * scale.y;
         scaledNorm.z = normal.z * scale.z;
         result.normal = normalize(quatRotate(rotation, scaledNorm));
+        result.objID = objID;
+        result.visID = encodeVisID(clusterSlot, vertexID / 3);
 
-        //result.output = float4(clusterID,meshIndex,objID,vertexIndex);
-        result.output = uint4(clusterID, vertexIndex, indexSize, vertexID);
+        result.output = float4(clusterSlot,meshIndex,objID,vertexIndex);
+        //result.output = uint4(clusterSlot, vertexIndex, indexSize, vertexID);
+    }
+    else
+    {
+        result.position = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        result.worldPos = float3(0.0f, 0.0f, 0.0f);
+        result.normal = float3(0.0f, 0.0f, 0.0f);
+        result.objID = 0;
+        result.visID = 0;
+        result.output = uint4(0, 0, 0, 0);
     }
     return result;
 }
@@ -80,6 +100,8 @@ PSInput gbuffer_vs(float3 position : VPOSITION, float3 normal : VNORMAL)
     float4 worldPos = mul(obj.objectMat, float4(position, 1.0));
     result.worldPos = worldPos.xyz;
     result.position = mul(proj.viewProj, worldPos);
+    result.objID = 0;
+    result.visID = 0;
 
     result.output.x = 0;
     result.output.y = 0;
@@ -100,7 +122,10 @@ PSOutput gbuffer_ps(PSInput input)
 
     result.position = float4(position, 1.0f);
     result.normTex = encodeOct(normal);
+    result.objID = input.objID;
+    result.visID = input.visID;
+
     result.debugID = input.output.x + 1;//input.output.x;
-    
+
     return result;
 }

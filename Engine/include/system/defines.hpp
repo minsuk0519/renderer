@@ -3,17 +3,6 @@
 typedef unsigned int uint;
 typedef unsigned __int8 uint_8;
 
-namespace shader_loc
-{
-	enum SHADER_DEFINE
-	{
-		UAV_PROJECTION = 0,
-		SRV_GBUFFER_0,
-		SRV_GBUFFER_1,
-		SHADER_DEFINE_MAX,
-	};
-}
-
 #define PI 3.14159265358979f
 #define PI_HALF PI / 2.0f
 
@@ -21,6 +10,9 @@ namespace shader_loc
 #define ENGINE_DISABLED 0
 
 #define ENGINE_DEBUG				(_DEBUG)
+#define ENGINE_DEBUG_MESH			(ENGINE_DEBUG && ENGINE_ENABLED)
 #define ENGINE_DEBUG_BUFFER			(ENGINE_DEBUG && ENGINE_ENABLED)
 #define ENGINE_DEBUG_DATATEST		(ENGINE_DEBUG && ENGINE_ENABLED)
 #define ENGINE_DEBUG_DEBUGCAM		(ENGINE_DEBUG && ENGINE_ENABLED)
+//will only enable during the extra debug TODO : add debug level so I can easily toggle things on/off
+#define ENGINE_DEBUG_CLEARGBUFFER	0 //(ENGINE_DEBUG && ENGINE_ENABLED)

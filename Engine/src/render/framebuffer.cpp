@@ -5,9 +5,9 @@
 
 bool framebuffer::createAddFBO(uint width, uint height, DXGI_FORMAT format, DirectX::XMFLOAT4 clear)
 {
-	clearColor = clear;
+	clearColors.push_back(clear);
 
-	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_CLEAR | buf::RESOURCE_TEXTURE, format, width, height, 1, clearColor);
+	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_CLEAR | buf::RESOURCE_TEXTURE, format, width, height, 1, clear);
 
 	FBOs.push_back(FBO);
 
@@ -16,9 +16,9 @@ bool framebuffer::createAddFBO(uint width, uint height, DXGI_FORMAT format, Dire
 
 bool framebuffer::attachResource(ID3D12Resource* resource, uint width, uint height, DXGI_FORMAT format, DirectX::XMFLOAT4 clear)
 {
-	clearColor = clear;
+	clearColors.push_back(clear);
 
-	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT, 0, format, width, height, 0, clearColor, resource);
+	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT, 0, format, width, height, 0, clear, resource);
 
 	FBOs.push_back(FBO);
 
@@ -33,8 +33,6 @@ bool framebuffer::attachDepth(buffer* depth, float clear)
 	return false;
 }
 
-//open frame buffer and clear the buffer
-//TODO we will add extra features for not clear color or depth
 void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool clear)
 {
 	uint numFBO = (uint)FBOs.size();
@@ -55,7 +53,7 @@ void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdLi
 
 		rtvs.push_back(cpuHandle);
 
-		if(clear) cmdList->ClearRenderTargetView(rtvs[i], &clearColor.x, 0, nullptr);
+		if(clear) cmdList->ClearRenderTargetView(rtvs[i], &clearColors[i].x, 0, nullptr);
 	}
 
 	if (depthBuffer)
@@ -89,4 +87,11 @@ D3D12_GPU_DESCRIPTOR_HANDLE framebuffer::getDescHandle(uint FBOIndex)
 	TC_ASSERT(FBOIndex < FBOs.size());
 
 	return FBOs[FBOIndex]->getDesc(buf::GBF_SRV)->getHandle();
+}
+
+ID3D12Resource* framebuffer::getFBOResource(uint FBOIndex)
+{
+	TC_ASSERT(FBOIndex < FBOs.size());
+
+	return FBOs[FBOIndex]->getResource();
 }

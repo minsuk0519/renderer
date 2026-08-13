@@ -79,6 +79,8 @@ public:
 	DirectX::XMMATRIX getMat() const;
 	descriptor* getDesc() const;
 
+	bool hasPrevViewProj() const { return prevViewProjValid; }
+
 #if ENGINE_DEBUG_DEBUGCAM
 	void toggleDebugMode();
 #endif // #if ENGINE_DEBUG_DEBUGCAM
@@ -98,4 +100,7 @@ private:
 	transform* transformPtr = nullptr;
 
 	DirectX::XMVECTOR frustum[6];
+
+	DirectX::XMMATRIX prevViewProj = DirectX::XMMatrixIdentity();
+	bool prevViewProjValid = false;
 };

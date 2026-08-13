@@ -38,25 +38,23 @@ private:
 	uint id = 0;
 	uint pso = 0;
 
-	bool displayUI = true;
-	bool displayWire = true;
+	bool visibility = false;
 public:
 	transform* getTransform() const;
 
-	bool init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui);
+	bool init(const msh::MESH_INDEX meshIdx, const uint psoIndex);
 	void draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw);
 	void update(float dt);
 	void submit(void* cbvLoc, uint localID);
 
 	void sendMat(unsigned char* cbvdata);
 	void uploadViewInfo(unsigned char* dataLoc);
+	void uploadMaterial(unsigned char* dataLoc);
 	void boundData(unsigned char* data);
 
 	void close();
 
 	void guiSetting();
-
-	void disableWire();
 
 	mesh* getMesh() const;
 
@@ -69,4 +67,7 @@ public:
 	uint getObjID() const;
 
 	bool instanceCulling(DirectX::XMVECTOR* frustum);
+
+	bool wasVisible() const;
+	void updateVisibility(bool vis);
 };

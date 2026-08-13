@@ -27,7 +27,7 @@ void genCmdBuf_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, ui
 
     meshInfo mesh;
     getMeshInfo(meshIndex, mesh);
-    uint lodIndex = mesh.lodOffset + packedID & 0x7;
+    uint lodIndex = mesh.lodOffset + (packedID & 0x7);
     
     lodInfo lod;
     getLODInfo(lodIndex, lod);

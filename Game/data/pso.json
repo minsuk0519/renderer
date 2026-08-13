@@ -18,6 +18,8 @@
 		"formats":[
 			2,
 			42,
+			42,
+			42,
 			42
 		],
 		"cs":false,
@@ -112,11 +114,13 @@
 		"formats":[
 			2,
 			42,
+			42,
+			42,
 			42
 		],
 		"cs":false,
 		"depth":true,
-		"wireframe":false	
+		"wireframe":false
 	},{
 		"psoIndex":11,
 		"psoName":"WireframeAABB",
@@ -168,5 +172,124 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false	
+	},{
+		"psoIndex":16,
+		"psoName":"genHZB",
+		"vertexIndex":20,
+		"pixelIndex":20,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":17,
+		"psoName":"Rasterizer",
+		"vertexIndex":21,
+		"pixelIndex":21,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":18,
+		"psoName":"CullClusterPost",
+		"vertexIndex":22,
+		"pixelIndex":22,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":19,
+		"psoName":"PrepPostArgs",
+		"vertexIndex":23,
+		"pixelIndex":23,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":20,
+		"psoName":"UploadPostObj",
+		"vertexIndex":24,
+		"pixelIndex":24,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":21,
+		"psoName":"VisBufferInitMaterialCount",
+		"vertexIndex":25,
+		"pixelIndex":25,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":22,
+		"psoName":"VisBufferMaterialCount",
+		"vertexIndex":26,
+		"pixelIndex":26,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":23,
+		"psoName":"VisBufferMaterialOffset",
+		"vertexIndex":27,
+		"pixelIndex":27,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":24,
+		"psoName":"VisBufferPixelInfo",
+		"vertexIndex":28,
+		"pixelIndex":28,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":25,
+		"psoName":"VisBufferGbufferArgs",
+		"vertexIndex":29,
+		"pixelIndex":29,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":26,
+		"psoName":"VisBufferGbuffer",
+		"vertexIndex":30,
+		"pixelIndex":30,
+		"formats":[
+		],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":27,
+		"psoName":"VisBuffer",
+		"vertexIndex":31,
+		"pixelIndex":32,
+		"formats":[42,42],
+		"cs":false,
+		"depth":true,
+		"wireframe":false
 	}
 ]

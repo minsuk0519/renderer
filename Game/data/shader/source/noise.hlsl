@@ -14,5 +14,5 @@ void noise_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint t
 	float x = (float)groupID.x;
 	float y = (float)groupID.y;
 
-	noiseOut.Store((y * NOISE_WIDTH + x) * 4, OctavePerlin(x / (float)NOISE_WIDTH, zConst, y / (float)NOISE_HEIGHT, octavesConst));
+	noiseOut.Store((y * NOISE_WIDTH + x) * 4, asuint(OctavePerlin(x / (float)NOISE_WIDTH, zConst, y / (float)NOISE_HEIGHT, octavesConst)));
 }

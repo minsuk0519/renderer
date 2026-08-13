@@ -81,3 +81,70 @@ uint encodeOct(float3 v)
 	
     return optimal;
 }
+
+// ========== visID packing (32-bit layout) ==========
+// Layout (MSB → LSB):
+//   bits [31:24]  = unused      (8 bits) — always 0 in encodeVisID output
+//   bits [23:6]   = clusterSlot (18 bits), range [0, 262143]
+//   bits [5:0]    = localTri    (6 bits),  range [0, 63]
+//
+// Cleared value 0 is NOT a sentinel. Validity comes from the depth buffer.
+#define VISID_TRI_BITS 6        // CLUSTER_THREAD_NUM == 64 == THREADS_NUM_CLUSTERS (config.hpp:26)
+#define VISID_CLUSTER_BITS 18   // MAX_CLUSTERS == MAX_OBJECTS*1024 == 262144 (config.hpp:28)
+
+uint encodeVisID(uint clusterSlot, uint localTri)
+{
+    return ((clusterSlot & 0x3FFFF) << 6) | (localTri & 0x3F);
+}
+
+void decodeVisID(uint v, out uint clusterSlot, out uint localTri)
+{
+    clusterSlot = (v >> 6) & 0x3FFFF;
+    localTri = v & 0x3F;
+}
+
+// ========== packedID packing (32-bit layout) ==========
+// Layout (MSB -> LSB):
+//   bits [31:16] = objID     (16 bits) — also the material ID and the instance ID; < MAX_OBJECTS (256)
+//   bits [15:3]  = meshIndex (13 bits)
+//   bits [2:0]   = lod       (3 bits)
+// Produced CPU-side by object::submit (Engine/src/world/object.cpp:78).
+#define PACKEDID_LOD_BITS  3
+#define PACKEDID_MESH_BITS 13
+
+uint encodePackedID(uint objID, uint meshIndex, uint lod)
+{
+    return (objID << 16) | (meshIndex << 3) | (lod & 0x7);
+}
+
+void decodePackedID(uint packed, out uint objID, out uint meshIndex, out uint lod)
+{
+    objID = packed >> 16;
+    meshIndex = (packed >> 3) & 0x1FFF;
+    lod = packed & 0x7;
+}
+
+uint packedIDToObjID(uint packed)
+{
+    return packed >> 16;
+}
+
+// ========== quad record packing (32-bit layout) ==========
+// Layout (MSB -> LSB):
+//   bits [31:18] = x         (14 bits) — quad top-left PIXEL x, max 16383
+//   bits [17:4]  = y         (14 bits) — quad top-left PIXEL y, max 16383
+//   bits [3:0]   = validMask (4 bits)  — bit j set => pixel (x,y) + (j & 1, j >> 1)
+//                                        belongs to the material owning this record
+// One record per (quad, material) pair. A quad straddling N materials emits N records,
+// one into each material's region, with disjoint validMasks.
+uint encodeQuadRecord(uint2 topLeftPixel, uint validMask)
+{
+    return ((topLeftPixel.x & 0x3FFF) << 18) | ((topLeftPixel.y & 0x3FFF) << 4) | (validMask & 0xF);
+}
+
+void decodeQuadRecord(uint record, out uint2 topLeftPixel, out uint validMask)
+{
+    topLeftPixel.x = (record >> 18) & 0x3FFF;
+    topLeftPixel.y = (record >> 4) & 0x3FFF;
+    validMask = record & 0xF;
+}

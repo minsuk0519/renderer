@@ -43,7 +43,7 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 	}
 	else
 	{
-		height = noiseMap.Load(index * 4) * HEIGHT_MODIFIER - 0.5 * HEIGHT_MODIFIER;
+		height = asfloat(noiseMap.Load(index * 4)) * HEIGHT_MODIFIER - 0.5 * HEIGHT_MODIFIER;
 	}
 
 	HEIGHTS[gtid.y][gtid.x] = height;
@@ -81,7 +81,7 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 		}
 
 		float3 verts = float3(u, hCenter, v) - float3(0.5 * NOISE_WIDTH, 0.0, 0.5 * NOISE_HEIGHT);
-		vertOut.Store3(index * 4 * 3, verts); 
+		vertOut.Store3(index * 4 * 3, asuint(verts)); 
 
 		float3 accumNorm = float3(0,0,0);
 
@@ -98,7 +98,7 @@ void genTerrainVert_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadI
 			}
 		}
 
-		normOut.Store3(index * 4 * 3, normalize(accumNorm));
+		normOut.Store3(index * 4 * 3, asuint(normalize(accumNorm)));
 	} 
 }
 
@@ -115,6 +115,6 @@ void genTerrainIndex_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThread
 	uint indexBottomLeft = getIndex(baseU, baseV + 1);
 	uint indexTopRight = getIndex(baseU + 1, baseV);
 
-	indexOut.Store3(((squareIndex) * 2 + 0) * 4 * 3, uint3(index, indexTopRight, indexBottomLeft));
+	indexOut.Store3(((squareIndex) * 2 + 0) * 4 * 3, uint3(index, indexBottomLeft, indexTopRight));
 	indexOut.Store3(((squareIndex) * 2 + 1) * 4 * 3, uint3(indexTopRight, indexBottomLeft, indexBottomRight));
 }

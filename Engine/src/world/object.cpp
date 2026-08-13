@@ -16,7 +16,7 @@ transform* object::getTransform() const
 	return trans;
 }
 
-bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
+bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex)
 {
 	pso = psoIndex;
 	trans = new transform();
@@ -28,7 +28,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex, bool gui)
 
 	id = obj::remainID++;
 
-	displayUI = gui;
+	visibility = false;
 
 	return true;
 }
@@ -110,6 +110,17 @@ void object::uploadViewInfo(unsigned char* dataLoc)
 	memcpy(dataLoc + sizeof(uint) * 6, &quat, sizeof(uint) * 4);
 }
 
+void object::uploadMaterial(unsigned char* dataLoc)
+{
+	float a[] = {
+		albedo.x, albedo.y, albedo.z,
+		metal,
+		roughness,
+	};
+
+	memcpy(dataLoc, &a, sizeof(float) * (5));
+}
+
 void object::boundData(unsigned char* data)
 {
 	meshData* mshData = getMesh()->getData();
@@ -162,11 +173,6 @@ void object::guiSetting()
 			meshEnumIndex = currentMeshId;
 		}
 	}
-}
-
-void object::disableWire()
-{
-	displayWire = false;
 }
 
 mesh* object::getMesh() const
@@ -225,4 +231,14 @@ bool object::instanceCulling(DirectX::XMVECTOR* frustum)
 	}
 
 	return true;
+}
+
+bool object::wasVisible() const
+{
+	return visibility;
+}
+
+void object::updateVisibility(bool vis)
+{
+	visibility = vis;
 }

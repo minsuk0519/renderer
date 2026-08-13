@@ -11,7 +11,9 @@
 
 ////////////////////global Buffer Begin
 //u63 debug buffer
+#if ENGINE_DEBUG_BUFFER
 #define UAV_GLOBAL_DEBUG_BUFFER		GET_HLSL_LOC_UAV(63)
+#endif // #if ENGINE_DEBUG_BUFFER
 
 //t63 position
 #define SRV_VERTEX_BUFFER			GET_HLSL_LOC_SRV(63)
@@ -27,6 +29,8 @@
 #define SRV_CLUSTER_BOUNDS_BUFFER	GET_HLSL_LOC_SRV(58)
 //t57 view info
 #define SRV_VIEWINFO_BUFFER			GET_HLSL_LOC_SRV(57)
+//t56 material
+#define SRV_MATERIAL_BUFFER			GET_HLSL_LOC_SRV(56)
 
 //b63 cmdBuf constants
 #define CBV_CMDBUFCONSTS			GET_HLSL_LOC_CBV(63)
@@ -41,6 +45,10 @@
 ////////////////////gbuffer Buffer Begin
 //t0 cluster args
 #define SRV_GBUFFER_CLUSTERARGS		GET_HLSL_LOC_SRV(0)
+//t1 visible triangles
+#define SRV_GBUFFER_VISIBLE_TRIS		GET_HLSL_LOC_SRV(1)
+//t2 cluster indirection
+#define SRV_GBUFFER_INDIRECTION			GET_HLSL_LOC_SRV(2)
 
 //b3 guiDebug
 #define CBV_GUIDEBUG				GET_HLSL_LOC_CBV(3)
@@ -51,13 +59,19 @@
 #define SRV_LIGHT_POSITION		GET_HLSL_LOC_SRV(0)
 //t1 normal gbuffer
 #define SRV_LIGHT_NORM			GET_HLSL_LOC_SRV(1)
-//t2 debug gbuffer
-#define SRV_LIGHT_DEBUG			GET_HLSL_LOC_SRV(2)
-//t3 view info
-#define SRV_LIGHT_AO			GET_HLSL_LOC_SRV(3)
+//t2 visID buffer
+#define SRV_LIGHT_VISID			GET_HLSL_LOC_SRV(2)
+//t3 debug gbuffer
+#define SRV_LIGHT_DEBUG			GET_HLSL_LOC_SRV(3)
+//t4 view info
+#define SRV_LIGHT_AO			GET_HLSL_LOC_SRV(4)
+//t5 cluster args
+#define SRV_LIGHT_CLUSTERARGS		GET_HLSL_LOC_SRV(5)
 ////////////////////light Buffer Begin
 
 ////////////////////SSAO Buffer Begin
+//t2 scene depth (HZB mip 0)
+#define SRV_SSAO_DEPTH			GET_HLSL_LOC_SRV(2)
 //u0 ssao output
 #define UAV_SSAO			GET_HLSL_LOC_UAV(0)
 //u1 ssao blur output
@@ -118,7 +132,54 @@
 #define UAV_CLUSTERSIZE_BUFFER				GET_HLSL_LOC_UAV(3)
 //t0 cluster args buffer input
 #define SRV_CLUSTER_ARGS_BUFFER				GET_HLSL_LOC_SRV(0)
+//u5 visible triangle buffer output
+#define UAV_VISIBLE_TRI_BUFFER				GET_HLSL_LOC_UAV(5)
+//u8 cluster indirection buffer output
+#define UAV_CLUSTER_INDIRECTION				GET_HLSL_LOC_UAV(8)
+//t1 hzb (previous frame depth pyramid)
+#define SRV_CULLING_HZB						GET_HLSL_LOC_SRV(1)
+//b0 hzb cull constants
+#define CBV_CULLING_HZBCONST				GET_HLSL_LOC_CBV(0)
+//u6 occluded cluster list output
+#define UAV_OCCLUDED_CLUSTERS				GET_HLSL_LOC_UAV(6)
+//u7 debug stats buffer output
+#define UAV_CULLING_DEBUG_STATS				GET_HLSL_LOC_UAV(7)
+//b1 cluster-cull debug toggle
+#define CBV_CULLING_DEBUG					GET_HLSL_LOC_CBV(1)
+//b2 triangle-cull debug toggle
+#define CBV_RASTER_DEBUG					GET_HLSL_LOC_CBV(2)
 ////////////////////culling Buffer Ends
+
+////////////////////visBuffer Buffer Begin
+//t0 visID gbuffer
+#define SRV_VISBUFFER_VISID         GET_HLSL_LOC_SRV(0)
+//t1 scene depth (HZB mip 0)
+#define SRV_VISBUFFER_DEPTH         GET_HLSL_LOC_SRV(1)
+//t2 cluster args (vertexIDBuffer)
+#define SRV_VISBUFFER_CLUSTERARGS   GET_HLSL_LOC_SRV(2)
+//t3 per-cluster visible triangle table
+#define SRV_VISBUFFER_VISIBLE_TRIS  GET_HLSL_LOC_SRV(3)
+//t4 cluster indirection
+#define SRV_VISBUFFER_INDIRECTION   GET_HLSL_LOC_SRV(4)
+//u0 material visbuffer counts
+#define UAV_VISBUFFER_MATCOUNTS		GET_HLSL_LOC_UAV(0)
+//u1 per-material memory offset
+#define UAV_VISBUFFER_MEMOFFSET     GET_HLSL_LOC_UAV(1)
+//u2 material pixel allocation args/cursor
+#define UAV_VISBUFFER_ARGS          GET_HLSL_LOC_UAV(2)
+//u3 per-material full-block / straggler write cursors
+#define UAV_VISBUFFER_BLOCKCURSOR   GET_HLSL_LOC_UAV(3)
+//u4 per-pixel material info records
+#define UAV_VISBUFFER_PIXELINFO     GET_HLSL_LOC_UAV(4)
+//u5 per-material gbuffer indirect-dispatch args
+#define UAV_VISBUFFER_GBUFFERARGS   GET_HLSL_LOC_UAV(5)
+//u6 deferred gbuffer world position output
+#define UAV_VISBUFFER_POSITION      GET_HLSL_LOC_UAV(6)
+//u7 deferred gbuffer oct-encoded normal output
+#define UAV_VISBUFFER_NORMAL        GET_HLSL_LOC_UAV(7)
+//b0 per-command material id root constant (set by ExecuteIndirect, never by sendData)
+#define CBV_VISBUFFER_MATERIALID    GET_HLSL_LOC_CBV(0)
+////////////////////visBuffer Buffer Ends
 
 ////////////////////utils Buffer Begin
 //u0 util src buffer output
@@ -129,6 +190,28 @@
 #define CBV_UTILSCONSTS					GET_HLSL_LOC_CBV(0)
 ////////////////////utils Buffer Ends
 
+////////////////////HZB Buffer Begin
+//t0 src mip
+#define SRV_HZB_SRC			GET_HLSL_LOC_SRV(0)
+//u0 dst mip
+#define UAV_HZB_DST			GET_HLSL_LOC_UAV(0)
+//u1 dst mip +1
+#define UAV_HZB_DST1		GET_HLSL_LOC_UAV(1)
+//u2 dst mip +2
+#define UAV_HZB_DST2		GET_HLSL_LOC_UAV(2)
+//u3 dst mip +3
+#define UAV_HZB_DST3		GET_HLSL_LOC_UAV(3)
+//b0 hzb constants
+#define CBV_HZBCONST		GET_HLSL_LOC_CBV(0)
+////////////////////HZB Buffer Ends
+
+#if ENGINE_DEBUG_MESH
+////////////////////meshviewer Buffer Begin
+//b0 meshviewer constants
+#define CBV_DEBUG_MESHVIEW_ID			GET_HLSL_LOC_CBV(0)
+////////////////////meshviewer Buffer Ends
+#endif // #if ENGINE_DEBUG_MESH
+
 #define FEATURE_AO (1 << 0)
 
 //define PSO indcies
@@ -136,22 +219,34 @@ namespace render
 {
 	enum PSO_INDEX
 	{
-		PSO_PBR,
-		PSO_GBUFFER,
-		PSO_WIREFRAME,
-		PSO_SSAO,
-		PSO_SSAOBLURX,
-		PSO_SSAOBLURY,
-		PSO_GENTERRAIN,
-		PSO_GENNOISE,
-		PSO_GENUNIFIED,
-		PSO_GENCMDBUF,
-		PSO_GBUFFERINDIRECT,
-		PSO_AABBDEBUGDRAW,
-		PSO_GENTERRAININDEX,
-		PSO_UPLOADLOCALOBJ,
-		PSO_CULLCLUSTER,
-		PSO_INITCLUSTER,
+		PSO_PBR,               //PBR
+		PSO_GBUFFER,           //Gbuffer
+		PSO_WIREFRAME,         //WireframeDebug
+		PSO_SSAO,              //SSAO
+		PSO_SSAOBLURX,         //SSAO_BlurHorizontal
+		PSO_SSAOBLURY,         //SSAO_BlurVertical
+		PSO_GENTERRAIN,        //GenTerrain
+		PSO_GENNOISE,          //GenNoise
+		PSO_GENUNIFIED,        //GenUnified
+		PSO_GENCMDBUF,         //GenCmdBuf
+		PSO_GBUFFERINDIRECT,   //GbufferIndirect
+		PSO_AABBDEBUGDRAW,     //WireframeAABB
+		PSO_GENTERRAININDEX,   //GenTerrainIndex
+		PSO_UPLOADLOCALOBJ,    //UploadLocalObj
+		PSO_CULLCLUSTER,       //CullCluster
+		PSO_INITCLUSTER,       //initCluster
+		PSO_GENHZB,            //genHZB
+		PSO_RASTERIZER,        //Rasterizer
+		PSO_CULLCLUSTER_POST,  //CullClusterPost
+		PSO_PREPPOSTARGS,      //PrepPostArgs
+		PSO_UPLOADPOSTOBJ,     //UploadPostObj
+		PSO_VISBUFFERINITMATERIALCOUNT,  //VisBufferInitMaterialCount
+		PSO_VISBUFFERMATERIALCOUNT,      //VisBufferMaterialCount
+		PSO_VISBUFFERMATERIALOFFSET,     //VisBufferMaterialOffset
+		PSO_VISBUFFERPIXELINFO,          //VisBufferPixelInfo
+		PSO_VISBUFFERGBUFFERARGS,        //VisBufferGbufferArgs
+		PSO_VISBUFFERGBUFFER,            //VisBufferGbuffer
+		PSO_VISBUFFER,                   //VisBuffer
 		PSO_END,
 	};
 }
@@ -160,7 +255,7 @@ namespace consts
 {
 	constexpr uint CONST_OBJ_SIZE = sizeof(float) * (4 * 4 + 3 + 1 + 1);
 	constexpr uint CONST_OBJ_SIZE_ALLIGNMENT = 96;
-	constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 + 4);
+	constexpr uint CONST_PROJ_SIZE = sizeof(float) * (4 * 4 + 4 + 4 * 4);
 }
 
 //define flags

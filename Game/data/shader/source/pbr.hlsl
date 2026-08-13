@@ -1,5 +1,6 @@
 #include "include\common.hlsli"
 #include "include\packing.hlsli"
+#include "include\light.hlsli"
 
 struct PSInput
 {
@@ -9,11 +10,12 @@ struct PSInput
 
 Texture2D positionGbuffer 			: register(t0);
 Texture2D<uint> normalTexGbuffer 	: register(t1);
-Texture2D<uint> debugGbuffer 		: register(t2);
+Texture2D<uint> visIDGbuffer 		: register(t2);
+Texture2D<uint> debugGbuffer 		: register(t3);
 
-Texture2D aoTexBuffer 		: register(t3);
+ByteAddressBuffer clusterArgs : register(t5);
 
-SamplerState samp 			: register(s0);
+Texture2D aoTexBuffer 		: register(t4);
 
 #define FEATURE_AO (1 << 0)
 
@@ -36,7 +38,7 @@ PSInput pbr_vs(float2 position : VPOSITION)
 float4 pbr_ps(PSInput input) : SV_TARGET
 {
 	float2 uv = (input.texCoord.xy + float2(1.0f, 1.0f)) * 0.5f;
-	uint2 texPos = uint2(uv.x * screenWidth, uv.y * screenHeight);	
+	uint2 texPos = uint2(uv.x * screenWidth, uv.y * screenHeight);
 	float3 position = positionGbuffer.Sample(samp, uv).xyz;
 	float3 normal = decodeOct((normalTexGbuffer[texPos].x));
 	uint debugInfo = debugGbuffer[texPos].x;
@@ -64,16 +66,27 @@ float4 pbr_ps(PSInput input) : SV_TARGET
 		return float4(0.5f, 0.5f, 0.1f, 1.0f);
 		//discard;
 	}
-	
+
+	uint visID = visIDGbuffer[texPos].x;
+	uint clusterSlot, localTri;
+	decodeVisID(visID, clusterSlot, localTri);
+	uint packedID = clusterArgs.Load((clusterSlot * 3 + 2) * 4);
+	uint objID, meshIndex, lod;
+	decodePackedID(packedID, objID, meshIndex, lod);
+
 	normal = normalize(normal);
     
 	float3 viewDir = normalize(proj.camPos - position);
+
+	float3 albedo = asfloat(materialInfos.Load3((objID * 5 + 0) * 4));
+	float metal = asfloat(materialInfos.Load((objID * 5 + 3) * 4));
+	float roughness = asfloat(materialInfos.Load((objID * 5 + 4) * 4));
 	
 	float ambientStrength = 0.1;
-    float3 ambient = ambientStrength * float3(1,1,1);
+    float3 ambient = ambientStrength * albedo;
   	
     // diffuse 
-    float3 lightDir = normalize(float3(-0.5f,-1.0f,-0.2f));
+    float3 lightDir = normalize(float3(-0.5f, 1.0f,0.2f));
     float diff = max(dot(normal, -lightDir), 0.0);
     float3 diffuse = diff;
     
@@ -81,14 +94,16 @@ float4 pbr_ps(PSInput input) : SV_TARGET
     float specularStrength = 0.5;
     float3 reflectDir = reflect(-lightDir, normal);  
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    float3 specular = specularStrength * spec;  
+    float3 specular = specularStrength * spec;
        
 	if(!(features & FEATURE_AO))
 	{
 		ao = 1.0f;
 	}
 	
-    float3 result = ((ambient + diffuse) * ao + specular);
+	float3 result = calcLight(lightDir, viewDir, normal, albedo, float3(1,1,1), roughness, metal, ao);
+
+    //float3 result = ((ambient + diffuse) * ao + specular);
 	
     return float4(result, 1.0f);
 }

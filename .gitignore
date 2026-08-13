@@ -35,5 +35,9 @@
 Debug/
 Release/
 packages/
-external/
+external/*
+!external/include/glaze/
 tools/meshReconstructor/meshReconstructor.pdb
+
+.claude/
+*.md

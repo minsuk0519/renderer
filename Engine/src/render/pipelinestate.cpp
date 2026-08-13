@@ -64,6 +64,10 @@ namespace render
 bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_CULL_MODE cull, bool wireframe, bool depth)
 {
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	if (wireframe)
+	{
+		primitiveType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+	}
 
 	isCompute = false;
 
@@ -108,7 +112,7 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 		psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 		psoDesc.DepthStencilState.DepthEnable = true;
 		psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-		psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+		psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
 		const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
 		{ D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
 		psoDesc.DepthStencilState.FrontFace = defaultStencilOp;
@@ -131,6 +135,8 @@ bool pipelinestate::initCS(std::string psoName, uint CS)
 
 	shader* cs = shaders::getShader(CS);
 
+	//TODO : creating rootsig on pso creation is not suitable for bindless engine design
+	//this is inefficient when we need multiple psos in a frame
 	rootsig = new rootsignature();
 
 	rootsig->initFromShader({ CS }, hlslLoc, true);

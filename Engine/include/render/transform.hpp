@@ -42,4 +42,5 @@ public:
 	void setScale(DirectX::XMVECTOR size);
 	void setRotation(DirectX::XMVECTOR rot);
 
+	DirectX::XMMATRIX buildViewProjMat(float FovAngleY, float AspectRatio, float NearZ, float FarZ) const;
 };

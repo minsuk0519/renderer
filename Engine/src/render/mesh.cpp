@@ -280,5 +280,8 @@ meshData* mesh::getData() const
 //TODO : move this to renderer
 void mesh::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 {
-    cmdList->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
+    if (data)
+    {
+        cmdList->DrawInstanced(data->lodData[0].totalIndicesCount, 1, 0, 0);
+    }
 }

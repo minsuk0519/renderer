@@ -13,7 +13,7 @@ class framebuffer
 private:
 	std::vector<buffer*> FBOs;
 
-	DirectX::XMFLOAT4 clearColor;
+	std::vector<DirectX::XMFLOAT4> clearColors;
 
 	buffer* depthBuffer = nullptr;
 	float clearDepth = 1.0f;
@@ -27,4 +27,5 @@ public:
 	void closeFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 
 	D3D12_GPU_DESCRIPTOR_HANDLE getDescHandle(uint FBOIndex);
+	ID3D12Resource* getFBOResource(uint FBOIndex);
 };

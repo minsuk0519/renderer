@@ -25,13 +25,13 @@
 		"shaderIndex":3
 	},{
 		"shaderFile":"data/shader/source/wireframe.hlsl",
-		"entryPoint":"wireframe_vs",
+		"entryPoint":"wireframeMeshView_vs",
 		"target":"vs_6_5",
 		"shaderType":0,
 		"shaderIndex":4
 	},{
 		"shaderFile":"data/shader/source/wireframe.hlsl",
-		"entryPoint":"wireframe_ps",
+		"entryPoint":"wireframeSingleChannel_ps",
 		"target":"ps_6_5",
 		"shaderType":1,
 		"shaderIndex":5
@@ -119,5 +119,83 @@
 		"target":"cs_6_5",
 		"shaderType":2,
 		"shaderIndex":19
+	},{
+		"shaderFile":"data/shader/source/mipmap.hlsl",
+		"entryPoint":"genHZB_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":20
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"rasterizer_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":21
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"cullCluster_post_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":22
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"prepPostArgs_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":23
+	},{
+		"shaderFile":"data/shader/source/culling.hlsl",
+		"entryPoint":"uploadPostObj_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":24
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_initMaterialCount_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":25
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_materialCount_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":26
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_materialOffset_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":27
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_pixelInfo_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":28
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_gbufferArgs_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":29
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_gbuffer_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":30
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_vs",
+		"target":"vs_6_5",
+		"shaderType":0,
+		"shaderIndex":31
+	},{
+		"shaderFile":"data/shader/source/visBuffer.hlsl",
+		"entryPoint":"visBuffer_ps",
+		"target":"ps_6_5",
+		"shaderType":1,
+		"shaderIndex":32
 	}
 ]

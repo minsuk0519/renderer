@@ -120,10 +120,10 @@ struct buffer_header
 		uint bufferId	: 16;
 		uint allocated	: 1;
 		uint viewFlags	: 8;
-		uint stride		: 2;
+		uint stride		: 4;
 		uint texture	: 1;
 		uint lifetime	: 1;
-		uint pad		: 3;
+		uint pad		: 1;
 	} packedData;
 
 	//D3D12_VERTEX_BUFFER_VIEW

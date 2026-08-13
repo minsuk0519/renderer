@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <vector>
 #include <system/defines.hpp>
 #include <render/descriptorheap.hpp>
 #include <render/buffer.hpp>
@@ -52,6 +53,7 @@ private:
 	bool checkFeatureSupport(DXGI_FEATURE feature);
 	bool createSwapChain();
 	bool createFrameResources();
+	void generateHZB();
 
 private:
 	//created from engine
@@ -65,14 +67,20 @@ private:
 private:
 	framebuffer* swapchainFB[FRAME_COUNT];
 	framebuffer* gbufferFB = nullptr;
+	framebuffer* visBufferFB = nullptr;
+#if ENGINE_DEBUG_CLEARGBUFFER
+	framebuffer* gbufferClearFB = nullptr;
+#endif // #if ENGINE_DEBUG_CLEARGBUFFER
 #if ENGINE_DEBUG_DEBUGCAM
 	framebuffer* gbufferDebugFB = nullptr;
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
+#if ENGINE_DEBUG_MESH
 	framebuffer* debugFB = nullptr;
 	bool debugFBRequest = false;
 	uint debugFBMeshID;
 	UINT64 debugProjection;
+#endif // #if ENGINE_DEBUG_MESH
 
 	buffer* ssaoTex[3];
 
@@ -80,13 +88,36 @@ private:
 	buffer* objectConstBuffer = nullptr;
 	buffer* localClusterOffsetBuffer = nullptr;
 	buffer* localClusterSizeBuffer = nullptr;
+	buffer* occludedClusterBuffer = nullptr;
+	buffer* clusterIndirectionBuffer = nullptr;
+	buffer* debugStatsBuffer = nullptr;
+	buffer* debugStatsReadback = nullptr;
+	uint clusterStatsFrameCounter = 0;
+	buffer* materialPixelCountsBuffer = nullptr;
+	buffer* materialMemoryOffsetBuffer = nullptr;
+	buffer* materialPixelArgsBuffer = nullptr;
+	buffer* materialBlockCursorBuffer = nullptr;
+	buffer* materialPixelInfoBuffer = nullptr;
+	buffer* materialGbufferArgsBuffer = nullptr;
+	buffer* gbufferPositionTex = nullptr;
+	buffer* gbufferNormalTex = nullptr;
 	buffer* clusterArgsBuffer = nullptr;
+	buffer* visibleTriBuffer = nullptr;
 	buffer* fbDepth = nullptr;
+
+	buffer* hzbDepth = nullptr;
+	uint hzbMipCount = 0;
+	std::vector<descriptor> hzbMipUAV;
+	std::vector<descriptor> hzbMipSRV;
+	std::vector<D3D12_RESOURCE_STATES> hzbMipState;
+	descriptor hzbFullSRV;
+	bool hzbReady = false;
 
 #if	ENGINE_DEBUG_BUFFER
 	buffer* outDebugBuffer = nullptr;
 #endif //#if ENGINE_DEBUG_BUFFER
 	buffer* viewInfoBuffer = nullptr;
+	buffer* materialBuffer = nullptr;
 	buffer* clusterBoundBuffer = nullptr;
 	
 	buffer* cmdConstBuffer = nullptr;
@@ -102,13 +133,56 @@ private:
 	buffer* sceneTriangleBuffer = nullptr;
 
 	buffer* uploadBuffer = nullptr;
+
+public:
+	struct cullPassStats
+	{
+		uint clusterCandidates = 0;
+		uint clusterFrustumCulled = 0;
+		uint clusterOccluded = 0;
+		uint clusterSurvivors = 0;
+		uint triCandidates = 0;
+		uint triSurvivors = 0;
+	};
+
+	struct cullStats
+	{
+		cullPassStats pass1{};
+		cullPassStats pass2{};
+		uint instancesTotal = 0;
+		uint instancesPass1 = 0;
+		uint instancesPass2 = 0;
+		bool hzbActive = false;
+	};
+
+	static constexpr uint CULLSTATS_HISTORY = 120;
+
+private:
+	cullStats cullStatsData;
+	std::array<float, CULLSTATS_HISTORY> clusterSurvivorHistory{};
+	std::array<float, CULLSTATS_HISTORY> triSurvivorHistory{};
+	uint cullStatsHistoryHead = 0;
+
 public:
 	framebuffer* getFrameBuffer() const;
-	framebuffer* getDebugFrameBuffer() const;
 
-	void debugFrameBufferRequest(uint debugMeshID, UINT64 ptr);
+#if ENGINE_DEBUG_MESH
+	framebuffer* getDebugFrameBuffer() const;
+	void debugFrameBufferRequest(uint debugMeshID, UINT64 projPtr);
+#endif // #if ENGINE_DEBUG_MESH
 
 	void guiSetting();
+	void guiCullingToggles();
+
+	const cullStats& getCullStats() const;
+	const float* getClusterSurvivorHistory() const;
+	const float* getTriSurvivorHistory() const;
+	uint getCullStatsHistoryOffset() const;
+
+	uint getHZBMipCount() const;
+	D3D12_GPU_DESCRIPTOR_HANDLE getHZBMipHandle(uint mip) const;
+	void getHZBMipSize(uint mip, uint& w, uint& h) const;
+	void transitionHZBForGui(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
 
 	render::UBManager* ubManager;
 	void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID, uint flags);
