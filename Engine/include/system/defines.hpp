@@ -14,4 +14,5 @@ typedef unsigned __int8 uint_8;
 #define ENGINE_DEBUG_BUFFER			(ENGINE_DEBUG && ENGINE_ENABLED)
 #define ENGINE_DEBUG_DATATEST		(ENGINE_DEBUG && ENGINE_ENABLED)
 #define ENGINE_DEBUG_DEBUGCAM		(ENGINE_DEBUG && ENGINE_ENABLED)
+//will only enable during the extra debug TODO : add debug level so I can easily toggle things on/off
 #define ENGINE_DEBUG_CLEARGBUFFER	0 //(ENGINE_DEBUG && ENGINE_ENABLED)
