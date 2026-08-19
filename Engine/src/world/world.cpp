@@ -160,7 +160,9 @@ void world::update(float dt)
 	}
 
 	mainCamera->update(dt);
+#if ENGINE_DEBUG_DEBUGCAM
 	debugCamera->update(dt);
+#endif // #if ENGINE_DEBUG_DEBUGCAM
 }
 
 void world::close()
