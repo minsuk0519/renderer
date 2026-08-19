@@ -1,5 +1,6 @@
 #include <render/render_UB.hpp>
 #include <render/commandqueue.hpp>
+#include <render/gpuEvent.hpp>
 #include <render/mesh.hpp>
 
 #include <system/config.hpp>
@@ -134,7 +135,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = getCmdQueue(QUEUE_COPY)->getCmdList();
 		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		{
-			render::ScopedGPUEvent meshInfoEvent(cmdList.Get(), "Upload MeshInfo");
+			GPU_EVENT(cmdList.Get(), "Upload MeshInfo");
 
 			e_globRenderer.uploadGPUBuffer(cmdList, meshInfoBuffer, meshID * sizeof(meshInfo), &meshinfo, sizeof(meshInfo));
 		}
@@ -142,7 +143,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
 		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		{
-			render::ScopedGPUEvent lodInfoEvent(cmdList.Get(), "Upload LodInfo");
+			GPU_EVENT(cmdList.Get(), "Upload LodInfo");
 
 			e_globRenderer.uploadGPUBuffer(cmdList, lodInfoBuffer, curLodOffset * sizeof(lodInfo), lodInfos, lodNum * sizeof(lodInfo));
 		}
@@ -151,7 +152,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		curLodOffset += lodNum;
 		{
-			render::ScopedGPUEvent clusterInfoEvent(cmdList.Get(), "Upload ClusterInfo");
+			GPU_EVENT(cmdList.Get(), "Upload ClusterInfo");
 
 			e_globRenderer.uploadGPUBuffer(cmdList, clusterInfoBuffer, clusterInfoOffset, clusterInfos, totalClusterCount * sizeof(clusterInfo));
 		}
@@ -159,7 +160,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
 		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		{
-			render::ScopedGPUEvent clusterBoundsEvent(cmdList.Get(), "Upload ClusterBounds");
+			GPU_EVENT(cmdList.Get(), "Upload ClusterBounds");
 
 			e_globRenderer.uploadGPUBuffer(cmdList, clusterBoundBuffer, clusterBoundOffset, clusterBounds, totalClusterCount * sizeof(clusterbounddata));
 		}
@@ -172,7 +173,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		delete[] clusterInfos;
 
 		{
-			render::ScopedGPUEvent copyVertexEvent(cmdList.Get(), "Copy Vertex to UVB");
+			GPU_EVENT(cmdList.Get(), "Copy Vertex to UVB");
 
 			e_globRenderer.copyGPUBuffer(cmdList, unifiedVertexBuffer, meshinfo.vertexOffset * sizeof(float) * 3, vertex, 0, vertex->getHeader()->dataSize);
 		}
@@ -180,7 +181,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
 		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		{
-			render::ScopedGPUEvent copyNormalEvent(cmdList.Get(), "Copy Normal to UVB");
+			GPU_EVENT(cmdList.Get(), "Copy Normal to UVB");
 
 			e_globRenderer.copyGPUBuffer(cmdList, unifiedVertexBuffer, (MAX_VERTICES + meshinfo.vertexOffset) * sizeof(float) * 3, norm, 0, vertex->getHeader()->dataSize);
 		}
@@ -188,7 +189,7 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
 		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
 		{
-			render::ScopedGPUEvent copyIndexEvent(cmdList.Get(), "Copy Index to UIB");
+			GPU_EVENT(cmdList.Get(), "Copy Index to UIB");
 
 			e_globRenderer.copyGPUBuffer(cmdList, unifiedIndexBuffer, meshIndexOffset * sizeof(uint), index, 0, index->getHeader()->dataSize);
 		}
