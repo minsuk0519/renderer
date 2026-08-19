@@ -1,5 +1,7 @@
 #pragma once
 
+#include <system/defines.hpp>
+
 #if ENGINE_DEBUG_GPUEVENT
 namespace render
 {
@@ -51,7 +53,7 @@ namespace render
 		gpuEventRegistry& reg = getGPUEventRegistry();
 		if (id >= 0 && id < reg.count)
 		{
-			return eg.names[id];
+			return reg.names[id];
 		}
 		return "UnknownGPUEvent";
 	}

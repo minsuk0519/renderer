@@ -3,6 +3,8 @@
 
 #include <cstring>
 
+#if ENGINE_DEBUG_GPUEVENT
+
 namespace render
 {
 	ScopedGPUEvent::ScopedGPUEvent(ID3D12GraphicsCommandList* cmdList, GPUEVENT_INDEX nameID)
@@ -26,3 +28,5 @@ namespace render
 		cmdList->EndEvent();
 	}
 }
+
+#endif // ENGINE_DEBUG_GPUEVENT

@@ -7,6 +7,7 @@
 
 namespace render
 {
+#if ENGINE_DEBUG_GPUEVENT
 	class ScopedGPUEvent
 	{
 	public:
@@ -26,4 +27,7 @@ namespace render
 	#define GPU_EVENT_CONCAT(a, b) GPU_EVENT_CONCAT_(a, b)
 	#define GPU_EVENT(cmdList, name) \
 		render::ScopedGPUEvent GPU_EVENT_CONCAT(gpuScopedEvent_, __COUNTER__)((cmdList), render::gpuEventID<name>)
+#else
+	#define GPU_EVENT(cmdList, name) ((void)(cmdList))
+#endif
 };
