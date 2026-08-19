@@ -34,26 +34,6 @@ namespace render
 
 	bool allocateCmdQueue();
 	void closeCmdQueue();
-
-	class ScopedGPUEvent
-	{
-	public:
-		ScopedGPUEvent(ID3D12GraphicsCommandList* cmdList, const char* name)
-			: cmdList(cmdList)
-		{
-			cmdList->BeginEvent(1, name, (UINT)strlen(name) + 1);
-		}
-		~ScopedGPUEvent()
-		{
-			cmdList->EndEvent();
-		}
-
-		ScopedGPUEvent(const ScopedGPUEvent&) = delete;
-		ScopedGPUEvent& operator=(const ScopedGPUEvent&) = delete;
-
-	private:
-		ID3D12GraphicsCommandList* cmdList;
-	};
 };
 
 class commandqueue

@@ -96,6 +96,7 @@
     <ClInclude Include="include\render\descriptorheap.hpp" />
     <ClInclude Include="include\render\framebuffer.hpp" />
     <ClInclude Include="include\render\gpuEventsDefines.hpp" />
+    <ClInclude Include="include\render\gpuEvent.hpp" />
     <ClInclude Include="include\render\GPUProf.hpp" />
     <ClInclude Include="include\render\helper.hpp" />
     <ClInclude Include="include\render\mesh.hpp" />
@@ -126,6 +127,7 @@
     <ClCompile Include="src\render\descriptorheap.cpp" />
     <ClCompile Include="src\render\framebuffer.cpp" />
     <ClCompile Include="src\render\GPUProf.cpp" />
+    <ClCompile Include="src\render\gpuEvent.cpp" />
     <ClCompile Include="src\render\mesh.cpp" />
     <ClCompile Include="src\render\pipelinestate.cpp" />
     <ClCompile Include="src\render\renderer.cpp" />
