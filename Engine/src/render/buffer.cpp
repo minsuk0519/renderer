@@ -689,6 +689,24 @@ void buffer::unmapBuffer()
     resource->Unmap(0, nullptr);
 }
 
+bool buffer::mapReadbackBuffer(unsigned char** dataPtr, uint readSize)
+{
+    CD3DX12_RANGE readRange(0, readSize);
+    HRESULT hr = resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
+    if (FAILED(hr))
+    {
+        *dataPtr = nullptr;
+        return false;
+    }
+    return true;
+}
+
+void buffer::unmapReadbackBuffer()
+{
+    CD3DX12_RANGE writtenRange(0, 0);
+    resource->Unmap(0, &writtenRange);
+}
+
 void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
 {
     uint memSize = (uint)freedMem.size();

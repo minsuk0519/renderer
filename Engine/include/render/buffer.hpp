@@ -151,6 +151,9 @@ public:
 
 	void mapBuffer(unsigned char** dataPtr);
 	void unmapBuffer();
+
+	bool mapReadbackBuffer(unsigned char** dataPtr, uint readSize);
+	void unmapReadbackBuffer();
 private:
 	friend struct buffer_allocator;
 	friend class buf::viewAllocator;
