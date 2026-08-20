@@ -1278,18 +1278,13 @@ void renderer::draw(float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 
 		{
-			ID3D12Resource* statsResource = debugStatsReadback->getResource();
-			CD3DX12_RANGE statsReadRange(0, sizeof(uint) * 32);
 			unsigned char* statsPtr = nullptr;
-			HRESULT statsMapResult = statsResource->Map(0, &statsReadRange, reinterpret_cast<void**>(&statsPtr));
-
-			if (SUCCEEDED(statsMapResult))
+			if (debugStatsReadback->mapReadbackBuffer(&statsPtr, sizeof(uint) * 32))
 			{
 				uint slots[32] = {};
 				memcpy(slots, statsPtr, sizeof(uint) * 32);
 
-				CD3DX12_RANGE statsWrittenRange(0, 0);
-				statsResource->Unmap(0, &statsWrittenRange);
+				debugStatsReadback->unmapReadbackBuffer();
 
 				cullStatsData.pass1.clusterCandidates = slots[8];
 				cullStatsData.pass1.clusterFrustumCulled = slots[9];
