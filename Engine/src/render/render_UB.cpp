@@ -1,6 +1,6 @@
 #include <render/render_UB.hpp>
 #include <render/commandqueue.hpp>
-#include <render/gpuEvent.hpp>
+#include <system/eventMarker.hpp>
 #include <render/mesh.hpp>
 
 #include <system/config.hpp>

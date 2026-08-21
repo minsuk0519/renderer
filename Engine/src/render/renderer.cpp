@@ -1,7 +1,7 @@
 #include <render/renderer.hpp>
 #include <render/commandqueue.hpp>
-#include <render/gpuEvent.hpp>
-#include <render/GPUProf.hpp>
+#include <system/eventMarker.hpp>
+#include <system/eventProf.hpp>
 #include <render/pipelinestate.hpp>
 #include <render/shader.hpp>
 #include <render/rootsignature.hpp>
@@ -114,7 +114,7 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	TC_INIT(render::initDescHeap());
 	e_globBufAllocator.init();
 #if ENGINE_DEBUG_GPUPROF
-	TC_INIT(render::initGPUProf());
+	TC_INIT(prof::initGPUProf());
 #endif // ENGINE_DEBUG_GPUPROF
 	uploadBuffer = e_globBufAllocator.alloc(nullptr, COPYING_GPU_BUFFER_SIZE, 1, 0, buf::RESOURCE_UPLOAD);
 	ubManager = new render::UBManager();
@@ -178,7 +178,7 @@ void renderer::close()
 	render::cleanUpDescHeap();
 	buf::cleanUp();
 #if ENGINE_DEBUG_GPUPROF
-	render::closeGPUProf();
+	prof::closeGPUProf();
 #endif // ENGINE_DEBUG_GPUPROF
 	render::closeCmdQueue();
 	shaders::cleanup();
@@ -1542,8 +1542,8 @@ void renderer::draw(float dt)
 
 		{
 #if ENGINE_DEBUG_GPUEVENT
-			render::ScopedGPUEvent ssaoBlurEvent(computeCmdList.Get(),
-				(i == 0) ? render::gpuEventID<"SSAO_BlurHorizontal"> : render::gpuEventID<"SSAO_BlurVertical">);
+			prof::ScopedGPUEvent ssaoBlurEvent(computeCmdList.Get(),
+				(i == 0) ? prof::eventID<"SSAO_BlurHorizontal"> : prof::eventID<"SSAO_BlurVertical">);
 #endif // ENGINE_DEBUG_GPUEVENT
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferPositionSRV->getHandle());
@@ -1668,7 +1668,7 @@ void renderer::draw(float dt)
 	//signal the queue graphics fence and wait for it.
 	render::getCmdQueue(render::QUEUE_GRAPHIC)->flush();
 #if ENGINE_DEBUG_GPUPROF
-	render::endGPUProfFrame();
+	prof::endGPUProfFrame();
 #endif // ENGINE_DEBUG_GPUPROF
 
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
