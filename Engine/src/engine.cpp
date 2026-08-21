@@ -7,6 +7,8 @@
 #include "render\renderer.hpp"
 #include "system\jsonhelper.hpp"
 #include "world\world.hpp"
+#include "system\eventMarker.hpp"
+#include "system\eventProf.hpp"
 
 #include <filesystem>
 #include <shlobj.h>
@@ -117,6 +119,10 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow, LPSTR cmdArgs)
 
     readJsonBuffer(configFile, JSON_FILE_NAME::CONFIG_FILE);
 
+#if ENGINE_DEBUG_CPUPROF
+	TC_INIT(prof::initCPUProf());
+#endif // ENGINE_DEBUG_CPUPROF
+
     TC_INIT(e_globWindow.init(hInstance, nCmdShow, configFile.width, configFile.height));
 
     TC_INIT(e_globRenderer.init(factory, adapter));
@@ -140,13 +146,16 @@ void engine::run()
     MSG msg = {};
     while (msg.message != WM_QUIT)
     {
-        e_globWindow.run();
-
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
-            if (msg.message == WM_QUIT) break;
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+            CPU_EVENT("Window Msg");
+            e_globWindow.run();
+
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            {
+                if (msg.message == WM_QUIT) break;
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
         }
 
         //when user press the escape key break the loop
@@ -168,16 +177,33 @@ void engine::run()
 
         float dt = static_cast<float>(deltaTime.count() * 1e-5);
 
-        e_globWorld.update(dt);
+        {
+            CPU_EVENT("World Update");
+            e_globWorld.update(dt);
+        }
 
-        e_globRenderer.preDraw(dt);
+        {
+            CPU_EVENT("PreDraw");
+            e_globRenderer.preDraw(dt);
+        }
 
-        e_globRenderer.draw(dt);
+        {
+            CPU_EVENT("Draw");
+            e_globRenderer.draw(dt);
+        }
+
+#if ENGINE_DEBUG_CPUPROF
+        prof::endCPUProfFrame();
+#endif // ENGINE_DEBUG_CPUPROF
     }
 }
 
 void engine::close()
 {
+#if ENGINE_DEBUG_CPUPROF
+    prof::closeCPUProf();
+#endif // ENGINE_DEBUG_CPUPROF
+
     writeJsonBuffer(configFile, JSON_FILE_NAME::CONFIG_FILE);
 
     TC_LOG("shutting down engine!");
