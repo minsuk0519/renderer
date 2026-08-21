@@ -464,6 +464,8 @@ namespace render
 					queueTotalMs[GPUPROF_QUEUE_COMPUTE],
 					queueTotalMs[GPUPROF_QUEUE_COPY]).c_str());
 				TC_LOG("=== End Frame 60 ===");
+
+				frameIndex = 0;
 			}
 #endif
 
