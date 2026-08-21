@@ -13,16 +13,16 @@ namespace prof
 		const char* name = prof::getEventName(nameID);
 		cmdList->BeginEvent(1, name, (UINT)strlen(name) + 1);
 #if ENGINE_DEBUG_GPUPROF
-		profEvent = prof::beginGPUProfEvent(cmdList, nameID);
+		profEventIndex = prof::beginGPUProfEvent(cmdList, nameID);
 #endif // ENGINE_DEBUG_GPUPROF
 	}
 
 	ScopedGPUEvent::~ScopedGPUEvent()
 	{
 #if ENGINE_DEBUG_GPUPROF
-		if (profEvent >= 0)
+		if (profEventIndex >= 0)
 		{
-			prof::endGPUProfEvent(cmdList, profEvent);
+			prof::endGPUProfEvent(cmdList, profEventIndex);
 		}
 #endif // ENGINE_DEBUG_GPUPROF
 		cmdList->EndEvent();
@@ -38,16 +38,16 @@ namespace prof
 	ScopedCPUEvent::ScopedCPUEvent(EVENT_INDEX nameID)
 	{
 #if ENGINE_DEBUG_CPUPROF
-		profEvent = prof::beginCPUProfEvent(nameID);
+		profEventIndex = prof::beginCPUProfEvent(nameID);
 #endif // ENGINE_DEBUG_CPUPROF
 	}
 
 	ScopedCPUEvent::~ScopedCPUEvent()
 	{
 #if ENGINE_DEBUG_CPUPROF
-		if (profEvent >= 0)
+		if (profEventIndex >= 0)
 		{
-			prof::endCPUProfEvent(profEvent);
+			prof::endCPUProfEvent(profEventIndex);
 		}
 #endif // ENGINE_DEBUG_CPUPROF
 	}

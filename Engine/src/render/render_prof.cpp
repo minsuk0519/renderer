@@ -46,7 +46,7 @@ namespace render
 
 			UINT64 frequency[GPUPROF_QUEUE_COUNT];
 
-			prof::detail::profLane lanes[GPUPROF_QUEUE_COUNT];
+			prof::profLane lanes[GPUPROF_QUEUE_COUNT];
 
 			bool frameActive;
 			bool enabled;
@@ -93,7 +93,7 @@ namespace render
 			{
 				frequency[i] = 0;
 				warnedRegionFull[i] = false;
-				prof::detail::laneReset(lanes[i]);
+				prof::laneReset(lanes[i]);
 			}
 
 			D3D12_QUERY_HEAP_DESC heapDesc = {};
@@ -232,10 +232,10 @@ namespace render
 				return -1;
 			}
 
-			prof::detail::profLane& lane = lanes[region];
+			prof::profLane& lane = lanes[region];
 			uint localSlot = lanes[region].recordedCount * 2;
 
-			int eventIndex = prof::detail::laneBegin(lane, nameID, std::format("GPU-{}", static_cast<int>(region)).c_str());
+			int eventIndex = prof::laneBegin(lane, nameID, std::format("GPU-{}", static_cast<int>(region)).c_str());
 			if (eventIndex < 0)
 				return -1;
 
@@ -256,14 +256,14 @@ namespace render
 			if (region == GPUPROF_QUEUE_COUNT || !queryHeaps[region] || eventIndex < 0 || eventIndex >= static_cast<int>(lanes[region].pendingEvents.size()))
 				return;
 
-			prof::detail::profLane& lane = lanes[region];
-			prof::detail::profEvent& event = lane.pendingEvents[eventIndex];
+			prof::profLane& lane = lanes[region];
+			prof::profEvent& event = lane.pendingEvents[eventIndex];
 
 			uint endSlot = event.slot + 1;
 			cmdList->EndQuery(queryHeaps[region].Get(), D3D12_QUERY_TYPE_TIMESTAMP, endSlot);
 
 			bool warnedMismatch = false;
-			prof::detail::laneEnd(lane, eventIndex, warnedMismatch);
+			prof::laneEnd(lane, eventIndex, warnedMismatch);
 			if (warnedMismatch && !warnedMismatchedStack)
 			{
 				TC_LOG("GPU Profiler: event stack mismatch (scope nesting error)");
@@ -277,7 +277,7 @@ namespace render
 			{
 				if (!enabled)
 					continue;
-				prof::detail::profLane& lane = lanes[region];
+				prof::profLane& lane = lanes[region];
 				if (lanes[region].recordedCount == lanes[region].resolvedCount)
 					continue;
 				if (region == GPUPROF_QUEUE_COPY && !copyQueueSupported)
@@ -329,7 +329,7 @@ namespace render
 			{
 				for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
 				{
-					prof::detail::laneReset(lanes[i]);
+					prof::laneReset(lanes[i]);
 				}
 				frameActive = true;
 
@@ -345,7 +345,7 @@ namespace render
 				TC_LOG("GPU Profiler: failed to map readback buffer");
 				for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
 				{
-					prof::detail::laneReset(lanes[i]);
+					prof::laneReset(lanes[i]);
 				}
 				frameActive = true;
 
@@ -358,14 +358,14 @@ namespace render
 			for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
 			{
 				lanes[i].totalMs = 0.0;
-				prof::detail::profLane& lane = lanes[i];
+				prof::profLane& lane = lanes[i];
 				lane.lastFrameEvents = lane.pendingEvents;
 			}
 
 			for (uint region = 0; region < GPUPROF_QUEUE_COUNT; ++region)
 			{
 				uint readbackBase = region * GPUPROF_MAX_EVENTS_PER_QUEUE * 2;
-				prof::detail::profLane& lane = lanes[region];
+				prof::profLane& lane = lanes[region];
 
 				for (auto& event : lane.lastFrameEvents)
 				{
@@ -413,7 +413,7 @@ namespace render
 					const char* queueLabel = (regionIdx == GPUPROF_QUEUE_GRAPHIC) ? "G" :
 						(regionIdx == GPUPROF_QUEUE_COMPUTE) ? "C" : "CP";
 
-					prof::detail::laneDump(lanes[regionIdx], queueLabel);
+					prof::laneDump(lanes[regionIdx], queueLabel);
 				}
 
 				TC_LOG(std::format("[GPUProf] Queue Totals: Graphic={:.3f}ms, Compute={:.3f}ms, Copy={:.3f}ms",
@@ -428,7 +428,7 @@ namespace render
 
 			for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
 			{
-				prof::detail::laneReset(lanes[i]);
+				prof::laneReset(lanes[i]);
 			}
 			frameActive = true;
 

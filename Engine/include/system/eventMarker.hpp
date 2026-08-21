@@ -21,7 +21,7 @@ namespace prof
 
 	private:
 		ID3D12GraphicsCommandList* cmdList;
-		int profEvent = -1;
+		int profEventIndex = -1;
 	};
 
 	#define GPU_EVENT_CONCAT_(a, b) a##b
@@ -43,7 +43,7 @@ namespace prof
 		ScopedCPUEvent& operator=(const ScopedCPUEvent&) = delete;
 
 	private:
-		int profEvent = -1;
+		int profEventIndex = -1;
 	};
 
 	#define CPU_EVENT_CONCAT_(a, b) a##b
