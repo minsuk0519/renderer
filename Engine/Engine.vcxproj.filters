@@ -8,6 +8,18 @@
     <ClInclude Include="include\system\defines.hpp">
       <Filter>system</Filter>
     </ClInclude>
+    <ClInclude Include="include\system\eventsDefines.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\eventMarker.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\eventProf.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
+    <ClInclude Include="include\system\eventProfLane.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
     <ClInclude Include="include\system\config.hpp">
       <Filter>system</Filter>
     </ClInclude>
@@ -59,15 +71,6 @@
     <ClInclude Include="include\render\framebuffer.hpp">
       <Filter>render</Filter>
     </ClInclude>
-    <ClInclude Include="include\render\gpuEventsDefines.hpp">
-      <Filter>render</Filter>
-    </ClInclude>
-    <ClInclude Include="include\render\gpuEvent.hpp">
-      <Filter>render</Filter>
-    </ClInclude>
-    <ClInclude Include="include\render\GPUProf.hpp">
-      <Filter>render</Filter>
-    </ClInclude>
     <ClInclude Include="include\world\object.hpp">
       <Filter>world</Filter>
     </ClInclude>
@@ -78,6 +81,9 @@
       <Filter>render</Filter>
     </ClInclude>
     <ClInclude Include="include\render\helper.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="include\render\render_prof.hpp">
       <Filter>render</Filter>
     </ClInclude>
     <ClInclude Include="include\system\mathhelper.hpp">
@@ -99,6 +105,12 @@
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="src\system\gui.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\system\eventMarker.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\system\eventProf.cpp">
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="src\render\renderer.cpp">
@@ -137,10 +149,7 @@
     <ClCompile Include="src\render\framebuffer.cpp">
       <Filter>render</Filter>
     </ClCompile>
-    <ClCompile Include="src\render\GPUProf.cpp">
-      <Filter>render</Filter>
-    </ClCompile>
-    <ClCompile Include="src\render\gpuEvent.cpp">
+    <ClCompile Include="src\render\render_prof.cpp">
       <Filter>render</Filter>
     </ClCompile>
     <ClCompile Include="src\world\world.cpp">
