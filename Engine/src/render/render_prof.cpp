@@ -35,6 +35,11 @@ namespace render
 			int beginEvent(ID3D12GraphicsCommandList* cmdList, prof::EVENT_INDEX nameID);
 			void endEvent(ID3D12GraphicsCommandList* cmdList, int eventIndex);
 
+			uint                      laneCount() const;
+			const prof::profLaneView* laneView(uint lane) const;
+			const float*              eventHistoryFor(prof::EVENT_INDEX id) const;
+			uint                      historyOffset() const;
+
 		private:
 			Microsoft::WRL::ComPtr<ID3D12QueryHeap> queryHeaps[GPUPROF_QUEUE_COUNT];
 			bool copyQueueSupported;
@@ -57,8 +62,16 @@ namespace render
 			bool warnedMismatchedStack;
 			bool warnedNegativeTick;
 
+			prof::profEventView snapshotEvents[GPUPROF_QUEUE_COUNT][GPUPROF_MAX_EVENTS_PER_QUEUE];
+			prof::profLaneView snapshotLanes[GPUPROF_QUEUE_COUNT];
+			const char* queueLabels[GPUPROF_QUEUE_COUNT];
+			float laneTotalHistory[GPUPROF_QUEUE_COUNT][prof::PROF_HISTORY_FRAMES];
+			float eventHistory[prof::EVENT_CAPACITY][prof::PROF_HISTORY_FRAMES];
+			uint historyHead;
+
 			GPUPROF_QUEUE getQueueFromListType(D3D12_COMMAND_LIST_TYPE type);
 			void resolveAllPending();
+			void publishSnapshot();
 		};
 
 		gpuProfiler g_gpuProf;
@@ -85,6 +98,7 @@ namespace render
 			enabled = true;
 			frameIndex = 0;
 			readback = nullptr;
+			historyHead = 0;
 
 			warnedCopyUnsupported = false;
 			warnedMismatchedStack = false;
@@ -94,6 +108,30 @@ namespace render
 				frequency[i] = 0;
 				warnedRegionFull[i] = false;
 				prof::laneReset(lanes[i]);
+			}
+
+			queueLabels[GPUPROF_QUEUE_GRAPHIC] = "Graphic";
+			queueLabels[GPUPROF_QUEUE_COMPUTE] = "Compute";
+			queueLabels[GPUPROF_QUEUE_COPY] = "Copy";
+
+			for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
+			{
+				snapshotLanes[i] = {};
+				for (uint j = 0; j < GPUPROF_MAX_EVENTS_PER_QUEUE; ++j)
+				{
+					snapshotEvents[i][j] = {};
+				}
+				for (uint j = 0; j < prof::PROF_HISTORY_FRAMES; ++j)
+				{
+					laneTotalHistory[i][j] = 0.0f;
+				}
+			}
+			for (uint i = 0; i < prof::EVENT_CAPACITY; ++i)
+			{
+				for (uint j = 0; j < prof::PROF_HISTORY_FRAMES; ++j)
+				{
+					eventHistory[i][j] = 0.0f;
+				}
 			}
 
 			D3D12_QUERY_HEAP_DESC heapDesc = {};
@@ -318,6 +356,46 @@ namespace render
 			}
 		}
 
+		void gpuProfiler::publishSnapshot()
+		{
+			historyHead = (historyHead + 1) % prof::PROF_HISTORY_FRAMES;
+
+			for (uint i = 0; i < prof::EVENT_CAPACITY; ++i)
+			{
+				eventHistory[i][historyHead] = 0.0f;
+			}
+
+			for (uint queueIdx = 0; queueIdx < GPUPROF_QUEUE_COUNT; ++queueIdx)
+			{
+				prof::profLane& lane = lanes[queueIdx];
+
+				uint eventCount = (std::min)(static_cast<uint>(lane.lastFrameEvents.size()), GPUPROF_MAX_EVENTS_PER_QUEUE);
+				for (uint eventIdx = 0; eventIdx < eventCount; ++eventIdx)
+				{
+					const prof::profEvent& event = lane.lastFrameEvents[eventIdx];
+					snapshotEvents[queueIdx][eventIdx] = {
+						prof::getEventName(event.nameID),
+						event.depth,
+						static_cast<float>(event.timeMs),
+						event.nameID
+					};
+
+					if (event.nameID >= 0 && event.nameID < prof::EVENT_CAPACITY)
+					{
+						eventHistory[event.nameID][historyHead] += static_cast<float>(event.timeMs);
+					}
+				}
+
+				snapshotLanes[queueIdx].label = queueLabels[queueIdx];
+				snapshotLanes[queueIdx].totalMs = static_cast<float>(lane.totalMs);
+				snapshotLanes[queueIdx].events = snapshotEvents[queueIdx];
+				snapshotLanes[queueIdx].eventCount = eventCount;
+				snapshotLanes[queueIdx].totalHistory = laneTotalHistory[queueIdx];
+
+				laneTotalHistory[queueIdx][historyHead] = static_cast<float>(lane.totalMs);
+			}
+		}
+
 		void gpuProfiler::endFrame()
 		{
 			resolveAllPending();
@@ -327,6 +405,8 @@ namespace render
 			if (lanes[GPUPROF_QUEUE_GRAPHIC].recordedCount == 0 && lanes[GPUPROF_QUEUE_COMPUTE].recordedCount == 0 &&
 				lanes[GPUPROF_QUEUE_COPY].recordedCount == 0)
 			{
+				publishSnapshot();
+
 				for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
 				{
 					prof::laneReset(lanes[i]);
@@ -343,6 +423,9 @@ namespace render
 			if (!readback->mapReadbackBuffer(&mappedPtr, readbackSize))
 			{
 				TC_LOG("GPU Profiler: failed to map readback buffer");
+
+				publishSnapshot();
+
 				for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
 				{
 					prof::laneReset(lanes[i]);
@@ -426,6 +509,8 @@ namespace render
 			}
 #endif
 
+			publishSnapshot();
+
 			for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
 			{
 				prof::laneReset(lanes[i]);
@@ -433,6 +518,30 @@ namespace render
 			frameActive = true;
 
 			++frameIndex;
+		}
+
+		uint gpuProfiler::laneCount() const
+		{
+			return GPUPROF_QUEUE_COUNT;
+		}
+
+		const prof::profLaneView* gpuProfiler::laneView(uint lane) const
+		{
+			if (lane >= GPUPROF_QUEUE_COUNT)
+				return nullptr;
+			return &snapshotLanes[lane];
+		}
+
+		const float* gpuProfiler::eventHistoryFor(prof::EVENT_INDEX id) const
+		{
+			if (id < 0 || id >= prof::EVENT_CAPACITY)
+				return nullptr;
+			return eventHistory[id];
+		}
+
+		uint gpuProfiler::historyOffset() const
+		{
+			return (historyHead + 1) % prof::PROF_HISTORY_FRAMES;
 		}
 	}
 
@@ -459,6 +568,26 @@ namespace render
 	void endGPUProfEventBackend(void* cmdList, int eventIndex)
 	{
 		gpuProf::g_gpuProf.endEvent(static_cast<ID3D12GraphicsCommandList*>(cmdList), eventIndex);
+	}
+
+	uint getGPULaneCountBackend()
+	{
+		return gpuProf::GPUPROF_QUEUE_COUNT;
+	}
+
+	const prof::profLaneView* getGPULaneViewBackend(uint lane)
+	{
+		return gpuProf::g_gpuProf.laneView(lane);
+	}
+
+	const float* getGPUEventHistoryBackend(prof::EVENT_INDEX eventID)
+	{
+		return gpuProf::g_gpuProf.eventHistoryFor(eventID);
+	}
+
+	uint getGPUHistoryOffsetBackend()
+	{
+		return gpuProf::g_gpuProf.historyOffset();
 	}
 
 }  // namespace render
