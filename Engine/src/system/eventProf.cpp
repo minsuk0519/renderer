@@ -18,6 +18,15 @@
 namespace prof
 {
 
+	static void indentRowByDepth(uint depth)
+	{
+		if (depth == 0)
+			return;
+
+		ImGui::Dummy(ImVec2(static_cast<float>(depth) * ImGui::GetStyle().IndentSpacing, 0.0f));
+		ImGui::SameLine(0.0f, 0.0f);
+	}
+
 #if ENGINE_DEBUG_GPUPROF
 
 	namespace gpuProf
@@ -166,9 +175,7 @@ namespace prof
 
 				ImGui::TableSetColumnIndex(0);
 				ImGui::PushID(index);
-				for (uint d = 0; d < entry->depth; ++d)
-					ImGui::Spacing();
-				ImGui::SameLine();
+				indentRowByDepth(entry->depth);
 
 				bool isSelected = (selectedEventViewerEvent == entry->nameID);
 				if (ImGui::Selectable(getEventName(entry->nameID), isSelected))
@@ -610,9 +617,7 @@ namespace prof
 					ImGui::TableSetColumnIndex(0);
 					ImGui::PushID(eventIdx);
 
-					for (uint d = 0; d < event.depth; ++d)
-						ImGui::Spacing();
-					ImGui::SameLine();
+					indentRowByDepth(event.depth);
 
 					bool isSelected = (selectedGPUEvent == event.nameID);
 					if (ImGui::Selectable(event.name, isSelected))
@@ -675,9 +680,7 @@ namespace prof
 					ImGui::TableSetColumnIndex(0);
 					ImGui::PushID(eventIdx);
 
-					for (uint d = 0; d < event.depth; ++d)
-						ImGui::Spacing();
-					ImGui::SameLine();
+					indentRowByDepth(event.depth);
 
 					bool isSelected = (selectedCPUEvent == event.nameID);
 					if (ImGui::Selectable(event.name, isSelected))
