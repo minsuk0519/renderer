@@ -1,13 +1,27 @@
 #include <render\mesh.hpp>
 #include <system\gui.hpp>
+#include <render/renderer.hpp>
+#include <render/framebuffer.hpp>
+#include <render/shader_defines.hpp>
 
 #include <array>
+#include <cmath>
+#include <algorithm>
 
 #include <d3dx12.h>
 
 namespace msh
 {
 	std::array<mesh*, MESH_SIZE> meshes;
+
+#if ENGINE_DEBUG_MESH
+	static buffer* debugProjectionBuffer;
+	static float meshDebugDrawCamArmLength_Default = 2.5f;
+	static DirectX::XMVECTOR meshDebugDrawCamPos_Default = DirectX::XMVECTOR{ 0.0f, 0.0f, meshDebugDrawCamArmLength_Default };
+	static float meshDebugDrawCamArmLength = meshDebugDrawCamArmLength_Default;
+	static DirectX::XMVECTOR meshDebugDrawCamPos = meshDebugDrawCamPos_Default;
+	static bool openDebugWindow = false;
+#endif // #if ENGINE_DEBUG_MESH
 
 	bool loadResources()
 	{
@@ -140,9 +154,13 @@ namespace msh
 			mesh* newData = new mesh(MESH_BUNNY);
             
 			buf::loadFiletoMesh("data/asset/model/bunny.obj", newData->getData(), MESH_BUNNY);
-            
+
 			meshes[MESH_BUNNY] = newData;
 		}
+
+#if ENGINE_DEBUG_MESH
+		debugProjectionBuffer = e_globBufAllocator.alloc(nullptr, consts::CONST_PROJ_SIZE, 1, buf::GBF_CBV, buf::RESOURCE_UPLOAD);
+#endif // #if ENGINE_DEBUG_MESH
 
         return true;
 	}
@@ -242,6 +260,99 @@ namespace msh
 
         }
     }
+
+#if ENGINE_DEBUG_MESH
+	void guiMeshViewSetting(bool openMeshClick, uint meshID)
+	{
+		if (openMeshClick)
+		{
+			e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer->getDesc(buf::GBF_CBV)->getHandle().ptr);
+			openDebugWindow = true;
+		}
+
+		if (openDebugWindow)
+		{
+			framebuffer* fbo = e_globRenderer.getDebugFrameBuffer();
+			ImGui::Image((ImTextureID)(fbo->getDescHandle(0).ptr), ImVec2(256.0f, 256.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+
+			static float x = 0;
+			static float y = PI / 2.0f;
+
+			bool changed = false;
+
+			ImGui::SameLine();
+			ImGui::BeginChild("ArrowButtons", ImVec2(70.0f, 70.0f));
+			ImGui::Columns(3, nullptr, false);
+			ImGui::PushButtonRepeat(true);
+			for (int i = 0; i < 9; i++)
+			{
+				if (i == 0) if (ImGui::Button("+##ZoomIn")) { meshDebugDrawCamArmLength -= 0.1f; changed = true; }
+				if (i == 1) if (ImGui::ArrowButton("meshView##Up", ImGuiDir_Up)) { y -= 0.1f; changed = true; }
+				if (i == 2) if (ImGui::Button("-##ZoomOut")) { meshDebugDrawCamArmLength += 0.1f; changed = true; }
+				if (i == 3) if (ImGui::ArrowButton("meshView##Left", ImGuiDir_Left)) { x -= 0.1f; changed = true; }
+				if (i == 5) if (ImGui::ArrowButton("meshView##Right", ImGuiDir_Right)) { x += 0.1f; changed = true; }
+				if (i == 7) if (ImGui::ArrowButton("meshView##Down", ImGuiDir_Down)) { y += 0.1f; changed = true; }
+				ImGui::NextColumn();
+			}
+			ImGui::PopButtonRepeat();
+
+			ImGui::EndChild();
+
+			if (ImGui::Button("Reset##MeshView"))
+			{
+				meshDebugDrawCamPos = meshDebugDrawCamPos_Default;
+				x = 0;
+				y = PI / 2.0f;
+			}
+
+			if (y > PI) y = PI - 0.01f;
+			if (y < 0.0f) y = 0.01f;
+
+			if(ImGui::Button("Close##MeshView"))
+			{
+				openDebugWindow = false;
+			}
+
+			if (changed || openMeshClick)
+			{
+				float xPos = std::sinf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
+				float yPos = std::cosf(y) * meshDebugDrawCamArmLength;
+				float zPos = std::cosf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
+				meshDebugDrawCamPos = DirectX::XMVECTOR{ xPos, yPos, zPos };
+				e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer->getDesc(buf::GBF_CBV)->getHandle().ptr);
+
+				DirectX::XMVECTOR forward = DirectX::XMVector3Normalize(DirectX::XMVectorNegate(meshDebugDrawCamPos));
+				DirectX::XMVECTOR globUp = DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };
+
+				DirectX::XMVECTOR right = DirectX::XMVector3Cross(forward, globUp);
+				DirectX::XMVECTOR up = DirectX::XMVector3Cross(right, forward);
+
+				DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(meshDebugDrawCamPos, forward, up);
+
+				DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), 1.0f, 0.1f, 10.0f);
+
+				DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, projection);
+
+				float* aabbSize = msh::getMesh(meshID)->getData()->boundData.halfExtent;
+
+				float safeExtent[3] =
+				{
+					(std::max)(aabbSize[msh::AXIS_X], 1e-6f),
+					(std::max)(aabbSize[msh::AXIS_Y], 1e-6f),
+					(std::max)(aabbSize[msh::AXIS_Z], 1e-6f)
+				};
+
+				debugProjectionBuffer->uploadBuffer(sizeof(float) * 4 * 4, 0, &viewProj);
+				debugProjectionBuffer->uploadBuffer(sizeof(float) * 3, sizeof(float) * 4 * 4, safeExtent);
+			}
+		}
+	}
+
+	void closeMeshView()
+	{
+		openDebugWindow = false;
+	}
+#endif // #if ENGINE_DEBUG_MESH
 }
 
 mesh::mesh(int index)

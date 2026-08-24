@@ -44,6 +44,11 @@ namespace msh
 	};
 
 	void guiMeshSetting(bool& meshWindow, uint& meshID);
+
+#if ENGINE_DEBUG_MESH
+	void guiMeshViewSetting(bool openMeshClick, uint meshID);
+	void closeMeshView();
+#endif // #if ENGINE_DEBUG_MESH
 }
 
 struct lodInfos

@@ -4,13 +4,15 @@
 
 #include <system/eventProfLane.hpp>
 #include <system/logger.hpp>
+#include <system/gui.hpp>
+#include <format>
+#include <string>
 #include <atomic>
 #include <thread>
 #include <windows.h>
 
 #if ENGINE_DEBUG_GPUPROF
 #include <render/render_prof.hpp>
-#include <system/gui.hpp>
 #endif
 
 namespace prof
@@ -100,32 +102,32 @@ namespace prof
 		render::endGPUProfEventBackend(cmdList, eventIndex);
 	}
 
-	uint getGPULaneCount()
+	static uint getGPULaneCount()
 	{
 		return render::getGPULaneCountBackend();
 	}
 
-	const profLaneView* getGPULaneView(uint lane)
+	static const profLaneView* getGPULaneView(uint lane)
 	{
 		return render::getGPULaneViewBackend(lane);
 	}
 
-	const float* getGPUEventHistory(EVENT_INDEX eventID)
+	static const float* getGPUEventHistory(EVENT_INDEX eventID)
 	{
 		return render::getGPUEventHistoryBackend(eventID);
 	}
 
-	uint getGPUHistoryOffset()
+	static uint getGPUHistoryOffset()
 	{
 		return render::getGPUHistoryOffsetBackend();
 	}
 
-	uint getGPUEventCatalogCount()
+	static uint getGPUEventCatalogCount()
 	{
 		return render::getGPUEventCatalogCountBackend();
 	}
 
-	const profEventInfoView* getGPUEventCatalog(EVENT_INDEX id)
+	static const profEventInfoView* getGPUEventCatalog(EVENT_INDEX id)
 	{
 		return render::getGPUEventCatalogBackend(id);
 	}
@@ -539,37 +541,174 @@ namespace prof
 		cpuProf::g_cpuProf.endEvent(eventIndex);
 	}
 
-	uint getCPULaneCount()
+	static uint getCPULaneCount()
 	{
 		return cpuProf::g_cpuProf.laneCount();
 	}
 
-	const profLaneView* getCPULaneView(uint lane)
+	static const profLaneView* getCPULaneView(uint lane)
 	{
 		return cpuProf::g_cpuProf.laneView(lane);
 	}
 
-	const float* getCPUEventHistory(EVENT_INDEX eventID)
+	static const float* getCPUEventHistory(EVENT_INDEX eventID)
 	{
 		return cpuProf::g_cpuProf.eventHistoryFor(eventID);
 	}
 
-	uint getCPUHistoryOffset()
+	static uint getCPUHistoryOffset()
 	{
 		return cpuProf::g_cpuProf.historyOffset();
 	}
 
-	float getCPUFrameTotalMs()
+	static float getCPUFrameTotalMs()
 	{
 		return cpuProf::g_cpuProf.frameTotal();
 	}
 
-	const float* getCPUFrameTotalHistory()
+	static const float* getCPUFrameTotalHistory()
 	{
 		return cpuProf::g_cpuProf.frameTotalHistoryData();
 	}
 
 #endif  // ENGINE_DEBUG_CPUPROF
+
+#if ENGINE_DEBUG_GPUPROF
+	static EVENT_INDEX selectedGPUEvent = EVENT_INVALID;
+#endif
+#if ENGINE_DEBUG_CPUPROF
+	static EVENT_INDEX selectedCPUEvent = EVENT_INVALID;
+#endif
+
+	void guiProfilerSetting()
+	{
+#if ENGINE_DEBUG_GPUPROF
+		ImGui::SeparatorText("GPU");
+
+		uint gpuLaneCount = getGPULaneCount();
+		for (uint laneIdx = 0; laneIdx < gpuLaneCount; ++laneIdx)
+		{
+			const profLaneView* laneView = getGPULaneView(laneIdx);
+			if (!laneView)
+				continue;
+
+			std::string overlay = std::format("{} {:.3f} ms", laneView->label, laneView->totalMs);
+			ImGui::PlotLines(laneView->label, laneView->totalHistory, (int)PROF_HISTORY_FRAMES,
+				(int)getGPUHistoryOffset(), overlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 60));
+
+			if (ImGui::BeginTable(std::format("GPUEventsLane{}", laneIdx).c_str(), 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+			{
+				ImGui::TableSetupColumn("Event");
+				ImGui::TableSetupColumn("ms");
+				ImGui::TableHeadersRow();
+
+				for (uint eventIdx = 0; eventIdx < laneView->eventCount; ++eventIdx)
+				{
+					const profEventView& event = laneView->events[eventIdx];
+
+					ImGui::TableNextRow();
+					ImGui::TableSetColumnIndex(0);
+					ImGui::PushID(eventIdx);
+
+					for (uint d = 0; d < event.depth; ++d)
+						ImGui::Spacing();
+					ImGui::SameLine();
+
+					bool isSelected = (selectedGPUEvent == event.nameID);
+					if (ImGui::Selectable(event.name, isSelected))
+					{
+						if (isSelected)
+							selectedGPUEvent = EVENT_INVALID;
+						else
+							selectedGPUEvent = event.nameID;
+					}
+					ImGui::PopID();
+
+					ImGui::TableSetColumnIndex(1);
+					ImGui::Text("%.3f", event.timeMs);
+				}
+
+				ImGui::EndTable();
+			}
+
+			if (selectedGPUEvent != EVENT_INVALID)
+			{
+				const float* eventHist = getGPUEventHistory(selectedGPUEvent);
+				if (eventHist)
+				{
+					std::string eventName = std::format("Event: {} (GPU)", getEventName(selectedGPUEvent));
+					ImGui::PlotLines(eventName.c_str(), eventHist, (int)PROF_HISTORY_FRAMES,
+						(int)getGPUHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
+				}
+			}
+		}
+#endif // ENGINE_DEBUG_GPUPROF
+
+#if ENGINE_DEBUG_CPUPROF
+		ImGui::SeparatorText("CPU");
+
+		ImGui::Text("CPU Total (all threads): %.3f ms", getCPUFrameTotalMs());
+		ImGui::PlotLines("CPU Total", getCPUFrameTotalHistory(), (int)PROF_HISTORY_FRAMES, (int)getCPUHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
+
+		uint cpuLaneCount = getCPULaneCount();
+		for (uint laneIdx = 0; laneIdx < cpuLaneCount; ++laneIdx)
+		{
+			const profLaneView* laneView = getCPULaneView(laneIdx);
+			if (!laneView)
+				continue;
+
+			std::string overlay = std::format("{} {:.3f} ms", laneView->label, laneView->totalMs);
+			ImGui::PlotLines(laneView->label, laneView->totalHistory, (int)PROF_HISTORY_FRAMES,
+				(int)getCPUHistoryOffset(), overlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 60));
+
+			if (ImGui::BeginTable(std::format("CPUEventsLane{}", laneIdx).c_str(), 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+			{
+				ImGui::TableSetupColumn("Event");
+				ImGui::TableSetupColumn("ms");
+				ImGui::TableHeadersRow();
+
+				for (uint eventIdx = 0; eventIdx < laneView->eventCount; ++eventIdx)
+				{
+					const profEventView& event = laneView->events[eventIdx];
+
+					ImGui::TableNextRow();
+					ImGui::TableSetColumnIndex(0);
+					ImGui::PushID(eventIdx);
+
+					for (uint d = 0; d < event.depth; ++d)
+						ImGui::Spacing();
+					ImGui::SameLine();
+
+					bool isSelected = (selectedCPUEvent == event.nameID);
+					if (ImGui::Selectable(event.name, isSelected))
+					{
+						if (isSelected)
+							selectedCPUEvent = EVENT_INVALID;
+						else
+							selectedCPUEvent = event.nameID;
+					}
+					ImGui::PopID();
+
+					ImGui::TableSetColumnIndex(1);
+					ImGui::Text("%.3f", event.timeMs);
+				}
+
+				ImGui::EndTable();
+			}
+
+			if (selectedCPUEvent != EVENT_INVALID)
+			{
+				const float* eventHist = getCPUEventHistory(selectedCPUEvent);
+				if (eventHist)
+				{
+					std::string eventName = std::format("Event: {} (CPU)", getEventName(selectedCPUEvent));
+					ImGui::PlotLines(eventName.c_str(), eventHist, (int)PROF_HISTORY_FRAMES,
+						(int)getCPUHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
+				}
+			}
+		}
+#endif // ENGINE_DEBUG_CPUPROF
+	}
 
 }  // namespace prof
 

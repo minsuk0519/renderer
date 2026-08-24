@@ -33,6 +33,8 @@ namespace prof
 		uint  depth;
 		bool  activeThisFrame;
 	};
+
+	void guiProfilerSetting();
 }
 
 #endif // ENGINE_DEBUG_GPUPROF || ENGINE_DEBUG_CPUPROF
@@ -47,13 +49,6 @@ namespace prof
 	int  beginGPUProfEvent(void* cmdList, EVENT_INDEX nameID);  // void* to avoid including d3d12.h
 	void endGPUProfEvent(void* cmdList, int eventIndex);
 
-	uint getGPULaneCount();
-	const profLaneView* getGPULaneView(uint lane);
-	const float* getGPUEventHistory(EVENT_INDEX);
-	uint getGPUHistoryOffset();
-
-	uint getGPUEventCatalogCount();
-	const profEventInfoView* getGPUEventCatalog(EVENT_INDEX id);
 	void guiEventViewerSetting();
 }  // namespace prof
 
@@ -68,13 +63,6 @@ namespace prof
 	void endCPUProfFrame();
 	int  beginCPUProfEvent(EVENT_INDEX nameID);
 	void endCPUProfEvent(int eventIndex);
-
-	uint getCPULaneCount();
-	const profLaneView* getCPULaneView(uint lane);
-	const float* getCPUEventHistory(EVENT_INDEX);
-	uint getCPUHistoryOffset();
-	float getCPUFrameTotalMs();
-	const float* getCPUFrameTotalHistory();
 }  // namespace prof
 
 #endif // ENGINE_DEBUG_CPUPROF

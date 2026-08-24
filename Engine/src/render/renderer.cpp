@@ -537,6 +537,107 @@ void renderer::guiSetting()
 	}
 }
 
+void renderer::guiGBufferSetting()
+{
+	ImGui::Text("GbufferPosTex");
+	framebuffer* fbo = getFrameBuffer();
+	ImGui::Image((ImTextureID)(fbo->getDescHandle(0).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+	ImGui::Text("GbufferNormTex");
+	ImGui::Image((ImTextureID)(fbo->getDescHandle(1).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+	ImGui::Text("ObjectID");
+	ImGui::Image((ImTextureID)(fbo->getDescHandle(2).ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+	ImGui::Text("SSAOTex");
+	//ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[0].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+	//ImGui::Image((ImTextureID)(e_globRenderer.ssaoDesc[2].getHandle().ptr), ImVec2(160.0f, 90.0f), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+}
+
+void renderer::guiCullingSetting()
+{
+	guiCullingToggles();
+	ImGui::Separator();
+
+	const cullStats& stats = getCullStats();
+
+	uint frustumCulledInstances = 0;
+	if (stats.instancesTotal > stats.instancesPass1 + stats.instancesPass2)
+	{
+		frustumCulledInstances = stats.instancesTotal - stats.instancesPass1 - stats.instancesPass2;
+	}
+
+	ImGui::Text("Instances: total=%u  frustumCulled=%u  pass1=%u  pass2=%u",
+		stats.instancesTotal, frustumCulledInstances, stats.instancesPass1, stats.instancesPass2);
+
+	if (ImGui::BeginTable("cullStats", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+	{
+		ImGui::TableSetupColumn("Metric");
+		ImGui::TableSetupColumn("Pass 1");
+		ImGui::TableSetupColumn("Pass 2");
+		ImGui::TableHeadersRow();
+
+		auto row = [](const char* name, uint p1, uint p2)
+		{
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0); ImGui::Text("%s", name);
+			ImGui::TableSetColumnIndex(1); ImGui::Text("%u", p1);
+			ImGui::TableSetColumnIndex(2); ImGui::Text("%u", p2);
+		};
+
+		row("Cluster candidates", stats.pass1.clusterCandidates, stats.pass2.clusterCandidates);
+		row("Cluster frustum-culled", stats.pass1.clusterFrustumCulled, stats.pass2.clusterFrustumCulled);
+		row("Cluster HZB-occluded", stats.pass1.clusterOccluded, stats.pass2.clusterOccluded);
+		row("Cluster survivors", stats.pass1.clusterSurvivors, stats.pass2.clusterSurvivors);
+		row("Tri candidates", stats.pass1.triCandidates, stats.pass2.triCandidates);
+		row("Tri survivors", stats.pass1.triSurvivors, stats.pass2.triSurvivors);
+
+		ImGui::EndTable();
+	}
+
+	ImGui::Separator();
+
+	float pass1Candidates = (float)(std::max)(1u, stats.pass1.clusterCandidates);
+	float pass2Candidates = (float)(std::max)(1u, stats.pass2.clusterCandidates);
+
+	ImGui::ProgressBar((float)stats.pass1.clusterOccluded / pass1Candidates, ImVec2(0, 0), "Pass1 occluded %");
+	ImGui::ProgressBar((float)stats.pass2.clusterOccluded / pass2Candidates, ImVec2(0, 0), "Pass2 occluded %");
+	ImGui::ProgressBar((float)stats.pass1.clusterSurvivors / pass1Candidates, ImVec2(0, 0), "Pass1 survivors %");
+	ImGui::ProgressBar((float)stats.pass2.clusterSurvivors / pass2Candidates, ImVec2(0, 0), "Pass2 survivors %");
+
+	ImGui::PlotLines("Cluster survivors", getClusterSurvivorHistory(), (int)CULLSTATS_HISTORY, (int)getCullStatsHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
+	ImGui::PlotLines("Triangle survivors", getTriSurvivorHistory(), (int)CULLSTATS_HISTORY, (int)getCullStatsHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
+}
+
+void renderer::guiHZBSetting()
+{
+	static int hzbViewMip = 0;
+	static float hzbViewGain = 1.0f;
+
+	int mipCount = (int)getHZBMipCount();
+	if (mipCount <= 0) mipCount = 1;
+	hzbViewMip = (std::max)(0, (std::min)(hzbViewMip, mipCount - 1));
+
+	ImGui::SliderInt("Mip", &hzbViewMip, 0, mipCount - 1);
+	ImGui::DragFloat("Gain", &hzbViewGain, 0.05f, 0.01f, 50.0f);
+
+	uint mipW = 0, mipH = 0;
+	getHZBMipSize((uint)hzbViewMip, mipW, mipH);
+	ImGui::Text("mip %d: %u x %u", hzbViewMip, mipW, mipH);
+
+	ImGui::Image((ImTextureID)getHZBMipHandle((uint)hzbViewMip).ptr, ImVec2(384, 216), ImVec2(0, 0), ImVec2(1, 1), ImVec4(hzbViewGain, hzbViewGain, hzbViewGain, 1), ImGui::GetStyleColorVec4(ImGuiCol_Border));
+
+	ImGui::BeginChild("HZBMipStrip", ImVec2(0, 70), ImGuiChildFlags_Border, ImGuiWindowFlags_HorizontalScrollbar);
+	for (int m = 0; m < mipCount; ++m)
+	{
+		ImGui::PushID(m);
+		if (ImGui::ImageButton("hzbMipThumb", (ImTextureID)getHZBMipHandle((uint)m).ptr, ImVec2(96, 54), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), ImVec4(hzbViewGain, hzbViewGain, hzbViewGain, 1)))
+		{
+			hzbViewMip = m;
+		}
+		ImGui::PopID();
+		ImGui::SameLine();
+	}
+	ImGui::EndChild();
+}
+
 const renderer::cullStats& renderer::getCullStats() const
 {
 	return cullStatsData;
