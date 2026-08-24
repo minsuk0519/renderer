@@ -5,7 +5,11 @@
 
 #if ENGINE_DEBUG_GPUPROF
 
-namespace prof { struct profLaneView; }
+namespace prof
+{
+	struct profLaneView;
+	struct profEventInfoView;
+}
 
 namespace render
 {
@@ -19,6 +23,9 @@ namespace render
 	const prof::profLaneView* getGPULaneViewBackend(uint lane);
 	const float* getGPUEventHistoryBackend(prof::EVENT_INDEX);
 	uint getGPUHistoryOffsetBackend();
+
+	uint getGPUEventCatalogCountBackend();
+	const prof::profEventInfoView* getGPUEventCatalogBackend(prof::EVENT_INDEX id);
 
 }  // namespace render
 

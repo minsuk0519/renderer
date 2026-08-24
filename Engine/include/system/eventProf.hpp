@@ -25,6 +25,14 @@ namespace prof
 		uint  eventCount;
 		const float* totalHistory;
 	};
+
+	struct profEventInfoView
+	{
+		EVENT_INDEX nameID;
+		uint  lane;
+		uint  depth;
+		bool  activeThisFrame;
+	};
 }
 
 #endif // ENGINE_DEBUG_GPUPROF || ENGINE_DEBUG_CPUPROF
@@ -43,6 +51,9 @@ namespace prof
 	const profLaneView* getGPULaneView(uint lane);
 	const float* getGPUEventHistory(EVENT_INDEX);
 	uint getGPUHistoryOffset();
+
+	uint getGPUEventCatalogCount();
+	const profEventInfoView* getGPUEventCatalog(EVENT_INDEX id);
 }  // namespace prof
 
 #endif // ENGINE_DEBUG_GPUPROF

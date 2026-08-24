@@ -40,6 +40,9 @@ namespace render
 			const float*              eventHistoryFor(prof::EVENT_INDEX id) const;
 			uint                      historyOffset() const;
 
+			uint                           eventCatalogCountValue() const;
+			const prof::profEventInfoView* eventCatalogEntry(prof::EVENT_INDEX id) const;
+
 		private:
 			Microsoft::WRL::ComPtr<ID3D12QueryHeap> queryHeaps[GPUPROF_QUEUE_COUNT];
 			bool copyQueueSupported;
@@ -68,6 +71,9 @@ namespace render
 			float laneTotalHistory[GPUPROF_QUEUE_COUNT][prof::PROF_HISTORY_FRAMES];
 			float eventHistory[prof::EVENT_CAPACITY][prof::PROF_HISTORY_FRAMES];
 			uint historyHead;
+
+			prof::profEventInfoView eventCatalog[prof::EVENT_CAPACITY];
+			uint eventCatalogCount;
 
 			GPUPROF_QUEUE getQueueFromListType(D3D12_COMMAND_LIST_TYPE type);
 			void resolveAllPending();
@@ -132,7 +138,13 @@ namespace render
 				{
 					eventHistory[i][j] = 0.0f;
 				}
+				eventCatalog[i] = {};
+				eventCatalog[i].nameID = prof::EVENT_INVALID;
+				eventCatalog[i].lane = 0;
+				eventCatalog[i].depth = 0;
+				eventCatalog[i].activeThisFrame = false;
 			}
+			eventCatalogCount = 0;
 
 			D3D12_QUERY_HEAP_DESC heapDesc = {};
 			heapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
@@ -363,6 +375,7 @@ namespace render
 			for (uint i = 0; i < prof::EVENT_CAPACITY; ++i)
 			{
 				eventHistory[i][historyHead] = 0.0f;
+				eventCatalog[i].activeThisFrame = false;
 			}
 
 			for (uint queueIdx = 0; queueIdx < GPUPROF_QUEUE_COUNT; ++queueIdx)
@@ -383,6 +396,11 @@ namespace render
 					if (event.nameID >= 0 && event.nameID < prof::EVENT_CAPACITY)
 					{
 						eventHistory[event.nameID][historyHead] += static_cast<float>(event.timeMs);
+
+						eventCatalog[event.nameID].nameID = event.nameID;
+						eventCatalog[event.nameID].lane = queueIdx;
+						eventCatalog[event.nameID].depth = event.depth;
+						eventCatalog[event.nameID].activeThisFrame = true;
 					}
 				}
 
@@ -394,6 +412,8 @@ namespace render
 
 				laneTotalHistory[queueIdx][historyHead] = static_cast<float>(lane.totalMs);
 			}
+
+			eventCatalogCount = (std::min)(static_cast<uint>(prof::getEventCount()), static_cast<uint>(prof::EVENT_CAPACITY));
 		}
 
 		void gpuProfiler::endFrame()
@@ -543,6 +563,18 @@ namespace render
 		{
 			return (historyHead + 1) % prof::PROF_HISTORY_FRAMES;
 		}
+
+		uint gpuProfiler::eventCatalogCountValue() const
+		{
+			return eventCatalogCount;
+		}
+
+		const prof::profEventInfoView* gpuProfiler::eventCatalogEntry(prof::EVENT_INDEX id) const
+		{
+			if (id < 0 || static_cast<uint>(id) >= eventCatalogCount)
+				return nullptr;
+			return &eventCatalog[id];
+		}
 	}
 
 	bool initGPUProfBackend()
@@ -588,6 +620,16 @@ namespace render
 	uint getGPUHistoryOffsetBackend()
 	{
 		return gpuProf::g_gpuProf.historyOffset();
+	}
+
+	uint getGPUEventCatalogCountBackend()
+	{
+		return gpuProf::g_gpuProf.eventCatalogCountValue();
+	}
+
+	const prof::profEventInfoView* getGPUEventCatalogBackend(prof::EVENT_INDEX id)
+	{
+		return gpuProf::g_gpuProf.eventCatalogEntry(id);
 	}
 
 }  // namespace render

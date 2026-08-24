@@ -119,6 +119,16 @@ namespace prof
 		return render::getGPUHistoryOffsetBackend();
 	}
 
+	uint getGPUEventCatalogCount()
+	{
+		return render::getGPUEventCatalogCountBackend();
+	}
+
+	const profEventInfoView* getGPUEventCatalog(EVENT_INDEX id)
+	{
+		return render::getGPUEventCatalogBackend(id);
+	}
+
 #endif  // ENGINE_DEBUG_GPUPROF
 
 #if ENGINE_DEBUG_CPUPROF
