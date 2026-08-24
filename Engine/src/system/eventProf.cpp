@@ -10,6 +10,7 @@
 
 #if ENGINE_DEBUG_GPUPROF
 #include <render/render_prof.hpp>
+#include <system/gui.hpp>
 #endif
 
 namespace prof
@@ -127,6 +128,67 @@ namespace prof
 	const profEventInfoView* getGPUEventCatalog(EVENT_INDEX id)
 	{
 		return render::getGPUEventCatalogBackend(id);
+	}
+
+	static EVENT_INDEX selectedEventViewerEvent = EVENT_INVALID;
+
+	void guiEventViewerSetting()
+	{
+		uint catalogCount = getGPUEventCatalogCount();
+		uint activeCount = 0;
+		for (uint i = 0; i < catalogCount; ++i)
+		{
+			const profEventInfoView* entry = getGPUEventCatalog(static_cast<EVENT_INDEX>(i));
+			if (entry && entry->activeThisFrame)
+				++activeCount;
+		}
+
+		ImGui::Text("Events: %u active / %u total", activeCount, catalogCount);
+
+		if (ImGui::BeginTable("EventCatalog", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+		{
+			ImGui::TableSetupColumn("Event");
+			ImGui::TableSetupColumn("Queue");
+			ImGui::TableHeadersRow();
+
+			for (uint index = 0; index < catalogCount; ++index)
+			{
+				const profEventInfoView* entry = getGPUEventCatalog(static_cast<EVENT_INDEX>(index));
+				if (!entry || entry->nameID == EVENT_INVALID)
+					continue;
+
+				ImGui::TableNextRow();
+
+				if (!entry->activeThisFrame)
+					ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+
+				ImGui::TableSetColumnIndex(0);
+				ImGui::PushID(index);
+				for (uint d = 0; d < entry->depth; ++d)
+					ImGui::Spacing();
+				ImGui::SameLine();
+
+				bool isSelected = (selectedEventViewerEvent == entry->nameID);
+				if (ImGui::Selectable(getEventName(entry->nameID), isSelected))
+				{
+					if (isSelected)
+						selectedEventViewerEvent = EVENT_INVALID;
+					else
+						selectedEventViewerEvent = entry->nameID;
+				}
+				ImGui::PopID();
+
+				ImGui::TableSetColumnIndex(1);
+				const profLaneView* laneView = getGPULaneView(entry->lane);
+				const char* laneLabel = (laneView && laneView->label) ? laneView->label : "-";
+				ImGui::Text("%s", laneLabel);
+
+				if (!entry->activeThisFrame)
+					ImGui::PopStyleColor();
+			}
+
+			ImGui::EndTable();
+		}
 	}
 
 #endif  // ENGINE_DEBUG_GPUPROF

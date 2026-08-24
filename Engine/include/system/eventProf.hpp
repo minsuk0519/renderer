@@ -54,6 +54,7 @@ namespace prof
 
 	uint getGPUEventCatalogCount();
 	const profEventInfoView* getGPUEventCatalog(EVENT_INDEX id);
+	void guiEventViewerSetting();
 }  // namespace prof
 
 #endif // ENGINE_DEBUG_GPUPROF

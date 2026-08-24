@@ -72,7 +72,6 @@ static bool showEventViewerWindow = false;
 #if ENGINE_DEBUG_GPUPROF || ENGINE_DEBUG_CPUPROF
 static prof::EVENT_INDEX selectedGPUEvent = prof::EVENT_INVALID;
 static prof::EVENT_INDEX selectedCPUEvent = prof::EVENT_INVALID;
-static prof::EVENT_INDEX selectedEventViewerEvent = prof::EVENT_INVALID;
 #endif
 
 #include <imgui/imgui_internal.h>
@@ -512,61 +511,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     {
         ImGui::Begin("EventViewer", &showEventViewerWindow);
 
-        uint catalogCount = prof::getGPUEventCatalogCount();
-        uint activeCount = 0;
-        for (uint i = 0; i < catalogCount; ++i)
-        {
-            const prof::profEventInfoView* entry = prof::getGPUEventCatalog(static_cast<prof::EVENT_INDEX>(i));
-            if (entry && entry->activeThisFrame)
-                ++activeCount;
-        }
-
-        ImGui::Text("Events: %u active / %u total", activeCount, catalogCount);
-
-        if (ImGui::BeginTable("EventCatalog", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
-        {
-            ImGui::TableSetupColumn("Event");
-            ImGui::TableSetupColumn("Queue");
-            ImGui::TableHeadersRow();
-
-            for (uint index = 0; index < catalogCount; ++index)
-            {
-                const prof::profEventInfoView* entry = prof::getGPUEventCatalog(static_cast<prof::EVENT_INDEX>(index));
-                if (!entry || entry->nameID == prof::EVENT_INVALID)
-                    continue;
-
-                ImGui::TableNextRow();
-
-                if (!entry->activeThisFrame)
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-
-                ImGui::TableSetColumnIndex(0);
-                ImGui::PushID(index);
-                for (uint d = 0; d < entry->depth; ++d)
-                    ImGui::Spacing();
-                ImGui::SameLine();
-
-                bool isSelected = (selectedEventViewerEvent == entry->nameID);
-                if (ImGui::Selectable(prof::getEventName(entry->nameID), isSelected))
-                {
-                    if (isSelected)
-                        selectedEventViewerEvent = prof::EVENT_INVALID;
-                    else
-                        selectedEventViewerEvent = entry->nameID;
-                }
-                ImGui::PopID();
-
-                ImGui::TableSetColumnIndex(1);
-                const prof::profLaneView* laneView = prof::getGPULaneView(entry->lane);
-                const char* laneLabel = (laneView && laneView->label) ? laneView->label : "-";
-                ImGui::Text("%s", laneLabel);
-
-                if (!entry->activeThisFrame)
-                    ImGui::PopStyleColor();
-            }
-
-            ImGui::EndTable();
-        }
+        prof::guiEventViewerSetting();
 
         ImGui::End();
     }
