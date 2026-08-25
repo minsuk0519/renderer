@@ -20,22 +20,30 @@ namespace prof
 
 	static bool eventTreeNodeCol0(const char* name, EVENT_INDEX nameID, bool hasChildren, EVENT_INDEX& selected)
 	{
-		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen;
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
 
 		if (selected == nameID)
+		{
 			flags |= ImGuiTreeNodeFlags_Selected;
+		}
 
 		if (!hasChildren)
+		{
 			flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+		}
 
 		bool open = ImGui::TreeNodeEx(name, flags);
 
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
 		{
 			if (selected == nameID)
+			{
 				selected = EVENT_INVALID;
+			}
 			else
+			{
 				selected = nameID;
+			}
 		}
 
 		return hasChildren && open;
@@ -143,7 +151,9 @@ namespace prof
 	int beginGPUProfEvent(void* cmdList, EVENT_INDEX nameID)
 	{
 		if (!cmdList)
+		{
 			return -1;
+		}
 
 		return render::beginGPUProfEventBackend(cmdList, nameID);
 	}
@@ -151,7 +161,9 @@ namespace prof
 	void endGPUProfEvent(void* cmdList, int eventIndex)
 	{
 		if (!cmdList)
+		{
 			return;
+		}
 
 		render::endGPUProfEventBackend(cmdList, eventIndex);
 	}
@@ -202,7 +214,9 @@ namespace prof
 		const profEventInfoView* entry = getGPUEventCatalog(orderedId);
 
 		if (!entry)
+		{
 			return i + 1;
+		}
 
 		bool hasChildren = (i + 1 < getGPUEventCatalogOrderCount()) &&
 			getGPUEventCatalog(getGPUEventCatalogOrder(i + 1))->depth > entry->depth;
@@ -210,7 +224,9 @@ namespace prof
 		ImGui::TableNextRow();
 
 		if (!entry->activeThisFrame)
+		{
 			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+		}
 
 		ImGui::TableSetColumnIndex(0);
 		ImGui::PushID(entry->nameID);
@@ -230,7 +246,9 @@ namespace prof
 				EVENT_INDEX nextId = getGPUEventCatalogOrder(next);
 				const profEventInfoView* nextEntry = getGPUEventCatalog(nextId);
 				if (!nextEntry || nextEntry->depth <= entry->depth)
+				{
 					break;
+				}
 				next = renderCatalogRows(next, selected);
 			}
 			ImGui::TreePop();
@@ -242,7 +260,9 @@ namespace prof
 				EVENT_INDEX nextId = getGPUEventCatalogOrder(next);
 				const profEventInfoView* nextEntry = getGPUEventCatalog(nextId);
 				if (!nextEntry || nextEntry->depth <= entry->depth)
+				{
 					break;
+				}
 				++next;
 			}
 		}
@@ -250,7 +270,9 @@ namespace prof
 		ImGui::PopID();
 
 		if (!entry->activeThisFrame)
+		{
 			ImGui::PopStyleColor();
+		}
 
 		return next;
 	}
@@ -266,7 +288,9 @@ namespace prof
 			EVENT_INDEX orderedId = getGPUEventCatalogOrder(i);
 			const profEventInfoView* entry = getGPUEventCatalog(orderedId);
 			if (entry && entry->activeThisFrame)
+			{
 				++activeCount;
+			}
 		}
 
 		ImGui::Text("Events: %u active / %u total", activeCount, catalogCount);
@@ -404,7 +428,9 @@ namespace prof
 		int cpuProfiler::beginEvent(EVENT_INDEX nameID)
 		{
 			if (!enabled || !frameActive)
+			{
 				return -1;
+			}
 
 			if (t_laneIndex == -1)
 			{
@@ -440,7 +466,9 @@ namespace prof
 		void cpuProfiler::endEvent(int eventIndex)
 		{
 			if (!frameActive || t_laneIndex < 0 || t_laneIndex >= CPUPROF_MAX_THREADS)
+			{
 				return;
+			}
 
 			profLane& lane = lanes[t_laneIndex];
 
@@ -449,7 +477,9 @@ namespace prof
 			QueryPerformanceCounter(&now);
 
 			if (eventIndex < 0 || eventIndex >= static_cast<int>(lane.pendingEvents.size()))
+			{
 				return;
+			}
 
 			profEvent& event = lane.pendingEvents[eventIndex];
 
@@ -580,14 +610,18 @@ namespace prof
 		const profLaneView* cpuProfiler::laneView(uint lane) const
 		{
 			if (lane >= CPUPROF_MAX_THREADS)
+			{
 				return nullptr;
+			}
 			return &snapshotLanes[lane];
 		}
 
 		const float* cpuProfiler::eventHistoryFor(EVENT_INDEX id) const
 		{
 			if (id < 0 || id >= EVENT_CAPACITY)
+			{
 				return nullptr;
+			}
 			return eventHistory[id];
 		}
 
@@ -681,7 +715,9 @@ namespace prof
 		{
 			const profLaneView* laneView = getGPULaneView(laneIdx);
 			if (!laneView)
+			{
 				continue;
+			}
 
 			std::string overlay = std::format("{} {:.3f} ms", laneView->label, laneView->totalMs);
 			ImGui::PlotLines(laneView->label, laneView->totalHistory, (int)PROF_HISTORY_FRAMES,
@@ -723,7 +759,9 @@ namespace prof
 		{
 			const profLaneView* laneView = getCPULaneView(laneIdx);
 			if (!laneView)
+			{
 				continue;
+			}
 
 			std::string overlay = std::format("{} {:.3f} ms", laneView->label, laneView->totalMs);
 			ImGui::PlotLines(laneView->label, laneView->totalHistory, (int)PROF_HISTORY_FRAMES,

@@ -257,10 +257,22 @@ void gui::editfloat(std::string str, uint floatNum, float* data, float min, floa
 {
     float velocity = (min == max) ? 0.01f : (max - min) * 0.001f;
 
-    if (floatNum == 1) ImGui::DragFloat(str.c_str(), data, velocity, min, max);
-    else if (floatNum == 2) ImGui::DragFloat2(str.c_str(), data, velocity, min, max);
-    else if (floatNum == 3) ImGui::DragFloat3(str.c_str(), data, velocity, min, max);
-    else if (floatNum == 4) ImGui::DragFloat4(str.c_str(), data, velocity, min, max);
+    if (floatNum == 1)
+    {
+        ImGui::DragFloat(str.c_str(), data, velocity, min, max);
+    }
+    else if (floatNum == 2)
+    {
+        ImGui::DragFloat2(str.c_str(), data, velocity, min, max);
+    }
+    else if (floatNum == 3)
+    {
+        ImGui::DragFloat3(str.c_str(), data, velocity, min, max);
+    }
+    else if (floatNum == 4)
+    {
+        ImGui::DragFloat4(str.c_str(), data, velocity, min, max);
+    }
 }
 
 void gui::edituint(std::string str, uint* data)

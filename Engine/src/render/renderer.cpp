@@ -236,7 +236,10 @@ bool renderer::checkFeatureSupport(DXGI_FEATURE feature)
 		Microsoft::WRL::ComPtr<IDXGIFactory5> factory5;
 		if (SUCCEEDED(factory4.As(&factory5)))
 		{
-			if (FAILED(factory5->CheckFeatureSupport(feature, &result, sizeof(result)))) result = false;
+			if (FAILED(factory5->CheckFeatureSupport(feature, &result, sizeof(result))))
+			{
+				result = false;
+			}
 		}
 	}
 
@@ -257,7 +260,10 @@ bool renderer::createSwapChain()
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
 	bool tearingSupport = checkFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING);
-	if (!tearingSupport) TC_LOG_WARNING("Tearing is not supported on this device!");
+	if (!tearingSupport)
+	{
+		TC_LOG_WARNING("Tearing is not supported on this device!");
+	}
 	swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;// tearingSupport ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain1;
@@ -522,8 +528,14 @@ void renderer::guiSetting()
 	ImGui::Checkbox("ShowAABB", &renderGuiSetting::guiDebug.AABBDraw);
 	guiCullingToggles();
 
-	if(renderGuiSetting::ssaoEnabled) renderGuiSetting::guiDebug.features |= FEATURE_AO;
-	else renderGuiSetting::guiDebug.features &= ~FEATURE_AO;
+	if (renderGuiSetting::ssaoEnabled)
+	{
+		renderGuiSetting::guiDebug.features |= FEATURE_AO;
+	}
+	else
+	{
+		renderGuiSetting::guiDebug.features &= ~FEATURE_AO;
+	}
 
 	if (renderGuiSetting::ssaoEnabled)
 	{
@@ -612,7 +624,10 @@ void renderer::guiHZBSetting()
 	static float hzbViewGain = 1.0f;
 
 	int mipCount = (int)getHZBMipCount();
-	if (mipCount <= 0) mipCount = 1;
+	if (mipCount <= 0)
+	{
+		mipCount = 1;
+	}
 	hzbViewMip = (std::max)(0, (std::min)(hzbViewMip, mipCount - 1));
 
 	ImGui::SliderInt("Mip", &hzbViewMip, 0, mipCount - 1);

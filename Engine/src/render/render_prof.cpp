@@ -214,14 +214,22 @@ namespace render
 			{
 				D3D12_COMMAND_LIST_TYPE cmdType;
 				if (region == GPUPROF_QUEUE_GRAPHIC)
+				{
 					cmdType = D3D12_COMMAND_LIST_TYPE_DIRECT;
+				}
 				else if (region == GPUPROF_QUEUE_COMPUTE)
+				{
 					cmdType = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+				}
 				else
+				{
 					cmdType = D3D12_COMMAND_LIST_TYPE_COPY;
+				}
 
 				if (region == GPUPROF_QUEUE_COPY && !copyQueueSupported)
+				{
 					continue;
+				}
 
 				hr = e_globRenderer.device->CreateCommandAllocator(cmdType, IID_PPV_ARGS(&resolveAlloc[region]));
 				TC_CONDITIONB(SUCCEEDED(hr), "Failed to create resolve command allocator");
@@ -264,16 +272,22 @@ namespace render
 		int gpuProfiler::beginEvent(ID3D12GraphicsCommandList* cmdList, prof::EVENT_INDEX nameID)
 		{
 			if (!enabled || !frameActive || !cmdList)
+			{
 				return -1;
+			}
 
 			D3D12_COMMAND_LIST_TYPE listType = cmdList->GetType();
 			GPUPROF_QUEUE region = getQueueFromListType(listType);
 
 			if (region == GPUPROF_QUEUE_COUNT || !queryHeaps[region])
+			{
 				return -1;
+			}
 
 			if (region == GPUPROF_QUEUE_COPY && !copyQueueSupported)
+			{
 				return -1;
+			}
 
 			if (lanes[region].recordedCount >= GPUPROF_MAX_EVENTS_PER_QUEUE)
 			{
@@ -292,7 +306,9 @@ namespace render
 
 			int eventIndex = prof::laneBegin(lane, nameID, std::format("GPU-{}", static_cast<int>(region)).c_str());
 			if (eventIndex < 0)
+			{
 				return -1;
+			}
 
 			lane.pendingEvents[eventIndex].slot = localSlot;
 			cmdList->EndQuery(queryHeaps[region].Get(), D3D12_QUERY_TYPE_TIMESTAMP, localSlot);
@@ -303,13 +319,17 @@ namespace render
 		void gpuProfiler::endEvent(ID3D12GraphicsCommandList* cmdList, int eventIndex)
 		{
 			if (!frameActive || !cmdList)
+			{
 				return;
+			}
 
 			D3D12_COMMAND_LIST_TYPE listType = cmdList->GetType();
 			GPUPROF_QUEUE region = getQueueFromListType(listType);
 
 			if (region == GPUPROF_QUEUE_COUNT || !queryHeaps[region] || eventIndex < 0 || eventIndex >= static_cast<int>(lanes[region].pendingEvents.size()))
+			{
 				return;
+			}
 
 			prof::profLane& lane = lanes[region];
 			prof::profEvent& event = lane.pendingEvents[eventIndex];
@@ -331,12 +351,18 @@ namespace render
 			for (uint region = 0; region < GPUPROF_QUEUE_COUNT; ++region)
 			{
 				if (!enabled)
+				{
 					continue;
+				}
 				prof::profLane& lane = lanes[region];
 				if (lanes[region].recordedCount == lanes[region].resolvedCount)
+				{
 					continue;
+				}
 				if (region == GPUPROF_QUEUE_COPY && !copyQueueSupported)
+				{
 					continue;
+				}
 				if (!lane.openStack.empty())
 				{
 					if (!warnedMismatchedStack)
@@ -413,12 +439,16 @@ namespace render
 								uint prevEventId = static_cast<uint>(catalogOrder[catalogOrderCount - 1]);
 								uint prevDepth = eventCatalog[prevEventId].depth;
 								if (clampedDepth > prevDepth + 1)
+								{
 									clampedDepth = prevDepth + 1;
+								}
 							}
 							else
 							{
 								if (clampedDepth > 0)
+								{
 									clampedDepth = 0;
+								}
 							}
 
 							if (catalogOrderCount < prof::EVENT_CAPACITY)
@@ -591,14 +621,18 @@ namespace render
 		const prof::profLaneView* gpuProfiler::laneView(uint lane) const
 		{
 			if (lane >= GPUPROF_QUEUE_COUNT)
+			{
 				return nullptr;
+			}
 			return &snapshotLanes[lane];
 		}
 
 		const float* gpuProfiler::eventHistoryFor(prof::EVENT_INDEX id) const
 		{
 			if (id < 0 || id >= prof::EVENT_CAPACITY)
+			{
 				return nullptr;
+			}
 			return eventHistory[id];
 		}
 
@@ -615,7 +649,9 @@ namespace render
 		const prof::profEventInfoView* gpuProfiler::eventCatalogEntry(prof::EVENT_INDEX id) const
 		{
 			if (id < 0 || static_cast<uint>(id) >= eventCatalogCount)
+			{
 				return nullptr;
+			}
 			return &eventCatalog[id];
 		}
 
@@ -627,7 +663,9 @@ namespace render
 		prof::EVENT_INDEX gpuProfiler::catalogOrderAt(uint i) const
 		{
 			if (i >= catalogOrderCount)
+			{
 				return prof::EVENT_INVALID;
+			}
 			return catalogOrder[i];
 		}
 	}

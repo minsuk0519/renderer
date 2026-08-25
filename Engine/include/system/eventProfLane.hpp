@@ -67,7 +67,9 @@ namespace prof
 	inline void laneEnd(profLane& lane, int eventIndex, bool& warnedMismatch)
 	{
 		if (eventIndex < 0 || eventIndex >= static_cast<int>(lane.pendingEvents.size()))
+		{
 			return;
+		}
 
 		if (!lane.openStack.empty() && lane.openStack.back() == eventIndex)
 		{
