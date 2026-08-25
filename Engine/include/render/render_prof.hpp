@@ -26,6 +26,8 @@ namespace render
 
 	uint getGPUEventCatalogCountBackend();
 	const prof::profEventInfoView* getGPUEventCatalogBackend(prof::EVENT_INDEX id);
+	uint getGPUEventCatalogOrderCountBackend();
+	prof::EVENT_INDEX getGPUEventCatalogOrderBackend(uint i);
 
 }  // namespace render
 

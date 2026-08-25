@@ -18,13 +18,58 @@
 namespace prof
 {
 
-	static void indentRowByDepth(uint depth)
+	static bool eventTreeNodeCol0(const char* name, EVENT_INDEX nameID, bool hasChildren, EVENT_INDEX& selected)
 	{
-		if (depth == 0)
-			return;
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen;
 
-		ImGui::Dummy(ImVec2(static_cast<float>(depth) * ImGui::GetStyle().IndentSpacing, 0.0f));
-		ImGui::SameLine(0.0f, 0.0f);
+		if (selected == nameID)
+			flags |= ImGuiTreeNodeFlags_Selected;
+
+		if (!hasChildren)
+			flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+
+		bool open = ImGui::TreeNodeEx(name, flags);
+
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+		{
+			if (selected == nameID)
+				selected = EVENT_INVALID;
+			else
+				selected = nameID;
+		}
+
+		return hasChildren && open;
+	}
+
+	static uint renderLaneRows(const profEventView* events, uint count, uint i, EVENT_INDEX& selected)
+	{
+		const profEventView& e = events[i];
+		bool hasChildren = (i + 1 < count) && events[i + 1].depth > e.depth;
+
+		ImGui::TableNextRow();
+		ImGui::TableSetColumnIndex(0);
+		ImGui::PushID(e.nameID);
+
+		bool recurse = eventTreeNodeCol0(e.name, e.nameID, hasChildren, selected);
+
+		ImGui::TableSetColumnIndex(1);
+		ImGui::Text("%.3f", e.timeMs);
+
+		uint next = i + 1;
+		if (recurse)
+		{
+			while (next < count && events[next].depth > e.depth)
+				next = renderLaneRows(events, count, next, selected);
+			ImGui::TreePop();
+		}
+		else
+		{
+			while (next < count && events[next].depth > e.depth)
+				++next;
+		}
+
+		ImGui::PopID();
+		return next;
 	}
 
 #if ENGINE_DEBUG_GPUPROF
@@ -141,15 +186,85 @@ namespace prof
 		return render::getGPUEventCatalogBackend(id);
 	}
 
+	static uint getGPUEventCatalogOrderCount()
+	{
+		return render::getGPUEventCatalogOrderCountBackend();
+	}
+
+	static EVENT_INDEX getGPUEventCatalogOrder(uint i)
+	{
+		return render::getGPUEventCatalogOrderBackend(i);
+	}
+
+	static uint renderCatalogRows(uint i, EVENT_INDEX& selected)
+	{
+		EVENT_INDEX orderedId = getGPUEventCatalogOrder(i);
+		const profEventInfoView* entry = getGPUEventCatalog(orderedId);
+
+		if (!entry)
+			return i + 1;
+
+		bool hasChildren = (i + 1 < getGPUEventCatalogOrderCount()) &&
+			getGPUEventCatalog(getGPUEventCatalogOrder(i + 1))->depth > entry->depth;
+
+		ImGui::TableNextRow();
+
+		if (!entry->activeThisFrame)
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+
+		ImGui::TableSetColumnIndex(0);
+		ImGui::PushID(entry->nameID);
+
+		bool recurse = eventTreeNodeCol0(getEventName(entry->nameID), entry->nameID, hasChildren, selected);
+
+		ImGui::TableSetColumnIndex(1);
+		const profLaneView* laneView = getGPULaneView(entry->lane);
+		const char* laneLabel = (laneView && laneView->label) ? laneView->label : "-";
+		ImGui::Text("%s", laneLabel);
+
+		uint next = i + 1;
+		if (recurse)
+		{
+			while (next < getGPUEventCatalogOrderCount())
+			{
+				EVENT_INDEX nextId = getGPUEventCatalogOrder(next);
+				const profEventInfoView* nextEntry = getGPUEventCatalog(nextId);
+				if (!nextEntry || nextEntry->depth <= entry->depth)
+					break;
+				next = renderCatalogRows(next, selected);
+			}
+			ImGui::TreePop();
+		}
+		else
+		{
+			while (next < getGPUEventCatalogOrderCount())
+			{
+				EVENT_INDEX nextId = getGPUEventCatalogOrder(next);
+				const profEventInfoView* nextEntry = getGPUEventCatalog(nextId);
+				if (!nextEntry || nextEntry->depth <= entry->depth)
+					break;
+				++next;
+			}
+		}
+
+		ImGui::PopID();
+
+		if (!entry->activeThisFrame)
+			ImGui::PopStyleColor();
+
+		return next;
+	}
+
 	static EVENT_INDEX selectedEventViewerEvent = EVENT_INVALID;
 
 	void guiEventViewerSetting()
 	{
-		uint catalogCount = getGPUEventCatalogCount();
+		uint catalogCount = getGPUEventCatalogOrderCount();
 		uint activeCount = 0;
 		for (uint i = 0; i < catalogCount; ++i)
 		{
-			const profEventInfoView* entry = getGPUEventCatalog(static_cast<EVENT_INDEX>(i));
+			EVENT_INDEX orderedId = getGPUEventCatalogOrder(i);
+			const profEventInfoView* entry = getGPUEventCatalog(orderedId);
 			if (entry && entry->activeThisFrame)
 				++activeCount;
 		}
@@ -162,39 +277,8 @@ namespace prof
 			ImGui::TableSetupColumn("Queue");
 			ImGui::TableHeadersRow();
 
-			for (uint index = 0; index < catalogCount; ++index)
-			{
-				const profEventInfoView* entry = getGPUEventCatalog(static_cast<EVENT_INDEX>(index));
-				if (!entry || entry->nameID == EVENT_INVALID)
-					continue;
-
-				ImGui::TableNextRow();
-
-				if (!entry->activeThisFrame)
-					ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-
-				ImGui::TableSetColumnIndex(0);
-				ImGui::PushID(index);
-				indentRowByDepth(entry->depth);
-
-				bool isSelected = (selectedEventViewerEvent == entry->nameID);
-				if (ImGui::Selectable(getEventName(entry->nameID), isSelected))
-				{
-					if (isSelected)
-						selectedEventViewerEvent = EVENT_INVALID;
-					else
-						selectedEventViewerEvent = entry->nameID;
-				}
-				ImGui::PopID();
-
-				ImGui::TableSetColumnIndex(1);
-				const profLaneView* laneView = getGPULaneView(entry->lane);
-				const char* laneLabel = (laneView && laneView->label) ? laneView->label : "-";
-				ImGui::Text("%s", laneLabel);
-
-				if (!entry->activeThisFrame)
-					ImGui::PopStyleColor();
-			}
+			for (uint index = 0; index < catalogCount; )
+				index = renderCatalogRows(index, selectedEventViewerEvent);
 
 			ImGui::EndTable();
 		}
@@ -609,29 +693,8 @@ namespace prof
 				ImGui::TableSetupColumn("ms");
 				ImGui::TableHeadersRow();
 
-				for (uint eventIdx = 0; eventIdx < laneView->eventCount; ++eventIdx)
-				{
-					const profEventView& event = laneView->events[eventIdx];
-
-					ImGui::TableNextRow();
-					ImGui::TableSetColumnIndex(0);
-					ImGui::PushID(eventIdx);
-
-					indentRowByDepth(event.depth);
-
-					bool isSelected = (selectedGPUEvent == event.nameID);
-					if (ImGui::Selectable(event.name, isSelected))
-					{
-						if (isSelected)
-							selectedGPUEvent = EVENT_INVALID;
-						else
-							selectedGPUEvent = event.nameID;
-					}
-					ImGui::PopID();
-
-					ImGui::TableSetColumnIndex(1);
-					ImGui::Text("%.3f", event.timeMs);
-				}
+				for (uint eventIdx = 0; eventIdx < laneView->eventCount; )
+					eventIdx = renderLaneRows(laneView->events, laneView->eventCount, eventIdx, selectedGPUEvent);
 
 				ImGui::EndTable();
 			}
@@ -672,29 +735,8 @@ namespace prof
 				ImGui::TableSetupColumn("ms");
 				ImGui::TableHeadersRow();
 
-				for (uint eventIdx = 0; eventIdx < laneView->eventCount; ++eventIdx)
-				{
-					const profEventView& event = laneView->events[eventIdx];
-
-					ImGui::TableNextRow();
-					ImGui::TableSetColumnIndex(0);
-					ImGui::PushID(eventIdx);
-
-					indentRowByDepth(event.depth);
-
-					bool isSelected = (selectedCPUEvent == event.nameID);
-					if (ImGui::Selectable(event.name, isSelected))
-					{
-						if (isSelected)
-							selectedCPUEvent = EVENT_INVALID;
-						else
-							selectedCPUEvent = event.nameID;
-					}
-					ImGui::PopID();
-
-					ImGui::TableSetColumnIndex(1);
-					ImGui::Text("%.3f", event.timeMs);
-				}
+				for (uint eventIdx = 0; eventIdx < laneView->eventCount; )
+					eventIdx = renderLaneRows(laneView->events, laneView->eventCount, eventIdx, selectedCPUEvent);
 
 				ImGui::EndTable();
 			}

@@ -42,6 +42,8 @@ namespace render
 
 			uint                           eventCatalogCountValue() const;
 			const prof::profEventInfoView* eventCatalogEntry(prof::EVENT_INDEX id) const;
+			uint                           catalogOrderCountValue() const;
+			prof::EVENT_INDEX              catalogOrderAt(uint i) const;
 
 		private:
 			Microsoft::WRL::ComPtr<ID3D12QueryHeap> queryHeaps[GPUPROF_QUEUE_COUNT];
@@ -74,6 +76,8 @@ namespace render
 
 			prof::profEventInfoView eventCatalog[prof::EVENT_CAPACITY];
 			uint eventCatalogCount;
+			prof::EVENT_INDEX catalogOrder[prof::EVENT_CAPACITY];
+			uint catalogOrderCount;
 
 			GPUPROF_QUEUE getQueueFromListType(D3D12_COMMAND_LIST_TYPE type);
 			void resolveAllPending();
@@ -145,6 +149,7 @@ namespace render
 				eventCatalog[i].activeThisFrame = false;
 			}
 			eventCatalogCount = 0;
+			catalogOrderCount = 0;
 
 			D3D12_QUERY_HEAP_DESC heapDesc = {};
 			heapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
@@ -378,9 +383,12 @@ namespace render
 				eventCatalog[i].activeThisFrame = false;
 			}
 
+			catalogOrderCount = 0;
+
 			for (uint queueIdx = 0; queueIdx < GPUPROF_QUEUE_COUNT; ++queueIdx)
 			{
 				prof::profLane& lane = lanes[queueIdx];
+				uint queueFirstOrderIndex = catalogOrderCount;
 
 				uint eventCount = (std::min)(static_cast<uint>(lane.lastFrameEvents.size()), GPUPROF_MAX_EVENTS_PER_QUEUE);
 				for (uint eventIdx = 0; eventIdx < eventCount; ++eventIdx)
@@ -397,9 +405,33 @@ namespace render
 					{
 						eventHistory[event.nameID][historyHead] += static_cast<float>(event.timeMs);
 
+						if (!eventCatalog[event.nameID].activeThisFrame)
+						{
+							uint clampedDepth = event.depth;
+							if (catalogOrderCount > queueFirstOrderIndex)
+							{
+								uint prevEventId = static_cast<uint>(catalogOrder[catalogOrderCount - 1]);
+								uint prevDepth = eventCatalog[prevEventId].depth;
+								if (clampedDepth > prevDepth + 1)
+									clampedDepth = prevDepth + 1;
+							}
+							else
+							{
+								if (clampedDepth > 0)
+									clampedDepth = 0;
+							}
+
+							if (catalogOrderCount < prof::EVENT_CAPACITY)
+							{
+								catalogOrder[catalogOrderCount] = static_cast<prof::EVENT_INDEX>(event.nameID);
+								++catalogOrderCount;
+							}
+
+							eventCatalog[event.nameID].depth = clampedDepth;
+						}
+
 						eventCatalog[event.nameID].nameID = event.nameID;
 						eventCatalog[event.nameID].lane = queueIdx;
-						eventCatalog[event.nameID].depth = event.depth;
 						eventCatalog[event.nameID].activeThisFrame = true;
 					}
 				}
@@ -411,6 +443,17 @@ namespace render
 				snapshotLanes[queueIdx].totalHistory = laneTotalHistory[queueIdx];
 
 				laneTotalHistory[queueIdx][historyHead] = static_cast<float>(lane.totalMs);
+			}
+
+			uint totalEventCount = (std::min)(static_cast<uint>(prof::getEventCount()), static_cast<uint>(prof::EVENT_CAPACITY));
+			for (uint i = 0; i < totalEventCount && catalogOrderCount < prof::EVENT_CAPACITY; ++i)
+			{
+				if (eventCatalog[i].nameID != prof::EVENT_INVALID && !eventCatalog[i].activeThisFrame)
+				{
+					eventCatalog[i].depth = 0;
+					catalogOrder[catalogOrderCount] = static_cast<prof::EVENT_INDEX>(i);
+					++catalogOrderCount;
+				}
 			}
 
 			eventCatalogCount = (std::min)(static_cast<uint>(prof::getEventCount()), static_cast<uint>(prof::EVENT_CAPACITY));
@@ -575,6 +618,18 @@ namespace render
 				return nullptr;
 			return &eventCatalog[id];
 		}
+
+		uint gpuProfiler::catalogOrderCountValue() const
+		{
+			return catalogOrderCount;
+		}
+
+		prof::EVENT_INDEX gpuProfiler::catalogOrderAt(uint i) const
+		{
+			if (i >= catalogOrderCount)
+				return prof::EVENT_INVALID;
+			return catalogOrder[i];
+		}
 	}
 
 	bool initGPUProfBackend()
@@ -630,6 +685,16 @@ namespace render
 	const prof::profEventInfoView* getGPUEventCatalogBackend(prof::EVENT_INDEX id)
 	{
 		return gpuProf::g_gpuProf.eventCatalogEntry(id);
+	}
+
+	uint getGPUEventCatalogOrderCountBackend()
+	{
+		return gpuProf::g_gpuProf.catalogOrderCountValue();
+	}
+
+	prof::EVENT_INDEX getGPUEventCatalogOrderBackend(uint i)
+	{
+		return gpuProf::g_gpuProf.catalogOrderAt(i);
 	}
 
 }  // namespace render
