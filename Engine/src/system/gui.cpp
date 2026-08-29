@@ -56,6 +56,9 @@ static bool showWindow;
 static bool showShadersWindow = false;
 static bool showDebugWindow = false;
 static bool showEventViewerWindow = false;
+#if ENGINE_DEBUG_RESOURCEVIEW
+static bool showResourceViewerWindow = false;
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
 #include <imgui/imgui_internal.h>
 
@@ -76,6 +79,9 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
 #if ENGINE_DEBUG_GPUPROF
             ImGui::MenuItem("EventViewer", NULL, &showEventViewerWindow);
 #endif
+#if ENGINE_DEBUG_RESOURCEVIEW
+            ImGui::MenuItem("ResourceViewer", NULL, &showResourceViewerWindow);
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
             ImGui::EndMenu();
         }
@@ -206,6 +212,33 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
         ImGui::End();
     }
 #endif // ENGINE_DEBUG_GPUPROF
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+    if (showResourceViewerWindow)
+    {
+        ImGui::Begin("ResourceViewer", &showResourceViewerWindow);
+        if (ImGui::BeginTabBar("ResourceViewerTabs"))
+        {
+            if (ImGui::BeginTabItem("Resources"))
+            {
+                buf::guiResourceViewerSetting();
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Memory"))
+            {
+                buf::guiMemoryViewerSetting();
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Descriptor Heaps"))
+            {
+                render::guiDescriptorHeapSetting();
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
+        ImGui::End();
+    }
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
     ImGui::Render();
 
