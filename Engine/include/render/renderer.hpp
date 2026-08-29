@@ -58,6 +58,9 @@ private:
 private:
 	//created from engine
 	Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
+#if ENGINE_DEBUG_RESOURCEVIEW
+	Microsoft::WRL::ComPtr<IDXGIAdapter3> adapter3;
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain;
 
@@ -173,6 +176,10 @@ public:
 	void guiCullingSetting();
 	void guiHZBSetting();
 	void transitionHZBForGui(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+	bool getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP group, UINT64& budget, UINT64& currentUsage) const;
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
 private:
 	framebuffer* getFrameBuffer() const;

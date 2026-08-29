@@ -107,6 +107,13 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	factory = dxFactory;
 
 	TC_CONDITIONB(createDevice(factory, adapter) == true, "Failed to create device");
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+	if (adapter != nullptr)
+	{
+		adapter.As(&adapter3);
+	}
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 	TC_INIT(shaders::loadResources());
 	TC_INIT(render::initPSO());
 	TC_INIT(render::allocateCmdQueue());
@@ -1798,3 +1805,24 @@ void renderer::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshD
 {
 	ubManager->uploadMeshToUB(vertex, norm, index, meshdata, meshID, flags);
 }
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+bool renderer::getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP group, UINT64& budget, UINT64& currentUsage) const
+{
+	if (adapter3 == nullptr)
+	{
+		return false;
+	}
+
+	DXGI_QUERY_VIDEO_MEMORY_INFO info = {};
+	HRESULT hr = adapter3->QueryVideoMemoryInfo(0, group, &info);
+	if (FAILED(hr))
+	{
+		return false;
+	}
+
+	budget = info.Budget;
+	currentUsage = info.CurrentUsage;
+	return true;
+}
+#endif // ENGINE_DEBUG_RESOURCEVIEW
