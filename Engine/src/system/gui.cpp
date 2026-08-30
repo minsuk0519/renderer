@@ -229,11 +229,6 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
                 buf::guiMemoryViewerSetting();
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("Descriptor Heaps"))
-            {
-                render::guiDescriptorHeapSetting();
-                ImGui::EndTabItem();
-            }
             ImGui::EndTabBar();
         }
         ImGui::End();

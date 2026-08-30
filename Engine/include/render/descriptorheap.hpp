@@ -34,6 +34,10 @@ namespace render
 	void cleanUpDescHeap();
 
 	void createSampler(descriptorHeapIndex heapIndex, uint offset);
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+	const char* getDescHeapLabel(descriptorHeapIndex idx);
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 }
 
 struct descriptor
@@ -70,4 +74,3 @@ public:
 
 	uint getRemainPos(render::descriptorHeapIndex heapIdx) const;
 };
-

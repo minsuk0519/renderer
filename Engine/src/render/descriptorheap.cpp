@@ -153,7 +153,7 @@ descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer
 	switch (type)
 	{
 	case buf::BUFFER_CONSTANT_TYPE:
-	{	
+	{
 		e_globRenderer.device->CreateConstantBufferView(getCorrespondingView<D3D12_CONSTANT_BUFFER_VIEW_DESC>(view), D3D12_CPU_DESCRIPTOR_HANDLE(getCPUPos(pos)));
 	}
 	break;
@@ -213,3 +213,23 @@ D3D12_CPU_DESCRIPTOR_HANDLE descriptor::getCPUHandle() const
 
 	return D3D12_CPU_DESCRIPTOR_HANDLE(render::descriptorHeaps[heapIndex]->getCPUPos(heapOffset));
 }
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+namespace render
+{
+	const char* getDescHeapLabel(descriptorHeapIndex idx)
+	{
+		switch (idx)
+		{
+		case DESCRIPTORHEAP_RENDERTARGET:
+			return "RTV";
+		case DESCRIPTORHEAP_BUFFER:
+			return "CBV_SRV_UAV";
+		case DESCRIPTORHEAP_DEPTH:
+			return "DSV";
+		default:
+			return "UNKNOWN";
+		}
+	}
+}
+#endif // ENGINE_DEBUG_RESOURCEVIEW
