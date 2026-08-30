@@ -65,18 +65,19 @@ namespace buf
 		//only reside one frame will be deallocated next frame
 		RESOURCE_ONETIME	= (1 << 5),
 		RESOURCE_CLEAR		= (1 << 6),
+		RESOURCE_SHARED		= (1 << 7), // attach to an existing resource owned by another buffer; takes its own AddRef'd reference instead of transferring ownership
 	};
 
 	class viewAllocator
 	{
 	public:
-		typedef char* (*allocateViewFunc)(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		typedef char* (*allocateViewFunc)(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc, UINT16 mipSlice, UINT16 mipViewCount);
 
-		static char* allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static char* allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static char* allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static char* allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
-		static char* allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc);
+		static char* allocateUAVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc, UINT16 mipSlice, UINT16 mipViewCount);
+		static char* allocateCBVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc, UINT16 mipSlice, UINT16 mipViewCount);
+		static char* allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc, UINT16 mipSlice, UINT16 mipViewCount);
+		static char* allocateDepthViews(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc, UINT16 mipSlice, UINT16 mipViewCount);
+		static char* allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc, UINT16 mipSlice, UINT16 mipViewCount);
 	};
 
 
@@ -105,7 +106,8 @@ public:
 	void init();
 	void update();
 	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), uint_8 viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
-		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 1, DirectX::XMFLOAT4 clearColor = {}, ID3D12Resource* resource = nullptr);
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 1, DirectX::XMFLOAT4 clearColor = {}, ID3D12Resource* resource = nullptr,
+		UINT16 mipSlice = 0, UINT16 mipViewCount = 0, const char* debugName = nullptr, std::source_location debugLoc = std::source_location::current());
 	void free(char* bufferData);
 	void free(uint index);
 };
@@ -123,7 +125,7 @@ struct buffer_header
 		uint stride		: 4;
 		uint texture	: 1;
 		uint lifetime	: 1;
-		uint pad		: 1;
+		uint external	: 1;
 	} packedData;
 
 	//D3D12_VERTEX_BUFFER_VIEW
@@ -141,6 +143,7 @@ public:
 	
 	ID3D12Resource* getResource() const;
 	buffer_header* getHeader();
+	const buffer_header* getHeader() const;
 
 	void uploadBuffer(uint size, uint offset, void* data);
 

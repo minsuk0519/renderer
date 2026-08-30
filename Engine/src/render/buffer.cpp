@@ -516,14 +516,14 @@ namespace buf
         return count;
     }
 
-    char* viewAllocator::allocateUAVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateUAVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc, UINT16 mipSlice, [[maybe_unused]] UINT16 mipViewCount)
     {
         D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
         if (bufDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D)
         {
             view.Format = bufDesc.Format;
             view.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-            view.Texture2D.MipSlice = 0;
+            view.Texture2D.MipSlice = mipSlice;
             view.Texture2D.PlaneSlice = 0;
         }
         else
@@ -542,7 +542,7 @@ namespace buf
         return viewPos + sizeof(descriptor);
     }
 
-    char* viewAllocator::allocateCBVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateCBVs(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc, [[maybe_unused]] UINT16 mipSlice, [[maybe_unused]] UINT16 mipViewCount)
     {
         D3D12_CONSTANT_BUFFER_VIEW_DESC view = {};
 
@@ -558,7 +558,7 @@ namespace buf
         return viewPos + sizeof(descriptor);
     }
 
-    char* viewAllocator::allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateSRVs(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc, UINT16 mipSlice, UINT16 mipViewCount)
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC view = {};
         descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
@@ -567,8 +567,8 @@ namespace buf
         if (buf->header.packedData.texture)
         {
             view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-            view.Texture2D.MipLevels = bufDesc.MipLevels;
-            view.Texture2D.MostDetailedMip = 0;
+            view.Texture2D.MipLevels = (mipViewCount == 0) ? bufDesc.MipLevels : mipViewCount;
+            view.Texture2D.MostDetailedMip = mipSlice;
             view.Format = bufDesc.Format;
         }
         else
@@ -590,7 +590,7 @@ namespace buf
         return viewPos + sizeof(descriptor);
     }
 
-    char* viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateDepthViews(char* viewPos, buffer* buf, [[maybe_unused]] const CD3DX12_RESOURCE_DESC& bufDesc, [[maybe_unused]] UINT16 mipSlice, [[maybe_unused]] UINT16 mipViewCount)
     {
         D3D12_DEPTH_STENCIL_VIEW_DESC view = {};
 
@@ -606,7 +606,7 @@ namespace buf
         return viewPos + sizeof(descriptor);
     }
 
-    char* viewAllocator::allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc)
+    char* viewAllocator::allocateRenderTarget(char* viewPos, buffer* buf, const CD3DX12_RESOURCE_DESC& bufDesc, [[maybe_unused]] UINT16 mipSlice, [[maybe_unused]] UINT16 mipViewCount)
     {
         D3D12_RENDER_TARGET_VIEW_DESC view = {};
         view.Format = bufDesc.Format;
@@ -636,6 +636,11 @@ buffer_header* buffer::getHeader()
     return &header;
 }
 
+const buffer_header* buffer::getHeader() const
+{
+    return &header;
+}
+
 void buffer::uploadBuffer(uint size, uint offset, void* data)
 {
     UINT8* pVertexDataBegin;
@@ -648,7 +653,7 @@ void buffer::uploadBuffer(uint size, uint offset, void* data)
 descriptor* buffer::getDesc(buf::graphicBufferFlags flag)
 {
     uint offset = 0;
-    for (uint i = 0, j = 0; j < flag; ++i, j = (1 << i))
+    for (uint j = 1; j < flag; j <<= 1)
     {
         if (header.packedData.viewFlags & j)
         {
@@ -779,7 +784,7 @@ void buffer_allocator::init()
 }
 
 buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8 viewFlags,
-    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor, ID3D12Resource* resource)
+    uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor, ID3D12Resource* resource, UINT16 mipSlice, UINT16 mipViewCount, const char* debugName, std::source_location debugLoc)
 {
     //cbv size should be multiplied by 256 bytes
     if (viewFlags & (buf::graphicBufferFlags::GBF_CBV))
@@ -891,7 +896,16 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     }
     else
     {
-        buf->resource.Attach(resource);
+        if (flag & buf::RESOURCE_SHARED)
+        {
+            buf->resource = resource;
+        }
+        else
+        {
+            buf->resource.Attach(resource);
+        }
+    }
+
     }
 
     //views
@@ -901,7 +915,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     {
         if (viewFlags & (1 << i))
         {
-            viewPos = buf::allocateViews[i](viewPos, buf, bufDesc);
+            viewPos = buf::allocateViews[i](viewPos, buf, bufDesc, mipSlice, mipViewCount);
         }
     }
 
