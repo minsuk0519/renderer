@@ -11,6 +11,7 @@
 
 #include <array>
 #include <string>
+#include <source_location>
 
 struct buffer;
 
@@ -110,6 +111,13 @@ public:
 		UINT16 mipSlice = 0, UINT16 mipViewCount = 0, const char* debugName = nullptr, std::source_location debugLoc = std::source_location::current());
 	void free(char* bufferData);
 	void free(uint index);
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+	uint getArenaCapacity() const;
+	uint getArenaUsed() const;
+	uint getFreeBlockCount() const;
+	void getFreeBlock(uint i, uint& start, uint& size) const;
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 };
 
 struct buffer_header
@@ -167,5 +175,15 @@ private:
 	buffer_header header;
 	D3D12_RESOURCE_STATES curState;
 };
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+namespace buf
+{
+	const char* getResourceDisplayName(uint bufferId);
+	void recordResourceView(buffer* buf, const descriptor& desc, BUFFER_TYPE type);
+	void guiResourceViewerSetting();
+	void guiMemoryViewerSetting();
+}
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
 extern buffer_allocator e_globBufAllocator;

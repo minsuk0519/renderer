@@ -8,6 +8,7 @@
 #include <system/logger.hpp>
 #include <system/jsonhelper.hpp>
 #include <system/mathhelper.hpp>
+#include <system/gui.hpp>
 
 #include <vector>
 
@@ -111,6 +112,72 @@ namespace buf
     }
 
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+    struct resourceViewRecord
+    {
+        uint             heapIndex;   // render::descriptorHeapIndex value, stored as uint
+        uint             heapOffset;
+        buf::BUFFER_TYPE viewType;
+    };
+
+    struct resourceDebugInfo
+    {
+        char                     name[64];         // formatted display name, written once at creation
+        buffer*                  owner;            // back-pointer; non-null == live, nullptr == freed
+        std::vector<resourceViewRecord> views;    // variable-length descriptor list
+        uint                     cpuArenaBytes;
+        uint_8                   viewFlags;
+        bool                     texture;
+        bool                     external;
+        bool                     oneTime;
+
+        const char*              file;
+        uint                     line;
+        bool                     valid;
+
+        D3D12_RESOURCE_DIMENSION dimension;
+        DXGI_FORMAT              format;
+        UINT64                   width;
+        UINT                     height;
+        UINT16                   mipLevels;
+        D3D12_HEAP_TYPE          heapType;
+        UINT64                   gpuBytes;
+    };
+
+    static resourceDebugInfo debugInfoTable[BUFFER_MAX_COUNT];
+    static uint debugInfoCount = 0;
+
+    const char* getResourceDisplayName(uint bufferId)
+    {
+        if (bufferId >= BUFFER_MAX_COUNT)
+        {
+            return "buffer #INVALID";
+        }
+
+        const resourceDebugInfo& info = debugInfoTable[bufferId];
+        if (!info.valid)
+        {
+            return "buffer #UNKNOWN";
+        }
+
+        return info.name;
+    }
+
+    void recordResourceView(buffer* buf, const descriptor& desc, BUFFER_TYPE type)
+    {
+        if (buf == nullptr)
+            return;
+
+        uint bufferId = buf->getHeader()->packedData.bufferId;
+        if (bufferId >= BUFFER_MAX_COUNT)
+            return;
+
+        debugInfoTable[bufferId].views.push_back({ (uint)desc.heapIndex, desc.heapOffset, type });
+    }
+
+
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
     void loadMeshInfo(std::string fileName, meshData* meshData)
     {
@@ -539,6 +606,10 @@ namespace buf
 
         *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, buf, &view);
 
+#if ENGINE_DEBUG_RESOURCEVIEW
+        recordResourceView(buf, *descriptorPos, buf::BUFFER_UAV_TYPE);
+#endif // ENGINE_DEBUG_RESOURCEVIEW
+
         return viewPos + sizeof(descriptor);
     }
 
@@ -554,6 +625,10 @@ namespace buf
         descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
 
         *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_CONSTANT_TYPE, buf, &view);
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+        recordResourceView(buf, *descriptorPos, buf::BUFFER_CONSTANT_TYPE);
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
         return viewPos + sizeof(descriptor);
     }
@@ -587,6 +662,10 @@ namespace buf
 
         *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, buf, &view);
 
+#if ENGINE_DEBUG_RESOURCEVIEW
+        recordResourceView(buf, *descriptorPos, buf::BUFFER_IMAGE_TYPE);
+#endif // ENGINE_DEBUG_RESOURCEVIEW
+
         return viewPos + sizeof(descriptor);
     }
 
@@ -603,6 +682,10 @@ namespace buf
 
         *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_DEPTH)->requestdescriptor(buf::BUFFER_DEPTH_TYPE, buf, &view);
 
+#if ENGINE_DEBUG_RESOURCEVIEW
+        recordResourceView(buf, *descriptorPos, buf::BUFFER_DEPTH_TYPE);
+#endif // ENGINE_DEBUG_RESOURCEVIEW
+
         return viewPos + sizeof(descriptor);
     }
 
@@ -616,6 +699,10 @@ namespace buf
         descriptor* descriptorPos = reinterpret_cast<descriptor*>(viewPos);
 
         *descriptorPos = render::getHeap(render::DESCRIPTORHEAP_RENDERTARGET)->requestdescriptor(buf::BUFFER_RT_TYPE, buf, &view);
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+        recordResourceView(buf, *descriptorPos, buf::BUFFER_RT_TYPE);
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
         return viewPos + sizeof(descriptor);
     }
@@ -767,6 +854,13 @@ void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
 
         if (current->header.packedData.bufferId == bufferId)
         {
+#if ENGINE_DEBUG_RESOURCEVIEW
+            if (bufferId < BUFFER_MAX_COUNT)
+            {
+                buf::debugInfoTable[bufferId].owner = nullptr;
+            }
+#endif // ENGINE_DEBUG_RESOURCEVIEW
+
             memBlocks.erase(iter);
             return;
         }
@@ -833,6 +927,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     buf->header.packedData.stride = stride;
     buf->header.packedData.lifetime = (flag & buf::RESOURCE_ONETIME) ? 1 : 0;
     buf->header.packedData.texture = (flag & buf::RESOURCE_TEXTURE) ? 1 : 0;
+    buf->header.packedData.external = (resource != nullptr) ? 1 : 0;
 
     D3D12_RESOURCE_FLAGS resourceFlag = D3D12_RESOURCE_FLAG_NONE;
 
@@ -906,7 +1001,16 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
         }
     }
 
+#if ENGINE_DEBUG_RESOURCEVIEW
+    {
+        uint bufferId = buf->header.packedData.bufferId;
+        if (bufferId < BUFFER_MAX_COUNT)
+        {
+            buf::debugInfoTable[bufferId].views.clear();
+            buf::debugInfoCount = std::max(buf::debugInfoCount, bufferId + 1);
+        }
     }
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
     //views
     char* viewPos = allocatedData + BUFFER_VIEW_OFFSET;
@@ -931,6 +1035,90 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     uint addrDiff = (uint)(viewPos - allocatedData);
 
     TC_ASSERT(addrDiff == totalSize);
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+    {
+        uint bufferId = buf->header.packedData.bufferId;
+        if (bufferId < BUFFER_MAX_COUNT)
+        {
+            buf::resourceDebugInfo& info = buf::debugInfoTable[bufferId];
+            info.valid = true;
+            info.owner = buf;
+            info.cpuArenaBytes = buf->header.totalSize;
+            info.viewFlags = buf->header.packedData.viewFlags;
+            info.texture = buf->header.packedData.texture ? true : false;
+            info.external = buf->header.packedData.external ? true : false;
+            info.oneTime = buf->header.packedData.lifetime ? true : false;
+
+            // Format the name once into info.name
+#if ENGINE_DEBUG_RESOURCENAME
+            if (debugName != nullptr)
+            {
+                snprintf(info.name, sizeof(info.name), "%s", debugName);
+            }
+            else
+            {
+                const char* fileName = debugLoc.file_name();
+                const char* lastSlash = strrchr(fileName, '\\');
+                if (lastSlash != nullptr)
+                {
+                    fileName = lastSlash + 1;
+                }
+                snprintf(info.name, sizeof(info.name), "%s:%u", fileName, debugLoc.line());
+            }
+#else // ENGINE_DEBUG_RESOURCENAME
+            {
+                const char* fileName = debugLoc.file_name();
+                const char* lastSlash = strrchr(fileName, '\\');
+                if (lastSlash != nullptr)
+                {
+                    fileName = lastSlash + 1;
+                }
+                snprintf(info.name, sizeof(info.name), "%s:%u", fileName, debugLoc.line());
+            }
+            (void)debugName;
+#endif // ENGINE_DEBUG_RESOURCENAME
+
+            const char* fileName = debugLoc.file_name();
+            const char* lastSlash = strrchr(fileName, '\\');
+            if (lastSlash != nullptr)
+            {
+                fileName = lastSlash + 1;
+            }
+            info.file = fileName;
+            info.line = debugLoc.line();
+
+            // Cache immutable resource metadata
+            ID3D12Resource* res = buf->resource.Get();
+            if (res != nullptr)
+            {
+                D3D12_RESOURCE_DESC desc = res->GetDesc();
+                info.dimension = desc.Dimension;
+                info.format = desc.Format;
+                info.width = desc.Width;
+                info.height = desc.Height;
+                info.mipLevels = desc.MipLevels;
+
+                info.gpuBytes = e_globRenderer.device->GetResourceAllocationInfo(0, 1, &desc).SizeInBytes;
+
+                D3D12_HEAP_PROPERTIES props = {};
+                D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE;
+                res->GetHeapProperties(&props, &heapFlags);
+                info.heapType = props.Type;
+            }
+            else
+            {
+                info.gpuBytes = 0;
+                info.heapType = D3D12_HEAP_TYPE_DEFAULT;
+                info.dimension = D3D12_RESOURCE_DIMENSION_UNKNOWN;
+                info.format = DXGI_FORMAT_UNKNOWN;
+                info.width = 0;
+                info.height = 0;
+                info.mipLevels = 0;
+            }
+        }
+    }
+#endif // ENGINE_DEBUG_RESOURCEVIEW
 
     memBlocks.push_back(buf);
 
@@ -965,3 +1153,460 @@ void buffer_allocator::free(uint index)
 
     freeInternal(startPos, size, index);
 }
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+uint buffer_allocator::getArenaCapacity() const
+{
+    return BUFFER_MAX_SIZE;
+}
+
+uint buffer_allocator::getArenaUsed() const
+{
+    uint used = 0;
+    for (const auto& freeBlock : freedMem)
+    {
+        used += freeBlock.second;
+    }
+    return BUFFER_MAX_SIZE - used;
+}
+
+uint buffer_allocator::getFreeBlockCount() const
+{
+    return (uint)freedMem.size();
+}
+
+void buffer_allocator::getFreeBlock(uint i, uint& start, uint& size) const
+{
+    if (i < freedMem.size())
+    {
+        start = freedMem[i].first;
+        size = freedMem[i].second;
+    }
+    else
+    {
+        start = 0;
+        size = 0;
+    }
+}
+
+namespace buf
+{
+    static uint selectedResourceId = ~0u;
+
+    inline const char* formatBytes(UINT64 bytes)
+    {
+        static char buffer[32];
+        if (bytes < 1024)
+        {
+            snprintf(buffer, sizeof(buffer), "%llu B", bytes);
+        }
+        else if (bytes < 1024 * 1024)
+        {
+            snprintf(buffer, sizeof(buffer), "%.2f KiB", bytes / 1024.0);
+        }
+        else if (bytes < 1024 * 1024 * 1024)
+        {
+            snprintf(buffer, sizeof(buffer), "%.2f MiB", bytes / (1024.0 * 1024.0));
+        }
+        else
+        {
+            snprintf(buffer, sizeof(buffer), "%.2f GiB", bytes / (1024.0 * 1024.0 * 1024.0));
+        }
+        return buffer;
+    }
+
+    static const char* viewTypeLabel(BUFFER_TYPE type)
+    {
+        switch (type)
+        {
+        case BUFFER_VERTEX_TYPE:
+            return "VB";
+        case BUFFER_CONSTANT_TYPE:
+            return "CBV";
+        case BUFFER_UAV_TYPE:
+            return "UAV";
+        case BUFFER_IMAGE_TYPE:
+            return "SRV";
+        case BUFFER_RT_TYPE:
+            return "RTV";
+        case BUFFER_INDEX_TYPE:
+            return "IB";
+        case BUFFER_DEPTH_TYPE:
+            return "DSV";
+        default:
+            return "UNKNOWN";
+        }
+    }
+
+    void guiResourceViewerSetting()
+    {
+        uint liveCount = 0;
+        uint viewCount = 0;
+        uint viewsPerHeap[render::DESCRIPTORHEAP_MAX] = {};
+        for (uint id = 0; id < debugInfoCount; ++id)
+        {
+            const resourceDebugInfo& info = debugInfoTable[id];
+            if (info.valid && info.owner != nullptr)
+            {
+                liveCount++;
+                viewCount += (uint)info.views.size();
+                for (const auto& rec : info.views)
+                {
+                    if (rec.heapIndex < render::DESCRIPTORHEAP_MAX)
+                    {
+                        viewsPerHeap[rec.heapIndex]++;
+                    }
+                }
+            }
+        }
+
+        ImGui::Text("%u views across %u resources | RTV %u | CBV_SRV_UAV %u | DSV %u",
+                    viewCount, liveCount, viewsPerHeap[render::DESCRIPTORHEAP_RENDERTARGET],
+                    viewsPerHeap[render::DESCRIPTORHEAP_BUFFER], viewsPerHeap[render::DESCRIPTORHEAP_DEPTH]);
+
+        ImVec2 tableOuterSize(0.0f, ImGui::GetContentRegionAvail().y * 0.65f);
+        if (ImGui::BeginTable("ViewList", 8, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, tableOuterSize))
+        {
+            ImGui::TableSetupColumn("Resource");
+            ImGui::TableSetupColumn("Id");
+            ImGui::TableSetupColumn("View Type");
+            ImGui::TableSetupColumn("Desc Heap");
+            ImGui::TableSetupColumn("Slot");
+            ImGui::TableSetupColumn("Kind");
+            ImGui::TableSetupColumn("Size");
+            ImGui::TableSetupColumn("State");
+            ImGui::TableHeadersRow();
+
+            uint rowIndex = 0;
+            for (uint id = 0; id < debugInfoCount; ++id)
+            {
+                const resourceDebugInfo& info = debugInfoTable[id];
+                if (!info.valid || info.owner == nullptr || info.views.empty())
+                {
+                    continue;
+                }
+
+                for (uint v = 0; v < info.views.size(); ++v)
+                {
+                    const auto& rec = info.views[v];
+
+                    ImGui::PushID((int)rowIndex);
+                    ImGui::TableNextRow();
+
+                    if (info.external)
+                    {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+                    }
+
+                    ImGui::TableSetColumnIndex(0);
+                    if (ImGui::Selectable(info.name, selectedResourceId == id, ImGuiSelectableFlags_SpanAllColumns))
+                    {
+                        selectedResourceId = (selectedResourceId == id) ? ~0u : id;
+                    }
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%u", id);
+
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Text("%s", viewTypeLabel(rec.viewType));
+
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Text("%s", render::getDescHeapLabel(static_cast<render::descriptorHeapIndex>(rec.heapIndex)));
+
+                    ImGui::TableSetColumnIndex(4);
+                    ImGui::Text("%u", rec.heapOffset);
+
+                    ImGui::TableSetColumnIndex(5);
+                    if (info.texture)
+                    {
+                        const char* dimStr = "UNKNOWN";
+                        switch (info.dimension)
+                        {
+                        case D3D12_RESOURCE_DIMENSION_TEXTURE2D:
+                            dimStr = "TEXTURE2D";
+                            break;
+                        case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
+                            dimStr = "TEXTURE3D";
+                            break;
+                        default:
+                            break;
+                        }
+                        ImGui::Text("%s / %u", dimStr, info.format);
+                    }
+                    else
+                    {
+                        ImGui::Text("BUFFER");
+                    }
+
+                    ImGui::TableSetColumnIndex(6);
+                    ImGui::Text("%s", formatBytes(info.gpuBytes));
+
+                    ImGui::TableSetColumnIndex(7);
+                    const char* stateStr = "COMMON";
+                    if (info.owner != nullptr)
+                    {
+                        D3D12_RESOURCE_STATES state = info.owner->getCurResourceState();
+                        switch (state)
+                        {
+                        case D3D12_RESOURCE_STATE_GENERIC_READ:
+                            stateStr = "READ";
+                            break;
+                        case D3D12_RESOURCE_STATE_UNORDERED_ACCESS:
+                            stateStr = "UAV";
+                            break;
+                        case D3D12_RESOURCE_STATE_COPY_DEST:
+                            stateStr = "COPY_DST";
+                            break;
+                        case D3D12_RESOURCE_STATE_COPY_SOURCE:
+                            stateStr = "COPY_SRC";
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                    ImGui::Text("%s", stateStr);
+
+                    if (info.external)
+                    {
+                        ImGui::PopStyleColor();
+                    }
+
+                    ImGui::PopID();
+                    rowIndex++;
+                }
+            }
+
+            ImGui::EndTable();
+        }
+
+        if (selectedResourceId != ~0u)
+        {
+            ImGui::Separator();
+            ImGui::Text("Selected: %s", getResourceDisplayName(selectedResourceId));
+
+            if (selectedResourceId < debugInfoCount)
+            {
+                const resourceDebugInfo& info = debugInfoTable[selectedResourceId];
+                if (info.valid && info.owner != nullptr)
+                {
+                    ImGui::Text("BufferId: %u", selectedResourceId);
+                    ImGui::Text("CPU Arena: %u bytes", info.cpuArenaBytes);
+                    ImGui::Text("GPU Memory: %s", formatBytes(info.gpuBytes));
+                    ImGui::Text("Dim/Format/Mips: %u %u %u", info.width, info.height, info.mipLevels);
+                    ImGui::Text("Views: %u", (uint)info.views.size());
+                }
+            }
+        }
+    }
+
+    void guiMemoryViewerSetting()
+    {
+        uint capacity = e_globBufAllocator.getArenaCapacity();
+        uint used = e_globBufAllocator.getArenaUsed();
+        float fraction = (float)used / (float)capacity;
+
+        ImGui::ProgressBar(fraction, ImVec2(-1, 0), "");
+        ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
+        ImGui::Text("%u / %u MiB", used / (1024 * 1024), capacity / (1024 * 1024));
+
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImVec2 contentPos = ImGui::GetCursorScreenPos();
+        ImVec2 contentSize = ImGui::GetContentRegionAvail();
+        contentSize.y = 30;
+
+        float barWidth = contentSize.x;
+        ImU32 allocColor = ImGui::GetColorU32(ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
+        ImU32 freeColor = ImGui::GetColorU32(ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+
+        uint allocatedStart = 0;
+        uint freeBlockCount = e_globBufAllocator.getFreeBlockCount();
+        for (uint i = 0; i < freeBlockCount; ++i)
+        {
+            uint start, size;
+            e_globBufAllocator.getFreeBlock(i, start, size);
+
+            if (start > allocatedStart)
+            {
+                float startFrac = (float)allocatedStart / (float)capacity;
+                float sizeFrac = (float)(start - allocatedStart) / (float)capacity;
+                float x0 = contentPos.x + startFrac * barWidth;
+                float x1 = x0 + sizeFrac * barWidth;
+                drawList->AddRectFilled(ImVec2(x0, contentPos.y), ImVec2(x1, contentPos.y + contentSize.y), allocColor);
+            }
+
+            float startFrac = (float)start / (float)capacity;
+            float sizeFrac = (float)size / (float)capacity;
+            float x0 = contentPos.x + startFrac * barWidth;
+            float x1 = x0 + sizeFrac * barWidth;
+            drawList->AddRectFilled(ImVec2(x0, contentPos.y), ImVec2(x1, contentPos.y + contentSize.y), freeColor);
+
+            allocatedStart = start + size;
+        }
+
+        if (allocatedStart < capacity)
+        {
+            float startFrac = (float)allocatedStart / (float)capacity;
+            float sizeFrac = (float)(capacity - allocatedStart) / (float)capacity;
+            float x0 = contentPos.x + startFrac * barWidth;
+            float x1 = x0 + sizeFrac * barWidth;
+            drawList->AddRectFilled(ImVec2(x0, contentPos.y), ImVec2(x1, contentPos.y + contentSize.y), allocColor);
+        }
+
+        ImGui::Dummy(ImVec2(0, 30));
+
+        uint debugLiveBufferCount = 0;
+        for (uint id = 0; id < debugInfoCount; ++id)
+        {
+            if (debugInfoTable[id].valid && debugInfoTable[id].owner != nullptr)
+            {
+                debugLiveBufferCount++;
+            }
+        }
+
+        ImGui::Text("Live buffers: %u", debugLiveBufferCount);
+        ImGui::Text("Free blocks: %u", freeBlockCount);
+
+        ImGui::Separator();
+
+        UINT64 localBudget = 0, localUsage = 0;
+        UINT64 nonLocalBudget = 0, nonLocalUsage = 0;
+        bool localAvailable = e_globRenderer.getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, localBudget, localUsage);
+        bool nonLocalAvailable = e_globRenderer.getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, nonLocalBudget, nonLocalUsage);
+
+        if (localAvailable)
+        {
+            char localUsageText[32];
+            char localBudgetText[32];
+            snprintf(localUsageText, sizeof(localUsageText), "%s", formatBytes(localUsage));
+            snprintf(localBudgetText, sizeof(localBudgetText), "%s", formatBytes(localBudget));
+            ImGui::Text("Local VRAM: %s / %s", localUsageText, localBudgetText);
+        }
+        else
+        {
+            ImGui::Text("Local VRAM: unavailable");
+        }
+
+        if (nonLocalAvailable)
+        {
+            char nonLocalUsageText[32];
+            char nonLocalBudgetText[32];
+            snprintf(nonLocalUsageText, sizeof(nonLocalUsageText), "%s", formatBytes(nonLocalUsage));
+            snprintf(nonLocalBudgetText, sizeof(nonLocalBudgetText), "%s", formatBytes(nonLocalBudget));
+            ImGui::Text("Non-Local VRAM: %s / %s", nonLocalUsageText, nonLocalBudgetText);
+        }
+        else
+        {
+            ImGui::Text("Non-Local VRAM: unavailable");
+        }
+
+        ImGui::Separator();
+
+        struct HeapGroup
+        {
+            D3D12_HEAP_TYPE type;
+            const char* label;
+            UINT64 totalSize;
+            uint resourceCount;
+            uint maxResourceSize;
+        };
+
+        HeapGroup heapGroups[5] = {
+            { D3D12_HEAP_TYPE_DEFAULT, "Default", 0, 0, 0 },
+            { D3D12_HEAP_TYPE_UPLOAD, "Upload", 0, 0, 0 },
+            { D3D12_HEAP_TYPE_READBACK, "Readback", 0, 0, 0 },
+            { D3D12_HEAP_TYPE_CUSTOM, "Custom", 0, 0, 0 },
+            { (D3D12_HEAP_TYPE)999, "Attached (External)", 0, 0, 0 }
+        };
+
+        for (uint id = 0; id < debugInfoCount; ++id)
+        {
+            const resourceDebugInfo& info = debugInfoTable[id];
+            if (!info.valid || info.owner == nullptr)
+            {
+                continue;
+            }
+
+            int groupIdx = -1;
+            if (info.external)
+            {
+                groupIdx = 4;
+            }
+            else if (info.heapType == D3D12_HEAP_TYPE_DEFAULT)
+            {
+                groupIdx = 0;
+            }
+            else if (info.heapType == D3D12_HEAP_TYPE_UPLOAD)
+            {
+                groupIdx = 1;
+            }
+            else if (info.heapType == D3D12_HEAP_TYPE_READBACK)
+            {
+                groupIdx = 2;
+            }
+            else if (info.heapType == D3D12_HEAP_TYPE_CUSTOM)
+            {
+                groupIdx = 3;
+            }
+
+            if (groupIdx >= 0)
+            {
+                if (!info.external)
+                {
+                    heapGroups[groupIdx].totalSize += info.gpuBytes;
+                }
+                heapGroups[groupIdx].resourceCount++;
+                if (info.gpuBytes > heapGroups[groupIdx].maxResourceSize)
+                {
+                    heapGroups[groupIdx].maxResourceSize = (uint)info.gpuBytes;
+                }
+            }
+        }
+
+        for (int i = 0; i < 5; ++i)
+        {
+            if (heapGroups[i].resourceCount > 0)
+            {
+                char headerLabel[256];
+                char totalSizeText[32];
+                snprintf(totalSizeText, sizeof(totalSizeText), "%s", formatBytes(heapGroups[i].totalSize));
+                snprintf(headerLabel, sizeof(headerLabel), "%s - %u resources, %s", heapGroups[i].label, heapGroups[i].resourceCount, totalSizeText);
+                if (ImGui::CollapsingHeader(headerLabel))
+                {
+                    for (uint id = 0; id < debugInfoCount; ++id)
+                    {
+                        const resourceDebugInfo& info = debugInfoTable[id];
+                        if (!info.valid || info.owner == nullptr)
+                        {
+                            continue;
+                        }
+
+                        bool match = false;
+                        if (i == 4 && info.external)
+                        {
+                            match = true;
+                        }
+                        else if (i < 4 && !info.external)
+                        {
+                            if ((i == 0 && info.heapType == D3D12_HEAP_TYPE_DEFAULT) ||
+                                (i == 1 && info.heapType == D3D12_HEAP_TYPE_UPLOAD) ||
+                                (i == 2 && info.heapType == D3D12_HEAP_TYPE_READBACK) ||
+                                (i == 3 && info.heapType == D3D12_HEAP_TYPE_CUSTOM))
+                            {
+                                match = true;
+                            }
+                        }
+
+                        if (match && heapGroups[i].maxResourceSize > 0)
+                        {
+                            float barFrac = (float)info.gpuBytes / (float)heapGroups[i].maxResourceSize;
+                            ImGui::ProgressBar(barFrac, ImVec2(-1, 0), "");
+                            ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
+                            ImGui::Text("%s (%s)", info.name, formatBytes(info.gpuBytes));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+#endif // ENGINE_DEBUG_RESOURCEVIEW
