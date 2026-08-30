@@ -304,44 +304,21 @@ bool renderer::createFrameResources()
 
 		hzbDepth = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_FLOAT, sWidth, sHeight, (UINT16)hzbMipCount);
 
-		hzbMipUAV.clear();
-		hzbMipSRV.clear();
-		hzbMipUAV.reserve(hzbMipCount);
-		hzbMipSRV.reserve(hzbMipCount);
+		hzbMipBuffer.clear();
+		hzbMipBuffer.reserve(hzbMipCount);
 		hzbMipState.assign(hzbMipCount, D3D12_RESOURCE_STATE_COMMON);
 
 		for (uint m = 0; m < hzbMipCount; ++m)
 		{
-			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-			uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
-			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-			uavDesc.Texture2D.MipSlice = m;
-			uavDesc.Texture2D.PlaneSlice = 0;
-
-			hzbMipUAV.push_back(render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_UAV_TYPE, hzbDepth, &uavDesc));
-
-			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-			srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			srvDesc.Texture2D.MostDetailedMip = m;
-			srvDesc.Texture2D.MipLevels = 1;
-			srvDesc.Texture2D.PlaneSlice = 0;
-			srvDesc.Texture2D.ResourceMinLODClamp = 0;
-
-			hzbMipSRV.push_back(render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, hzbDepth, &srvDesc));
+			char hzbMipName[32];
+			snprintf(hzbMipName, sizeof(hzbMipName), "hzbDepth mip %u", m);
+			hzbMipBuffer.push_back(e_globBufAllocator.alloc(nullptr, 0, 1,
+				buf::GBF_SRV | buf::GBF_UAV,
+				buf::RESOURCE_TEXTURE | buf::RESOURCE_SHARED,
+				DXGI_FORMAT_R32_FLOAT, sWidth, sHeight, (UINT16)hzbMipCount,
+				DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f), hzbDepth->getResource(),
+				(UINT16)m, 1, hzbMipName));
 		}
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC fullSrvDesc = {};
-		fullSrvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-		fullSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		fullSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		fullSrvDesc.Texture2D.MostDetailedMip = 0;
-		fullSrvDesc.Texture2D.MipLevels = hzbMipCount;
-		fullSrvDesc.Texture2D.PlaneSlice = 0;
-		fullSrvDesc.Texture2D.ResourceMinLODClamp = 0;
-
-		hzbFullSRV = render::getHeap(render::DESCRIPTORHEAP_BUFFER)->requestdescriptor(buf::BUFFER_IMAGE_TYPE, hzbDepth, &fullSrvDesc);
 
 		hzbReady = false;
 	}
@@ -688,7 +665,7 @@ uint renderer::getHZBMipCount() const
 D3D12_GPU_DESCRIPTOR_HANDLE renderer::getHZBMipHandle(uint mip) const
 {
 	uint clampedMip = hzbMipCount > 0 ? (std::min)(mip, hzbMipCount - 1) : 0;
-	return hzbMipSRV[clampedMip].getHandle();
+	return hzbMipBuffer[clampedMip]->getDesc(buf::GBF_SRV)->getHandle();
 }
 
 void renderer::getHZBMipSize(uint mip, uint& w, uint& h) const
@@ -968,11 +945,11 @@ void renderer::generateHZB()
 			}
 			hzbCmdList->ResourceBarrier(levels, preBarriers);
 
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_HZB_SRC, hzbMipSRV[m - 1].getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST, hzbMipUAV[m].getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST1, hzbMipUAV[(std::min)(m + 1, hzbMipCount - 1)].getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST2, hzbMipUAV[(std::min)(m + 2, hzbMipCount - 1)].getHandle());
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST3, hzbMipUAV[(std::min)(m + 3, hzbMipCount - 1)].getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_HZB_SRC, hzbMipBuffer[m - 1]->getDesc(buf::GBF_SRV)->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST, hzbMipBuffer[m]->getDesc(buf::GBF_UAV)->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST1, hzbMipBuffer[(std::min)(m + 1, hzbMipCount - 1)]->getDesc(buf::GBF_UAV)->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST2, hzbMipBuffer[(std::min)(m + 2, hzbMipCount - 1)]->getDesc(buf::GBF_UAV)->getHandle());
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST3, hzbMipBuffer[(std::min)(m + 3, hzbMipCount - 1)]->getDesc(buf::GBF_UAV)->getHandle());
 
 			uint dstW = (std::max)(1u, e_globWindow.width() >> m);
 			uint dstH = (std::max)(1u, e_globWindow.height() >> m);
@@ -1128,7 +1105,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CULLING_HZB, hzbFullSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CULLING_HZB, hzbDepth->getDesc(buf::GBF_SRV)->getHandle());
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_OCCLUDED_CLUSTERS, occludedClusterBufferUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
@@ -1318,7 +1295,7 @@ void renderer::draw(float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CULLING_HZB, hzbFullSRV.getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_CULLING_HZB, hzbDepth->getDesc(buf::GBF_SRV)->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CULLING_DEBUG_STATS, debugStatsUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTER_INDIRECTION, clusterIndirectionUAV->getHandle());
 
@@ -1515,7 +1492,7 @@ void renderer::draw(float dt)
 			GPU_EVENT(computeCmdList.Get(), "VisBufferMaterialCount");
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_VISID, gbufferFB->getDescHandle(4));
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_DEPTH, hzbMipSRV[0].getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_DEPTH, hzbMipBuffer[0]->getDesc(buf::GBF_SRV)->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_MATCOUNTS, materialCountsUAV->getHandle());
 			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
@@ -1560,7 +1537,7 @@ void renderer::draw(float dt)
 			GPU_EVENT(computeCmdList.Get(), "VisBufferPixelInfo");
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_VISID, gbufferFB->getDescHandle(4));
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_DEPTH, hzbMipSRV[0].getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_DEPTH, hzbMipBuffer[0]->getDesc(buf::GBF_SRV)->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_MATCOUNTS, materialCountsUAV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_VISBUFFER_MEMOFFSET, materialMemOffsetUAV->getHandle());
@@ -1607,7 +1584,7 @@ void renderer::draw(float dt)
 			GPU_EVENT(computeCmdList.Get(), "VisBufferGbuffer");
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_VISID, gbufferFB->getDescHandle(4));
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_DEPTH, hzbMipSRV[0].getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_DEPTH, hzbMipBuffer[0]->getDesc(buf::GBF_SRV)->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_CLUSTERARGS, vertexIDBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VISBUFFER_VISIBLE_TRIS, visibleTriBufferSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VERTEX_BUFFER, unifiedVertexBufferUAV->getHandle());
@@ -1642,7 +1619,7 @@ void renderer::draw(float dt)
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_POSITION, gbufferPositionSRV->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LIGHT_NORM, gbufferNormalSRV->getHandle());
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_SSAO_DEPTH, hzbMipSRV[0].getHandle());
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_SSAO_DEPTH, hzbMipBuffer[0]->getDesc(buf::GBF_SRV)->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, camDesc->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_SSAO, ssaoUAV[0]->getHandle());
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_AOCONST, 4, &renderGuiSetting::aoConstants);
