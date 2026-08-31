@@ -16,6 +16,27 @@ namespace render
 
 	TC_STATICASSERT(static_cast<int>(sizeof(queuetypes) / sizeof(D3D12_COMMAND_LIST_TYPE)) == QUEUE_MAX);
 
+#if ENGINE_DEBUG_EVENTRESOURCE
+	TC_STATICASSERT(QUEUE_MAX == 3);
+#endif // ENGINE_DEBUG_EVENTRESOURCE
+
+	QUEUE_INDEX queueIndexFromListType(D3D12_COMMAND_LIST_TYPE type)
+	{
+		if (type == D3D12_COMMAND_LIST_TYPE_DIRECT)
+		{
+			return QUEUE_GRAPHIC;
+		}
+		else if (type == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+		{
+			return QUEUE_COMPUTE;
+		}
+		else if (type == D3D12_COMMAND_LIST_TYPE_COPY)
+		{
+			return QUEUE_COPY;
+		}
+		return QUEUE_MAX;
+	}
+
 	std::array<commandqueue*, QUEUE_MAX> cmdQueues;
 
 	commandqueue* getCmdQueue(const QUEUE_INDEX index)

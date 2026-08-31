@@ -3,8 +3,6 @@
 
 #include <render/renderer.hpp>
 
-constexpr uint MAX_DESCRIPTOR_SIZE = 1024;
-
 namespace render
 {
 	std::array<descriptorheap*, DESCRIPTORHEAP_MAX> descriptorHeaps;
@@ -200,6 +198,11 @@ uint descriptorheap::getRemainPos(render::descriptorHeapIndex heapIdx) const
 	}
 
 	return result;
+}
+
+uint descriptorheap::getIncrementSize() const
+{
+	return incrementalSize;
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE descriptor::getHandle() const

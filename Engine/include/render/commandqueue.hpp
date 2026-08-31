@@ -34,6 +34,8 @@ namespace render
 
 	bool allocateCmdQueue();
 	void closeCmdQueue();
+
+	QUEUE_INDEX queueIndexFromListType(D3D12_COMMAND_LIST_TYPE type);
 };
 
 class commandqueue

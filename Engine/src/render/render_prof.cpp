@@ -88,17 +88,12 @@ namespace render
 
 		GPUPROF_QUEUE gpuProfiler::getQueueFromListType(D3D12_COMMAND_LIST_TYPE type)
 		{
-			switch (type)
+			render::QUEUE_INDEX idx = render::queueIndexFromListType(type);
+			if (idx >= render::QUEUE_MAX)
 			{
-			case D3D12_COMMAND_LIST_TYPE_DIRECT:
-				return GPUPROF_QUEUE_GRAPHIC;
-			case D3D12_COMMAND_LIST_TYPE_COMPUTE:
-				return GPUPROF_QUEUE_COMPUTE;
-			case D3D12_COMMAND_LIST_TYPE_COPY:
-				return GPUPROF_QUEUE_COPY;
-			default:
 				return GPUPROF_QUEUE_COUNT;
 			}
+			return static_cast<GPUPROF_QUEUE>(idx);
 		}
 
 		bool gpuProfiler::init()

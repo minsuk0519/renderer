@@ -22,6 +22,9 @@ namespace prof
 	private:
 		ID3D12GraphicsCommandList* cmdList;
 		int profEventIndex = -1;
+#if ENGINE_DEBUG_EVENTRESOURCE
+		EVENT_INDEX nameID;
+#endif // ENGINE_DEBUG_EVENTRESOURCE
 	};
 
 	#define GPU_EVENT_CONCAT_(a, b) a##b

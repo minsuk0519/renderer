@@ -3,12 +3,19 @@
 
 #include <cstring>
 
+#if ENGINE_DEBUG_EVENTRESOURCE
+#include <system/eventResourceDefines.hpp>
+#endif // ENGINE_DEBUG_EVENTRESOURCE
+
 #if ENGINE_DEBUG_GPUEVENT
 
 namespace prof
 {
 	ScopedGPUEvent::ScopedGPUEvent(ID3D12GraphicsCommandList* cmdList, EVENT_INDEX nameID)
 		: cmdList(cmdList)
+#if ENGINE_DEBUG_EVENTRESOURCE
+		, nameID(nameID)
+#endif // ENGINE_DEBUG_EVENTRESOURCE
 	{
 		const char* name = prof::getEventName(nameID);
 		cmdList->BeginEvent(1, name, (UINT)strlen(name) + 1);

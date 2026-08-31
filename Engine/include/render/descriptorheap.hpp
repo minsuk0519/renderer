@@ -13,6 +13,8 @@ class descriptorheap;
 
 namespace render
 {
+	constexpr uint MAX_DESCRIPTOR_SIZE = 1024;
+
 	enum descriptorHeapIndex
 	{
 		DESCRIPTORHEAP_RENDERTARGET = 0,
@@ -73,4 +75,6 @@ public:
 	descriptor requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf, void* view);
 
 	uint getRemainPos(render::descriptorHeapIndex heapIdx) const;
+
+	uint getIncrementSize() const;
 };
