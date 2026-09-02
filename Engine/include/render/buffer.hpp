@@ -148,7 +148,8 @@ struct buffer
 {
 public:
 	uint getElemSize() const;
-	
+	uint getId() const;
+
 	ID3D12Resource* getResource() const;
 	buffer_header* getHeader();
 	const buffer_header* getHeader() const;

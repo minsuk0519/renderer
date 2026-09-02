@@ -196,9 +196,9 @@ void commandqueue::sendData(uint pos, buffer* buf, buf::graphicBufferFlags viewT
 	currentPSO->sendGraphicsData(commandList, pos, desc->getHandle());
 
 #if ENGINE_DEBUG_EVENTRESOURCE
-	if (desc->heapIndex == render::DESCRIPTORHEAP_BUFFER && desc->ownerBufferId != render::DESCRIPTOR_OWNER_INVALID && pos < render::EVENTRESOURCE_MAX_LOC)
+	if (desc->heapIndex == render::DESCRIPTORHEAP_BUFFER && pos < render::EVENTRESOURCE_MAX_LOC)
 	{
-		bindScratch.locs[pos] = { desc->ownerBufferId, (uint16_t)desc->heapOffset };
+		bindScratch.locs[pos] = { buf->getId(), (uint16_t)desc->heapOffset };
 		if (indirectBindScratch.count < render::EVENTRESOURCE_MAX_LOC)
 		{
 			indirectBindScratch.indices[indirectBindScratch.count++] = (uint16_t)pos;

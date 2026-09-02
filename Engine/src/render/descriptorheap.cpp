@@ -200,11 +200,6 @@ uint descriptorheap::getRemainPos(render::descriptorHeapIndex heapIdx) const
 	return result;
 }
 
-uint descriptorheap::getIncrementSize() const
-{
-	return incrementalSize;
-}
-
 D3D12_GPU_DESCRIPTOR_HANDLE descriptor::getHandle() const
 {
 	//will be not only for the descriptorheap buffer

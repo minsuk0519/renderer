@@ -712,6 +712,11 @@ uint buffer::getElemSize() const
     return header.dataSize / (header.packedData.stride * sizeof(float));
 }
 
+uint buffer::getId() const
+{
+    return header.packedData.bufferId;
+}
+
 ID3D12Resource* buffer::getResource() const
 {
     return resource.Get();

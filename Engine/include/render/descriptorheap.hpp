@@ -75,6 +75,4 @@ public:
 	descriptor requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf, void* view);
 
 	uint getRemainPos(render::descriptorHeapIndex heapIdx) const;
-
-	uint getIncrementSize() const;
 };
