@@ -34,6 +34,15 @@ namespace render
 		#endif
 	}
 
+	void setResourceViewerSelectionBackend(uint bufferId)
+	{
+		#if ENGINE_DEBUG_RESOURCEVIEW
+		buf::setSelectedResourceId(bufferId);
+		#else
+		(void)bufferId;
+		#endif
+	}
+
 }  // namespace render
 
 #endif // ENGINE_DEBUG_EVENTRESOURCE

@@ -285,6 +285,13 @@ namespace prof
 	static EVENT_INDEX selectedEventViewerEvent = EVENT_INVALID;
 
 #if ENGINE_DEBUG_EVENTRESOURCE
+	static constexpr ImU32 EVENTRESOURCE_ROW_COLOR_EXACT = IM_COL32(70, 140, 230, 150);
+	static constexpr ImU32 EVENTRESOURCE_ROW_COLOR_BUFFER = IM_COL32(70, 140, 230, 25);
+
+	static uint selectedEventResourceBufferId = ~0u;
+	static uint selectedEventResourceHeapSlot = 0;
+	static EVENT_INDEX lastEventForResourceSelection = EVENT_INVALID;
+
 	static const char* hlslRegisterLabel(uint loc)
 	{
 		uint index = loc >> 2;
@@ -329,22 +336,32 @@ namespace prof
 		}
 
 #if ENGINE_DEBUG_EVENTRESOURCE
+		if (selectedEventViewerEvent != lastEventForResourceSelection)
+		{
+			selectedEventResourceBufferId = ~0u;
+			lastEventForResourceSelection = selectedEventViewerEvent;
+		}
+
 		bool captureActive = prof::isEventResourceCaptureActive();
 		if (ImGui::Checkbox("Capture Bound Resources", &captureActive))
 		{
 			prof::setEventResourceCaptureActive(captureActive);
+			if (!captureActive)
+			{
+				selectedEventResourceBufferId = ~0u;
+			}
 		}
 
-		// Detail table for selected event's resources
 		if (selectedEventViewerEvent != EVENT_INVALID)
 		{
 			uint resCount = prof::getEventResourceCount(selectedEventViewerEvent);
 			if (resCount > 0)
 			{
 				ImGui::SeparatorText(prof::getEventName(selectedEventViewerEvent));
-				if (ImGui::BeginTable("BoundResources", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+				if (ImGui::BeginTable("BoundResources", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
 				{
 					ImGui::TableSetupColumn("Resource");
+					ImGui::TableSetupColumn("Id");
 					ImGui::TableSetupColumn("Register");
 					ImGui::TableSetupColumn("Slot");
 					ImGui::TableHeadersRow();
@@ -354,13 +371,47 @@ namespace prof
 						const prof::eventResourceEntry* entry = prof::getEventResource(selectedEventViewerEvent, i);
 						if (entry)
 						{
+							ImGui::PushID((int)i);
 							ImGui::TableNextRow();
+
+							bool bufferMatch = (selectedEventResourceBufferId != ~0u && entry->bufferId == selectedEventResourceBufferId);
+							bool viewMatch = (bufferMatch && entry->heapSlot == selectedEventResourceHeapSlot);
+
+							if (viewMatch)
+							{
+								ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, EVENTRESOURCE_ROW_COLOR_EXACT);
+							}
+							else if (bufferMatch)
+							{
+								ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, EVENTRESOURCE_ROW_COLOR_BUFFER);
+							}
+
 							ImGui::TableSetColumnIndex(0);
-							ImGui::Text("%s", render::getEventResourceNameBackend(entry->bufferId));
+							if (ImGui::Selectable(render::getEventResourceNameBackend(entry->bufferId), false, ImGuiSelectableFlags_SpanAllColumns))
+							{
+								if (viewMatch)
+								{
+									selectedEventResourceBufferId = ~0u;
+									render::setResourceViewerSelectionBackend(~0u);
+								}
+								else
+								{
+									selectedEventResourceBufferId = entry->bufferId;
+									selectedEventResourceHeapSlot = entry->heapSlot;
+									render::setResourceViewerSelectionBackend(entry->bufferId);
+								}
+							}
+
 							ImGui::TableSetColumnIndex(1);
-							ImGui::Text("%s", hlslRegisterLabel(entry->hlslLoc));
+							ImGui::Text("%u", entry->bufferId);
+
 							ImGui::TableSetColumnIndex(2);
+							ImGui::Text("%s", hlslRegisterLabel(entry->hlslLoc));
+
+							ImGui::TableSetColumnIndex(3);
 							ImGui::Text("%u", entry->heapSlot);
+
+							ImGui::PopID();
 						}
 					}
 

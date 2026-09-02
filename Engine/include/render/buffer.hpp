@@ -184,6 +184,7 @@ namespace buf
 	void recordResourceView(buffer* buf, const descriptor& desc, BUFFER_TYPE type);
 	void guiResourceViewerSetting();
 	void guiMemoryViewerSetting();
+	void setSelectedResourceId(uint bufferId);
 }
 #endif // ENGINE_DEBUG_RESOURCEVIEW
 

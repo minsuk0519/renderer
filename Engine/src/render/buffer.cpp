@@ -1196,6 +1196,11 @@ namespace buf
 {
     static uint selectedResourceId = ~0u;
 
+    void setSelectedResourceId(uint bufferId)
+    {
+        selectedResourceId = bufferId;
+    }
+
     inline const char* formatBytes(UINT64 bytes)
     {
         static char buffer[32];

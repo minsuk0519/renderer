@@ -37,6 +37,7 @@ namespace render
 
 	void flushEventResourceScopeBackend(void* cmdList, prof::EVENT_INDEX nameID);
 	const char* getEventResourceNameBackend(uint bufferId);
+	void setResourceViewerSelectionBackend(uint bufferId);
 
 }  // namespace render
 
