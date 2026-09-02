@@ -70,6 +70,7 @@ public:
 	ID3D12PipelineState* getPSO() const;
 	rootsignature* getRootSig() const;
 	ID3D12CommandSignature* getCmdSignature() const;
+	bool usesHlslLoc(uint loc) const;
 
 	void guiSetting();
 };

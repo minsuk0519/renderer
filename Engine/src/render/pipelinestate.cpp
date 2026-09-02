@@ -246,6 +246,11 @@ ID3D12CommandSignature* pipelinestate::getCmdSignature() const
 	return cmdSignature.Get();
 }
 
+bool pipelinestate::usesHlslLoc(uint loc) const
+{
+	return hlslLoc.find(loc) != hlslLoc.end();
+}
+
 void pipelinestate::guiSetting()
 {
 	ImGui::BulletText(data.psoName.c_str());

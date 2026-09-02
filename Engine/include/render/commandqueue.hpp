@@ -2,12 +2,18 @@
 
 #include <system/defines.hpp>
 #include <render/pipelinestate.hpp>
+#include <render/descriptorheap.hpp>
 
 #include <wrl.h>
 #include <d3d12.h>
 
 #include <vector>
 #include <cstring>
+
+#if ENGINE_DEBUG_EVENTRESOURCE
+#include <render/render_eventResource.hpp>
+#include <system/eventResourceDefines.hpp>
+#endif // ENGINE_DEBUG_EVENTRESOURCE
 
 class commandqueue;
 class pipelinestate;
@@ -52,6 +58,11 @@ private:
 
 	pipelinestate* currentPSO = nullptr;
 
+#if ENGINE_DEBUG_EVENTRESOURCE
+	render::bindScratchTable bindScratch;
+	render::indirectBindScratchTable indirectBindScratch;
+#endif // ENGINE_DEBUG_EVENTRESOURCE
+
 private:
 	bool createCommandAllocator();
 	bool createFence();
@@ -72,4 +83,8 @@ public:
 	void bindPSO(render::PSO_INDEX psoIndex);
 	void sendData(uint pos, buffer* buf, buf::graphicBufferFlags viewType);
 	void sendData(uint pos, uint size, void* data);
+
+#if ENGINE_DEBUG_EVENTRESOURCE
+	void drainBindScratchToEvent(prof::EVENT_INDEX nameID);
+#endif // ENGINE_DEBUG_EVENTRESOURCE
 };

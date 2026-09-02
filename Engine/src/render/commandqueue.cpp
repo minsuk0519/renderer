@@ -183,6 +183,10 @@ void commandqueue::bindPSO(render::PSO_INDEX psoIndex)
 
 	rootsig->setRootSignature(commandList);
 	rootsig->registerDescHeap(commandList);
+
+#if ENGINE_DEBUG_EVENTRESOURCE
+	indirectBindScratch.clear();
+#endif // ENGINE_DEBUG_EVENTRESOURCE
 }
 
 void commandqueue::sendData(uint pos, buffer* buf, buf::graphicBufferFlags viewType)
@@ -194,8 +198,16 @@ void commandqueue::sendData(uint pos, buffer* buf, buf::graphicBufferFlags viewT
 #if ENGINE_DEBUG_EVENTRESOURCE
 	if (desc->heapIndex == render::DESCRIPTORHEAP_BUFFER && desc->ownerBufferId != render::DESCRIPTOR_OWNER_INVALID && pos < render::EVENTRESOURCE_MAX_LOC)
 	{
-		bindScratch.locs[pos] = { desc->ownerBufferId, (uint16_t)desc->heapOffset, true };
-		++bindScratch.writeSeq;
+		bindScratch.locs[pos] = { desc->ownerBufferId, (uint16_t)desc->heapOffset };
+		if (indirectBindScratch.count < render::EVENTRESOURCE_MAX_LOC)
+		{
+			indirectBindScratch.indices[indirectBindScratch.count++] = (uint16_t)pos;
+		}
+		else if (!indirectBindScratch.warnedFull)
+		{
+			TC_LOG_WARNING("indirectBindScratch table full");
+			indirectBindScratch.warnedFull = true;
+		}
 	}
 #endif // ENGINE_DEBUG_EVENTRESOURCE
 }
@@ -204,4 +216,28 @@ void commandqueue::sendData(uint pos, uint size, void* data)
 {
 	currentPSO->sendConstantData(commandList, pos, size, data);
 }
+
+#if ENGINE_DEBUG_EVENTRESOURCE
+void commandqueue::drainBindScratchToEvent(prof::EVENT_INDEX nameID)
+{
+	if (indirectBindScratch.count == 0)
+	{
+		return;
+	}
+
+	for (uint i = 0; i < indirectBindScratch.count; ++i)
+	{
+		uint16_t pos = indirectBindScratch.indices[i];
+		const render::bindScratchEntry& entry = bindScratch.locs[pos];
+
+		if (currentPSO != nullptr && currentPSO->usesHlslLoc(pos))
+		{
+			prof::accumulateEventResource(nameID, entry.bufferId, pos, entry.heapSlot);
+		}
+	}
+
+	indirectBindScratch.count = 0;
+	indirectBindScratch.warnedFull = false;
+}
+#endif // ENGINE_DEBUG_EVENTRESOURCE
 
