@@ -26,6 +26,9 @@ namespace prof
 
 	ScopedGPUEvent::~ScopedGPUEvent()
 	{
+#if ENGINE_DEBUG_EVENTRESOURCE
+		prof::flushEventResourceScope(cmdList, nameID);
+#endif // ENGINE_DEBUG_EVENTRESOURCE
 #if ENGINE_DEBUG_GPUPROF
 		if (profEventIndex >= 0)
 		{

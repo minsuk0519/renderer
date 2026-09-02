@@ -329,58 +329,56 @@ namespace prof
 		}
 
 #if ENGINE_DEBUG_EVENTRESOURCE
-		if (ImGui::Button("Snapshot Bound Resources"))
+		bool captureActive = prof::isEventResourceCaptureActive();
+		if (ImGui::Checkbox("Capture Bound Resources", &captureActive))
 		{
-			prof::snapshotEventResources();
+			prof::setEventResourceCaptureActive(captureActive);
 		}
 
 		// Detail table for selected event's resources
-		if (prof::hasEventResourceSnapshot())
+		if (selectedEventViewerEvent != EVENT_INVALID)
 		{
-			if (selectedEventViewerEvent != EVENT_INVALID)
+			uint resCount = prof::getEventResourceCount(selectedEventViewerEvent);
+			if (resCount > 0)
 			{
-				uint resCount = prof::getSnapshotResourceCount(selectedEventViewerEvent);
-				if (resCount > 0)
+				ImGui::SeparatorText(prof::getEventName(selectedEventViewerEvent));
+				if (ImGui::BeginTable("BoundResources", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
 				{
-					ImGui::SeparatorText(prof::getEventName(selectedEventViewerEvent));
-					if (ImGui::BeginTable("BoundResources", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+					ImGui::TableSetupColumn("Resource");
+					ImGui::TableSetupColumn("Register");
+					ImGui::TableSetupColumn("Slot");
+					ImGui::TableHeadersRow();
+
+					for (uint i = 0; i < resCount; ++i)
 					{
-						ImGui::TableSetupColumn("Resource");
-						ImGui::TableSetupColumn("Register");
-						ImGui::TableSetupColumn("Slot");
-						ImGui::TableHeadersRow();
-
-						for (uint i = 0; i < resCount; ++i)
+						const prof::eventResourceEntry* entry = prof::getEventResource(selectedEventViewerEvent, i);
+						if (entry)
 						{
-							const prof::eventResourceEntry* entry = prof::getSnapshotResource(selectedEventViewerEvent, i);
-							if (entry)
-							{
-								ImGui::TableNextRow();
-								ImGui::TableSetColumnIndex(0);
-								ImGui::Text("%s", render::getEventResourceNameBackend(entry->bufferId));
-								ImGui::TableSetColumnIndex(1);
-								ImGui::Text("%s", hlslRegisterLabel(entry->hlslLoc));
-								ImGui::TableSetColumnIndex(2);
-								ImGui::Text("%u", entry->heapSlot);
-							}
+							ImGui::TableNextRow();
+							ImGui::TableSetColumnIndex(0);
+							ImGui::Text("%s", render::getEventResourceNameBackend(entry->bufferId));
+							ImGui::TableSetColumnIndex(1);
+							ImGui::Text("%s", hlslRegisterLabel(entry->hlslLoc));
+							ImGui::TableSetColumnIndex(2);
+							ImGui::Text("%u", entry->heapSlot);
 						}
-
-						ImGui::EndTable();
 					}
+
+					ImGui::EndTable();
 				}
-				else
-				{
-					ImGui::TextDisabled("(No bound resources for this event)");
-				}
+			}
+			else if (captureActive)
+			{
+				ImGui::TextDisabled("(No bound resources captured for this event yet)");
 			}
 			else
 			{
-				ImGui::TextDisabled("(Select an event row)");
+				ImGui::TextDisabled("(Enable capture to record bound resources)");
 			}
 		}
 		else
 		{
-			ImGui::TextDisabled("(Press Snapshot to capture bound resources)");
+			ImGui::TextDisabled("(Select an event row)");
 		}
 #endif // ENGINE_DEBUG_EVENTRESOURCE
 	}

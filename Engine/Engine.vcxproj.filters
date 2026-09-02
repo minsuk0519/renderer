@@ -20,6 +20,9 @@
     <ClInclude Include="include\system\eventProfLane.hpp">
       <Filter>system</Filter>
     </ClInclude>
+    <ClInclude Include="include\system\eventResourceDefines.hpp">
+      <Filter>system</Filter>
+    </ClInclude>
     <ClInclude Include="include\system\config.hpp">
       <Filter>system</Filter>
     </ClInclude>
@@ -86,6 +89,9 @@
     <ClInclude Include="include\render\render_prof.hpp">
       <Filter>render</Filter>
     </ClInclude>
+    <ClInclude Include="include\render\render_eventResource.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
     <ClInclude Include="include\system\mathhelper.hpp">
       <Filter>system</Filter>
     </ClInclude>
@@ -111,6 +117,9 @@
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="src\system\eventProf.cpp">
+      <Filter>system</Filter>
+    </ClCompile>
+    <ClCompile Include="src\system\eventResource.cpp">
       <Filter>system</Filter>
     </ClCompile>
     <ClCompile Include="src\render\renderer.cpp">
@@ -150,6 +159,9 @@
       <Filter>render</Filter>
     </ClCompile>
     <ClCompile Include="src\render\render_prof.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\render_eventResource.cpp">
       <Filter>render</Filter>
     </ClCompile>
     <ClCompile Include="src\world\world.cpp">

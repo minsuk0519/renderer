@@ -225,14 +225,20 @@ void commandqueue::drainBindScratchToEvent(prof::EVENT_INDEX nameID)
 		return;
 	}
 
-	for (uint i = 0; i < indirectBindScratch.count; ++i)
+	// Capture off: still consume the recorded indices (sendData appends unconditionally, so
+	// leaving them would overflow the table and misattribute the backlog once capture resumes),
+	// but skip the PSO-location filter and the L3 dedup entirely.
+	if (prof::isEventResourceCaptureActive())
 	{
-		uint16_t pos = indirectBindScratch.indices[i];
-		const render::bindScratchEntry& entry = bindScratch.locs[pos];
-
-		if (currentPSO != nullptr && currentPSO->usesHlslLoc(pos))
+		for (uint i = 0; i < indirectBindScratch.count; ++i)
 		{
-			prof::accumulateEventResource(nameID, entry.bufferId, pos, entry.heapSlot);
+			uint16_t pos = indirectBindScratch.indices[i];
+			const render::bindScratchEntry& entry = bindScratch.locs[pos];
+
+			if (currentPSO != nullptr && currentPSO->usesHlslLoc(pos))
+			{
+				prof::accumulateEventResource(nameID, entry.bufferId, pos, entry.heapSlot);
+			}
 		}
 	}
 
