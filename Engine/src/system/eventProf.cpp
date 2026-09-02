@@ -298,10 +298,22 @@ namespace prof
 		uint type = loc & 3;
 		static char buf[16];
 		const char* typeChar = "?";
-		if (type == 0) typeChar = "t";  // SRV
-		else if (type == 1) typeChar = "s";  // SAMPLER
-		else if (type == 2) typeChar = "u";  // UAV
-		else if (type == 3) typeChar = "b";  // CBV
+		if (type == 0)
+		{
+			typeChar = "t";  // SRV
+		}
+		else if (type == 1)
+		{
+			typeChar = "s";  // SAMPLER
+		}
+		else if (type == 2)
+		{
+			typeChar = "u";  // UAV
+		}
+		else if (type == 3)
+		{
+			typeChar = "b";  // CBV
+		}
 		snprintf(buf, sizeof(buf), "%s%u", typeChar, index);
 		return buf;
 	}
