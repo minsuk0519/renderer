@@ -48,7 +48,7 @@ namespace cam
 	};
 };
 
-class camera
+class alignas(16) camera
 {
 public:
 	bool init();

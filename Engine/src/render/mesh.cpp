@@ -216,7 +216,7 @@ namespace msh
 
         for (uint i = 0; i < meshSize; ++i)
         {
-            mesh* msh = meshes[i];
+            //mesh* msh = meshes[i];
 
             std::string nameText = std::format("Name : {}", MESHNAME[i]);
 

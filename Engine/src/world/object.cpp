@@ -3,7 +3,6 @@
 #include <render/pipelinestate.hpp>
 #include <render/camera.hpp>
 #include <render/descriptorheap.hpp>
-#include <render/commandqueue.hpp>
 #include <system/gui.hpp>
 
 namespace obj
@@ -34,29 +33,6 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex)
 }
 
 
-void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw)
-{
-	cmdQueue->sendData(CBV_OBJECT, cbv, buf::GBF_CBV);
-
-	//if (debugDraw)
-	//{
-	//	float a[6] = { 0.5f, -0.5f, 0.5f, -0.5f, 0.5f, -0.5f };
-	//	cmdList->SetGraphicsRoot32BitConstants(2, 6, a, 0);
-	//}
-
-	//meshPtr->setBuffer(cmdList, debugDraw);
-	//meshPtr->draw(cmdList);
-
-	//if (debugDraw)
-	//{
-	//	cmdList->SetGraphicsRoot32BitConstants(2, 6, meshPtr->getData()->AABB, 0);
-
-	//	mesh* AABBMesh = msh::getMesh(msh::MESH_CUBE);
-	//	AABBMesh->setBuffer(cmdList, true);
-	//	AABBMesh->draw(cmdList);
-	//}
-}
-
 void object::update([[maybe_unused]] float dt)
 {
 	float* matPointer = trans->getMatPointer();
@@ -78,25 +54,6 @@ void object::submit(void* cbvLoc, uint localID)
 	data = (localID << 16) | (getMeshIdx() << 3) | lod;
 
 	memcpy(cbvLoc, &data, 4);
-}
-
-void object::sendMat(unsigned char* cbvdata)
-{
-	float* matPointer = trans->getMatPointer();
-
-	float a[] = {
-		albedo.x, albedo.y, albedo.z,
-		metal,
-		roughness,
-	};
-
-	unsigned char* dataLoc;
-		
-	//if(cbvdata == nullptr) dataLoc = cbv->info.cbvDataBegin;
-	//else dataLoc = cbvdata + consts::CONST_OBJ_SIZE_ALLIGNMENT * id;
-
-	//memcpy(dataLoc, matPointer, cbv->info.size);
-	//memcpy(dataLoc + sizeof(float) * 16, &a, cbv->info.size);
 }
 
 void object::uploadViewInfo(unsigned char* dataLoc)

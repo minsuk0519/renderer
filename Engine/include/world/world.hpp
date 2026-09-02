@@ -38,8 +38,6 @@ public:
 
 	object* getObjects();
 
-	void sendInfo(unsigned char* cbv);
-
 	uint objectNum = 0;
 
 	//index of object that is in camera frustum

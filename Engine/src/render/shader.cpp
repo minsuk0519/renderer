@@ -50,7 +50,12 @@ namespace shaders
 			IID_PPV_ARGS(&pResults) // Compiler output status, buffer, and errors.
 		);
 
-		std::string fileStr = std::string(filePath.begin(), filePath.end());
+		std::string fileStr;
+		fileStr.reserve(filePath.size());
+		for (wchar_t c : filePath)
+		{
+			fileStr += static_cast<char>(c);
+		}
 		if (compileStatus != S_OK)
 		{
 			std::string warning = std::format("Failed to compile shader : {} : {}", fileStr.c_str(), compileStatus);
@@ -181,7 +186,7 @@ namespace shaders
 				}
 				else
 				{
-					for (const auto& e : std::filesystem::recursive_directory_iterator(entry.path())) (*count)--;
+					for ([[maybe_unused]] const auto& e : std::filesystem::recursive_directory_iterator(entry.path())) (*count)--;
 				}
 			}
 		}
@@ -190,7 +195,7 @@ namespace shaders
 	void guiShaderSourceSetting()
 	{
 		uint32_t count = 0;
-		for (const auto& entry : std::filesystem::recursive_directory_iterator(config::shaderBasePath)) count++;
+		for ([[maybe_unused]] const auto& entry : std::filesystem::recursive_directory_iterator(config::shaderBasePath)) count++;
 
 		static uint selection_mask = 0;
 		static uint prev_selection_mask = 0;

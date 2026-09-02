@@ -192,9 +192,9 @@ namespace buf
         if (size != -1)
         {
             std::string stringData = data;
-            auto pos = stringData.find("Number of LODs : ") + 16;
+            auto lodPos = stringData.find("Number of LODs : ") + 16;
 
-            std::string subStr = stringData.substr(pos);
+            std::string subStr = stringData.substr(lodPos);
             std::string lodNumString = subStr.substr(0, subStr.find('\n'));
             meshData->lodNum = std::stoi(lodNumString);
 
@@ -205,9 +205,9 @@ namespace buf
             uint totalClusters = 0;
             for (uint i = 0; i < meshData->lodNum; ++i)
             {
-                uint nextPos = subStr.find(" : ");
+                size_t nextPos = subStr.find(" : ");
                 std::string valueString = subStr.substr(0, nextPos);
-                TC_ASSERT(std::stoi(valueString) == i);
+                TC_ASSERT(static_cast<uint>(std::stoi(valueString)) == i);
                 subStr = subStr.substr(nextPos + 3);
                 nextPos = subStr.find(", ");
                 valueString = subStr.substr(0, nextPos);
@@ -222,7 +222,7 @@ namespace buf
                 subStr = subStr.substr(nextPos + 1);
             }
 
-            uint nextPos = subStr.find("\n") + 1;
+            size_t nextPos = subStr.find("\n") + 1;
             subStr = subStr.substr(nextPos);
 
             {
@@ -259,7 +259,7 @@ namespace buf
                     float values[11];
                     ParseReals(subStr, count, values);
 
-                    meshData->lodData[i].indexSize.push_back(values[0]);
+                    meshData->lodData[i].indexSize.push_back(static_cast<uint>(values[0]));
 
                     spherebound sphere;
 
@@ -427,7 +427,7 @@ namespace buf
 
         uint uWidth = static_cast<uint>(image->width);
         uint uHeight = static_cast<uint>(image->height);
-        buffer* buf = e_globBufAllocator.alloc(nullptr, uWidth * uHeight, 1, buf::GBF_SRV, buf::RESOURCE_TEXTURE, image->format, uWidth, uHeight, mipSize);
+        buffer* buf = e_globBufAllocator.alloc(nullptr, uWidth * uHeight, 1, buf::GBF_SRV, buf::RESOURCE_TEXTURE, image->format, uWidth, uHeight, static_cast<UINT16>(mipSize));
 
         {
             render::getCmdQueue(render::QUEUE_COPY)->getAllocator()->Reset();
@@ -470,7 +470,7 @@ namespace buf
             UINT8* pVertexDataBegin;
             CD3DX12_RANGE readRange(0, 0);
             resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-            memcpy(pVertexDataBegin, data, size);
+            memcpy(pVertexDataBegin + offset, data, size);
             resource->Unmap(0, nullptr);
         }
     }
@@ -540,7 +540,7 @@ namespace buf
             uint width = e_globWindow.width();
             uint height = e_globWindow.height();
 
-            buffer* depth = e_globBufAllocator.alloc(nullptr, 0, 3, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_UINT, width, height, 1);
+            e_globBufAllocator.alloc(nullptr, 0, 3, buf::GBF_RT | buf::GBF_SRV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_UINT, width, height, 1);
 
             //{
             //    bufferContainer[IMAGE_IRRADIANCE] = loadTextureFromFile(L"asset/texture/Sierra_Madre_B_Ref.irr.hdr", true);
@@ -647,7 +647,6 @@ namespace buf
         }
         else
         {
-            uint strideBytes = buf->header.packedData.stride * sizeof(float);
             D3D12_BUFFER_SRV desc = {};
             desc.NumElements = buf->header.dataSize / sizeof(float);
             desc.StructureByteStride = 0;
@@ -1133,7 +1132,7 @@ void buffer_allocator::free(char* bufferData)
 {
     buffer* buf = reinterpret_cast<buffer*>(bufferData);
 
-    freeInternal((data - bufferData), buf->header.totalSize, buf->header.packedData.bufferId);
+    freeInternal(static_cast<uint>(data - bufferData), buf->header.totalSize, buf->header.packedData.bufferId);
 }
 
 void buffer_allocator::free(uint index)

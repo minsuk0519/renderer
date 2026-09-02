@@ -53,7 +53,7 @@ void camera::setCamAsMain()
 	type = cam::CAMTYPE_MAIN;
 }
 
-void camera::draw(uint psoIndex, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void camera::draw([[maybe_unused]] uint psoIndex, [[maybe_unused]] Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
 {
 	//if(psoIndex == pso::PSO_DEBUG) 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 

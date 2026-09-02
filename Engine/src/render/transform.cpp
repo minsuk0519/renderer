@@ -195,14 +195,14 @@ DirectX::XMMATRIX buildProjMatrixInternal(float FovAngleY, float AspectRatio, fl
 
 DirectX::XMMATRIX transform::buildViewProjMat(float fov, float aspectRatio, float nearZ, float farZ) const
 {
-    DirectX::XMVECTOR up = getUP();
-    DirectX::XMVECTOR right = getRIGHT();
+    DirectX::XMVECTOR upVec = getUP();
+    DirectX::XMVECTOR rightVec = getRIGHT();
 
-    DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);
+    DirectX::XMVECTOR forward = DirectX::XMVector3Cross(upVec, rightVec);
 
     DirectX::XMVECTOR pos = getPosition();
 
-    DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, up);
+    DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, upVec);
 
     DirectX::XMMATRIX proj = buildProjMatrixInternal(fov, aspectRatio, nearZ, farZ);
 

@@ -110,7 +110,7 @@ ID3D12DescriptorHeap* descriptorheap::getHeap() const
 }
 
 //TODO : change later
-uint descriptorheap::setRootTable(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint offset)
+uint descriptorheap::setRootTable([[maybe_unused]] Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint offset)
 {
 	uint off = offset;
 

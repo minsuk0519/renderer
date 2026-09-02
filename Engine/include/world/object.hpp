@@ -13,7 +13,6 @@ class object;
 class mesh;
 struct descriptor;
 class camera;
-class commandqueue;
 
 namespace obj
 {
@@ -43,11 +42,9 @@ public:
 	transform* getTransform() const;
 
 	bool init(const msh::MESH_INDEX meshIdx, const uint psoIndex);
-	void draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw);
 	void update(float dt);
 	void submit(void* cbvLoc, uint localID);
 
-	void sendMat(unsigned char* cbvdata);
 	void uploadViewInfo(unsigned char* dataLoc);
 	void uploadMaterial(unsigned char* dataLoc);
 	void boundData(unsigned char* data);

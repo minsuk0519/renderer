@@ -225,9 +225,6 @@ void commandqueue::drainBindScratchToEvent(prof::EVENT_INDEX nameID)
 		return;
 	}
 
-	// Capture off: still consume the recorded indices (sendData appends unconditionally, so
-	// leaving them would overflow the table and misattribute the backlog once capture resumes),
-	// but skip the PSO-location filter and the L3 dedup entirely.
 	if (prof::isEventResourceCaptureActive())
 	{
 		for (uint i = 0; i < indirectBindScratch.count; ++i)

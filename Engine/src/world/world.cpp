@@ -24,18 +24,6 @@ object* world::getObjects()
 	return objects;
 }
 
-void world::sendInfo(unsigned char* cbv)
-{
-	uint* index = cameraObjectIndex;
-	uint objNum = cameraObjNum[0];
-	for (uint i = 0; i < objNum; ++i)
-	{
-		object* obj = objects + index[i];
-		obj->sendMat(cbv);
-	}
-
-}
-
 camera* world::getMainCam() const
 {
 	return mainCamera;

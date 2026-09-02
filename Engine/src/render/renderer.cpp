@@ -693,7 +693,7 @@ void renderer::transitionHZBForGui(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandL
 	}
 }
 
-void renderer::preDraw(float dt)
+void renderer::preDraw([[maybe_unused]] float dt)
 {
 #if ENGINE_DEBUG_MESH
 	if (debugFBRequest)
@@ -971,7 +971,7 @@ void renderer::generateHZB()
 	hzbReady = true;
 }
 
-void renderer::draw(float dt)
+void renderer::draw([[maybe_unused]] float dt)
 {
 	unsigned char* viewInfoDataPtr = nullptr;
 	unsigned char* materialDataPtr = nullptr;
@@ -1724,7 +1724,7 @@ void renderer::draw(float dt)
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
 }
 
-void renderer::drawWorld(float dt)
+void renderer::drawWorld([[maybe_unused]] float dt)
 {
 }
 
