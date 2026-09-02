@@ -176,7 +176,6 @@ namespace buf
         debugInfoTable[bufferId].views.push_back({ (uint)desc.heapIndex, desc.heapOffset, type });
     }
 
-
 #endif // ENGINE_DEBUG_RESOURCEVIEW
 
     void loadMeshInfo(std::string fileName, meshData* meshData)

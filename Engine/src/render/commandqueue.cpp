@@ -185,9 +185,19 @@ void commandqueue::bindPSO(render::PSO_INDEX psoIndex)
 	rootsig->registerDescHeap(commandList);
 }
 
-void commandqueue::sendData(uint pos, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
+void commandqueue::sendData(uint pos, buffer* buf, buf::graphicBufferFlags viewType)
 {
-	currentPSO->sendGraphicsData(commandList, pos, descLoc);
+	descriptor* desc = buf->getDesc(viewType);
+
+	currentPSO->sendGraphicsData(commandList, pos, desc->getHandle());
+
+#if ENGINE_DEBUG_EVENTRESOURCE
+	if (desc->heapIndex == render::DESCRIPTORHEAP_BUFFER && desc->ownerBufferId != render::DESCRIPTOR_OWNER_INVALID && pos < render::EVENTRESOURCE_MAX_LOC)
+	{
+		bindScratch.locs[pos] = { desc->ownerBufferId, (uint16_t)desc->heapOffset, true };
+		++bindScratch.writeSeq;
+	}
+#endif // ENGINE_DEBUG_EVENTRESOURCE
 }
 
 void commandqueue::sendData(uint pos, uint size, void* data)

@@ -77,7 +77,6 @@ public:
 	transform* getTransform() const;
 
 	DirectX::XMMATRIX getMat() const;
-	descriptor* getDesc() const;
 
 	bool hasPrevViewProj() const { return prevViewProjValid; }
 

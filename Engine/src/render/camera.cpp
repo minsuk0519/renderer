@@ -92,7 +92,7 @@ void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, 
 	cmdList->RSSetScissorRects(1, &scissorRect);
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, projectionBuffer->getDesc(buf::GBF_CBV)->getHandle());
+	render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_PROJECTION, projectionBuffer, buf::GBF_CBV);
 }
 
 void camera::changeViewport(const cam::VIEWPORT_TYPE viewType)
@@ -188,11 +188,6 @@ DirectX::XMMATRIX camera::getMat() const
 	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, FAR_PLANE, NEAR_PLANE);
 
 	return view * projection;
-}
-
-descriptor* camera::getDesc() const
-{
-	return projectionBuffer->getDesc(buf::GBF_CBV);
 }
 
 #if ENGINE_DEBUG_DEBUGCAM

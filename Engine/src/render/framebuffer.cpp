@@ -95,3 +95,10 @@ ID3D12Resource* framebuffer::getFBOResource(uint FBOIndex)
 
 	return FBOs[FBOIndex]->getResource();
 }
+
+buffer* framebuffer::getFBO(uint FBOIndex)
+{
+	TC_ASSERT(FBOIndex < FBOs.size());
+
+	return FBOs[FBOIndex];
+}

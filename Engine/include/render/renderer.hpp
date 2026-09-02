@@ -82,7 +82,7 @@ private:
 	framebuffer* debugFB = nullptr;
 	bool debugFBRequest = false;
 	uint debugFBMeshID;
-	UINT64 debugProjection;
+	buffer* debugProjection = nullptr;
 #endif // #if ENGINE_DEBUG_MESH
 
 	buffer* ssaoTex[3];
@@ -166,7 +166,7 @@ private:
 public:
 #if ENGINE_DEBUG_MESH
 	framebuffer* getDebugFrameBuffer() const;
-	void debugFrameBufferRequest(uint debugMeshID, UINT64 projPtr);
+	void debugFrameBufferRequest(uint debugMeshID, buffer* projBuffer);
 #endif // #if ENGINE_DEBUG_MESH
 
 	void guiSetting();
