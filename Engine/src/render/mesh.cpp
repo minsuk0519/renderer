@@ -266,7 +266,7 @@ namespace msh
 	{
 		if (openMeshClick)
 		{
-			e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer->getDesc(buf::GBF_CBV)->getHandle().ptr);
+			e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer);
 			openDebugWindow = true;
 		}
 
@@ -319,7 +319,7 @@ namespace msh
 				float yPos = std::cosf(y) * meshDebugDrawCamArmLength;
 				float zPos = std::cosf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
 				meshDebugDrawCamPos = DirectX::XMVECTOR{ xPos, yPos, zPos };
-				e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer->getDesc(buf::GBF_CBV)->getHandle().ptr);
+				e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer);
 
 				DirectX::XMVECTOR forward = DirectX::XMVector3Normalize(DirectX::XMVectorNegate(meshDebugDrawCamPos));
 				DirectX::XMVECTOR globUp = DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };

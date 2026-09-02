@@ -36,7 +36,7 @@ bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex)
 
 void object::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, commandqueue* cmdQueue, bool debugDraw)
 {
-	cmdQueue->sendData(CBV_OBJECT, cbv->getDesc(buf::GBF_CBV)->getHandle());
+	cmdQueue->sendData(CBV_OBJECT, cbv, buf::GBF_CBV);
 
 	//if (debugDraw)
 	//{
