@@ -39,8 +39,6 @@ namespace buf
 
 	buffer* loadTextureFromFile(std::wstring filename, bool mip);
 
-	buffer* createReadBackBuffer(uint size);
-
 	uint estimateBufferSize(uint_8 flags);
 
 	enum graphicBufferFlags : uint_8

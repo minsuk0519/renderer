@@ -144,7 +144,6 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	clusterIndirectionBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * sizeof(uint), 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	occludedClusterBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * sizeof(uint) * 3, 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	debugStatsBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 32, 1, buf::GBF_UAV, 0);
-	debugStatsReadback = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 32, 1, 0, buf::RESOURCE_READBACK);
 	materialPixelCountsBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
 	materialMemoryOffsetBuffer = e_globBufAllocator.alloc(nullptr, sizeof(uint) * (MAX_OBJECTS), 1, buf::GBF_UAV, 0);
 	materialPixelArgsBuffer    = e_globBufAllocator.alloc(nullptr, sizeof(uint) * 4, 1, buf::GBF_UAV, 0);
@@ -1302,84 +1301,90 @@ void renderer::draw([[maybe_unused]] float dt)
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 
+#if ENGINE_DEBUG_STATS
 		// End-of-frame debug-stats readback: at this point [0..7] hold pass-2's
 		// live counters and [8..15] hold pass-1's snapshot taken by
 		// prepPostArgs_cs earlier this frame. The compute list was already
 		// Close()'d by the execute() above, so it must be reopened via
 		// bindPSO before recording anything else into it.
-		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_RASTERIZER);
 
+		buffer* statsReadback = render::getDebugReadBackBuffer();
+		if (statsReadback != nullptr)
 		{
-			GPU_EVENT(computeCmdList.Get(), "Copy DebugStats Readback");
-
-			CD3DX12_RESOURCE_BARRIER toCopySrc = CD3DX12_RESOURCE_BARRIER::Transition(
-				debugStatsBuffer->getResource(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE);
-			computeCmdList->ResourceBarrier(1, &toCopySrc);
-
-			computeCmdList->CopyBufferRegion(debugStatsReadback->getResource(), 0, debugStatsBuffer->getResource(), 0, sizeof(uint) * 32);
-
-			CD3DX12_RESOURCE_BARRIER toUAV = CD3DX12_RESOURCE_BARRIER::Transition(
-				debugStatsBuffer->getResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			computeCmdList->ResourceBarrier(1, &toUAV);
-		}
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
-
-		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
-
-		{
-			unsigned char* statsPtr = nullptr;
-			if (debugStatsReadback->mapReadbackBuffer(&statsPtr, sizeof(uint) * 32))
+			render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_RASTERIZER);
 			{
-				uint slots[32] = {};
-				memcpy(slots, statsPtr, sizeof(uint) * 32);
+				GPU_EVENT(computeCmdList.Get(), "Copy DebugStats Readback");
 
-				debugStatsReadback->unmapReadbackBuffer();
+				CD3DX12_RESOURCE_BARRIER toCopySrc = CD3DX12_RESOURCE_BARRIER::Transition(
+					debugStatsBuffer->getResource(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE);
+				computeCmdList->ResourceBarrier(1, &toCopySrc);
 
-				cullStatsData.pass1.clusterCandidates = slots[8];
-				cullStatsData.pass1.clusterFrustumCulled = slots[9];
-				cullStatsData.pass1.clusterOccluded = slots[10];
-				cullStatsData.pass1.clusterSurvivors = slots[11];
-				cullStatsData.pass1.triCandidates = slots[12];
-				cullStatsData.pass1.triSurvivors = slots[13];
+				computeCmdList->CopyBufferRegion(statsReadback->getResource(), 0, debugStatsBuffer->getResource(), 0, render::DEBUG_READBACK_STATS_BYTES);
 
-				cullStatsData.pass2.clusterCandidates = slots[0];
-				cullStatsData.pass2.clusterFrustumCulled = slots[1];
-				cullStatsData.pass2.clusterOccluded = slots[2];
-				cullStatsData.pass2.clusterSurvivors = slots[3];
-				cullStatsData.pass2.triCandidates = slots[4];
-				cullStatsData.pass2.triSurvivors = slots[5];
-
-				cullStatsData.instancesTotal = e_globWorld.objectNum;
-				cullStatsData.instancesPass1 = e_globWorld.cameraObjNum[0];
-				cullStatsData.instancesPass2 = e_globWorld.cameraObjNum[1];
-				cullStatsData.hzbActive = hzbCullEnable;
-
-				float survivorTotal = (float)(cullStatsData.pass1.clusterSurvivors + cullStatsData.pass2.clusterSurvivors);
-				float triSurvivorTotal = (float)(cullStatsData.pass1.triSurvivors + cullStatsData.pass2.triSurvivors);
-
-				cullStatsHistoryHead = (cullStatsHistoryHead + 1) % CULLSTATS_HISTORY;
-				clusterSurvivorHistory[cullStatsHistoryHead] = survivorTotal;
-				triSurvivorHistory[cullStatsHistoryHead] = triSurvivorTotal;
-
-				if ((clusterStatsFrameCounter % 60) == 0)
-				{
-					char statsLog[512];
-					snprintf(statsLog, sizeof(statsLog),
-						"[ClusterStats] pass1: candidates=%u frustumCulled=%u occluded=%u survivors=%u triCandidates=%u triSurvivors=%u | pass2: candidates=%u frustumCulled=%u occluded=%u survivors=%u triCandidates=%u triSurvivors=%u | instances total=%u pass1=%u pass2=%u hzbEnabled=%u",
-						cullStatsData.pass1.clusterCandidates, cullStatsData.pass1.clusterFrustumCulled, cullStatsData.pass1.clusterOccluded, cullStatsData.pass1.clusterSurvivors, cullStatsData.pass1.triCandidates, cullStatsData.pass1.triSurvivors,
-						cullStatsData.pass2.clusterCandidates, cullStatsData.pass2.clusterFrustumCulled, cullStatsData.pass2.clusterOccluded, cullStatsData.pass2.clusterSurvivors, cullStatsData.pass2.triCandidates, cullStatsData.pass2.triSurvivors,
-						cullStatsData.instancesTotal, cullStatsData.instancesPass1, cullStatsData.instancesPass2, cullStatsData.hzbActive ? 1u : 0u);
-					TC_LOG_INFO(statsLog);
-				}
+				CD3DX12_RESOURCE_BARRIER toUAV = CD3DX12_RESOURCE_BARRIER::Transition(
+					debugStatsBuffer->getResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				computeCmdList->ResourceBarrier(1, &toUAV);
 			}
-			else
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+
 			{
-				TC_LOG_ERROR("Failed to map DebugStats readback buffer");
+				unsigned char* statsPtr = nullptr;
+				if (statsReadback->mapReadbackBuffer(&statsPtr, render::DEBUG_READBACK_STATS_BYTES))
+				{
+					uint slots[render::DEBUG_READBACK_STATS_BYTES / sizeof(uint)] = {};
+					memcpy(slots, statsPtr, render::DEBUG_READBACK_STATS_BYTES);
+
+					statsReadback->unmapReadbackBuffer();
+
+					cullStatsData.pass1.clusterCandidates = slots[8];
+					cullStatsData.pass1.clusterFrustumCulled = slots[9];
+					cullStatsData.pass1.clusterOccluded = slots[10];
+					cullStatsData.pass1.clusterSurvivors = slots[11];
+					cullStatsData.pass1.triCandidates = slots[12];
+					cullStatsData.pass1.triSurvivors = slots[13];
+
+					cullStatsData.pass2.clusterCandidates = slots[0];
+					cullStatsData.pass2.clusterFrustumCulled = slots[1];
+					cullStatsData.pass2.clusterOccluded = slots[2];
+					cullStatsData.pass2.clusterSurvivors = slots[3];
+					cullStatsData.pass2.triCandidates = slots[4];
+					cullStatsData.pass2.triSurvivors = slots[5];
+
+					cullStatsData.instancesTotal = e_globWorld.objectNum;
+					cullStatsData.instancesPass1 = e_globWorld.cameraObjNum[0];
+					cullStatsData.instancesPass2 = e_globWorld.cameraObjNum[1];
+					cullStatsData.hzbActive = hzbCullEnable;
+
+					float survivorTotal = (float)(cullStatsData.pass1.clusterSurvivors + cullStatsData.pass2.clusterSurvivors);
+					float triSurvivorTotal = (float)(cullStatsData.pass1.triSurvivors + cullStatsData.pass2.triSurvivors);
+
+					cullStatsHistoryHead = (cullStatsHistoryHead + 1) % CULLSTATS_HISTORY;
+					clusterSurvivorHistory[cullStatsHistoryHead] = survivorTotal;
+					triSurvivorHistory[cullStatsHistoryHead] = triSurvivorTotal;
+
+					if ((clusterStatsFrameCounter % 60) == 0)
+					{
+						char statsLog[512];
+						snprintf(statsLog, sizeof(statsLog),
+							"[ClusterStats] pass1: candidates=%u frustumCulled=%u occluded=%u survivors=%u triCandidates=%u triSurvivors=%u | pass2: candidates=%u frustumCulled=%u occluded=%u survivors=%u triCandidates=%u triSurvivors=%u | instances total=%u pass1=%u pass2=%u hzbEnabled=%u",
+							cullStatsData.pass1.clusterCandidates, cullStatsData.pass1.clusterFrustumCulled, cullStatsData.pass1.clusterOccluded, cullStatsData.pass1.clusterSurvivors, cullStatsData.pass1.triCandidates, cullStatsData.pass1.triSurvivors,
+							cullStatsData.pass2.clusterCandidates, cullStatsData.pass2.clusterFrustumCulled, cullStatsData.pass2.clusterOccluded, cullStatsData.pass2.clusterSurvivors, cullStatsData.pass2.triCandidates, cullStatsData.pass2.triSurvivors,
+							cullStatsData.instancesTotal, cullStatsData.instancesPass1, cullStatsData.instancesPass2, cullStatsData.hzbActive ? 1u : 0u);
+						TC_LOG_INFO(statsLog);
+					}
+				}
+				else
+				{
+					TC_LOG_ERROR("Failed to map DebugStats readback buffer");
+				}
 			}
 		}
 
 		++clusterStatsFrameCounter;
+#endif // ENGINE_DEBUG_STATS
 	}
 
 	{
