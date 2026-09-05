@@ -1,0 +1,20 @@
+[
+	{
+		"name":"cameraCB",
+		"fields":[
+			{"name":"mvp","type":"float4x4","offset":0},
+			{"name":"cameraPos","type":"float3","offset":64},
+			{"name":"nearZ","type":"float","offset":76}
+		]
+	},
+	{
+		"name":"drawStats",
+		"fields":[
+			{"name":"drawCount","type":"uint","offset":0},
+			{"name":"visibleCount","type":"uint","offset":4},
+			{"name":"culledCount","type":"uint","offset":8},
+			{"name":"frameIndex","type":"uint","offset":12},
+			{"name":"lodIndex","type":"ushort","offset":16}
+		]
+	}
+]

@@ -34,6 +34,19 @@ struct psoJson
 	bool wireframe;
 };
 
+struct memLayoutFieldJson
+{
+	std::string name;
+	std::string type;
+	uint offset = 0;
+};
+
+struct memLayoutJson
+{
+	std::string name;
+	std::vector<memLayoutFieldJson> fields;
+};
+
 enum JSON_FILE_NAME
 {
 	CONFIG_FILE = 0,
@@ -54,17 +67,26 @@ constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
 int rawFileRead(std::string fileName, char** data, uint bufferSize = 0);
 
 template <typename Buffer>
-void readJsonBuffer(Buffer& buf, const JSON_FILE_NAME& fileIndex)
+bool readJsonFile(Buffer& buf, const std::string& filePath)
 {
 	std::string str{};
-	auto error = glz::read_file_json(buf, JSON_FILE_PATHS[fileIndex], str);
+	auto error = glz::read_file_json(buf, filePath, str);
 
 	if (error.ec != glz::error_code::none)
 	{
-		std::string errorMessage = "Failed to read file : " + JSON_FILE_PATHS[fileIndex]
+		std::string errorMessage = "Failed to read file : " + filePath
 								 + " : " + glz::format_error(error, str);
 		TC_LOG_ERROR(errorMessage.c_str());
+		return false;
 	}
+
+	return true;
+}
+
+template <typename Buffer>
+void readJsonBuffer(Buffer& buf, const JSON_FILE_NAME& fileIndex)
+{
+	readJsonFile(buf, JSON_FILE_PATHS[fileIndex]);
 }
 
 template <typename Buffer>
