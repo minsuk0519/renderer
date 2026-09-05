@@ -92,7 +92,7 @@ void renderDebug::update()
 
 #if ENGINE_DEBUG_MEMVIEW && ENGINE_DEBUG_RESOURCEVIEW
 static int memviewOffsetBytes = 0;
-static const char* const memviewWordColumns[4] = { "+0", "+4", "+8", "+C" };
+static const char* const memviewWordColumns[4] = { "+0", "+4", "+8", "+12" };
 
 void renderDebug::guiMemoryReadbackSetting()
 {
@@ -206,7 +206,7 @@ void renderDebug::guiMemoryReadbackSetting()
 				{
 					ImGui::TableNextRow();
 					ImGui::TableSetColumnIndex(0);
-					ImGui::Text("%08X", (uint)memviewOffsetBytes + (uint)row * 16u);
+					ImGui::Text("%u", (uint)memviewOffsetBytes + (uint)row * 16u);
 					for (uint c = 0; c < 4u; ++c)
 					{
 						uint wordIdx = (uint)row * 4u + c;
@@ -215,7 +215,7 @@ void renderDebug::guiMemoryReadbackSetting()
 						{
 							uint32_t value = 0;
 							memcpy(&value, sliceData + (size_t)wordIdx * 4u, sizeof(value));
-							ImGui::Text("%08X", value);
+							ImGui::Text("%u", value);
 						}
 						else
 						{
