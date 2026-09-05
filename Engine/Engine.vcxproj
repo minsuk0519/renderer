@@ -103,6 +103,7 @@
     <ClInclude Include="include\render\render_UB.hpp" />
     <ClInclude Include="include\render\render_debug.hpp" />
     <ClInclude Include="include\render\render_eventResource.hpp" />
+    <ClInclude Include="include\render\render_memview.hpp" />
     <ClInclude Include="include\render\rootsignature.hpp" />
     <ClInclude Include="include\render\shader.hpp" />
     <ClInclude Include="include\render\shader_defines.hpp" />
@@ -133,6 +134,7 @@
     <ClCompile Include="src\render\framebuffer.cpp" />
     <ClCompile Include="src\render\render_debug.cpp" />
     <ClCompile Include="src\render\render_eventResource.cpp" />
+    <ClCompile Include="src\render\render_memview.cpp" />
     <ClCompile Include="src\render\render_prof.cpp" />
     <ClCompile Include="src\render\mesh.cpp" />
     <ClCompile Include="src\render\pipelinestate.cpp" />
