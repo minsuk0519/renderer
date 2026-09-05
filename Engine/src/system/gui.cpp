@@ -229,6 +229,13 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
                 buf::guiMemoryViewerSetting();
                 ImGui::EndTabItem();
             }
+#if ENGINE_DEBUG_MEMVIEW
+            if (ImGui::BeginTabItem("Readback"))
+            {
+                e_globRenderer.debugSubsystem.guiMemoryReadbackSetting();
+                ImGui::EndTabItem();
+            }
+#endif // ENGINE_DEBUG_MEMVIEW
             ImGui::EndTabBar();
         }
         ImGui::End();

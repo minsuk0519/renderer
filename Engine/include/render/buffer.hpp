@@ -183,6 +183,11 @@ namespace buf
 	void guiResourceViewerSetting();
 	void guiMemoryViewerSetting();
 	void setSelectedResourceId(uint bufferId);
+	uint getResourceDebugInfoCount();
+	uint getSelectedResourceId();
+	bool isBufferResource(uint bufferId);
+	buffer* getResourceOwner(uint bufferId);
+	UINT64 getResourceWidth(uint bufferId);
 }
 #endif // ENGINE_DEBUG_RESOURCEVIEW
 

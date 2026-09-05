@@ -5,6 +5,7 @@
 #include <render/descriptorheap.hpp>
 #include <render/buffer.hpp>
 #include <render/render_UB.hpp>
+#include <render/render_debug.hpp>
 
 #include <dxgi1_6.h>
 #include <d3d12.h>
@@ -48,6 +49,10 @@ public:
 	void preDraw(float dt);
 
 	Microsoft::WRL::ComPtr<ID3D12Device2> device;
+
+#if ENGINE_DEBUG_READBACK
+	renderDebug debugSubsystem;
+#endif // ENGINE_DEBUG_READBACK
 private:
 	bool createDevice(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter);
 	bool checkFeatureSupport(DXGI_FEATURE feature);

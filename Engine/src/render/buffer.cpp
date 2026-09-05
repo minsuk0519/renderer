@@ -164,6 +164,44 @@ namespace buf
         return info.name;
     }
 
+    uint getResourceDebugInfoCount()
+    {
+        return debugInfoCount;
+    }
+
+    bool isBufferResource(uint bufferId)
+    {
+        if (bufferId >= BUFFER_MAX_COUNT)
+        {
+            return false;
+        }
+
+        const resourceDebugInfo& info = debugInfoTable[bufferId];
+        return info.valid && info.owner != nullptr && info.dimension == D3D12_RESOURCE_DIMENSION_BUFFER;
+    }
+
+    buffer* getResourceOwner(uint bufferId)
+    {
+        if (bufferId >= BUFFER_MAX_COUNT)
+        {
+            return nullptr;
+        }
+
+        const resourceDebugInfo& info = debugInfoTable[bufferId];
+        return info.valid ? info.owner : nullptr;
+    }
+
+    UINT64 getResourceWidth(uint bufferId)
+    {
+        if (bufferId >= BUFFER_MAX_COUNT)
+        {
+            return 0;
+        }
+
+        const resourceDebugInfo& info = debugInfoTable[bufferId];
+        return info.valid ? info.width : 0;
+    }
+
     void recordResourceView(buffer* buf, const descriptor& desc, BUFFER_TYPE type)
     {
         if (buf == nullptr)
@@ -1199,6 +1237,11 @@ namespace buf
     void setSelectedResourceId(uint bufferId)
     {
         selectedResourceId = bufferId;
+    }
+
+    uint getSelectedResourceId()
+    {
+        return selectedResourceId;
     }
 
     inline const char* formatBytes(UINT64 bytes)

@@ -9,6 +9,7 @@
 #include <render/camera.hpp>
 #include <render/mesh.hpp>
 #include <render/framebuffer.hpp>
+#include <render/render_debug.hpp>
 #include <world/world.hpp>
 #include <render/shader_defines.hpp>
 
@@ -740,6 +741,10 @@ void renderer::preDraw([[maybe_unused]] float dt)
 	}
 #endif // #if ENGINE_DEBUG_MESH
 
+#if ENGINE_DEBUG_READBACK
+	debugSubsystem.update();
+#endif // ENGINE_DEBUG_READBACK
+
 	e_globWorld.instanceCulling();
 }
 
@@ -1308,7 +1313,7 @@ void renderer::draw([[maybe_unused]] float dt)
 		// Close()'d by the execute() above, so it must be reopened via
 		// bindPSO before recording anything else into it.
 
-		buffer* statsReadback = render::getDebugReadBackBuffer();
+		buffer* statsReadback = debugSubsystem.getDebugReadBackBuffer();
 		if (statsReadback != nullptr)
 		{
 			render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_RASTERIZER);
