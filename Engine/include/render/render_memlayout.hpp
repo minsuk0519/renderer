@@ -3,6 +3,7 @@
 #include <system/defines.hpp>
 #include <string>
 #include <vector>
+#include <cstddef>
 
 #if ENGINE_DEBUG_MEMVIEW
 
@@ -52,6 +53,16 @@ namespace render
 
 	bool parseMemLayoutFile(const std::string& filePath, std::vector<memLayout>& outLayouts);
 	const memLayout* findMemLayout(const std::vector<memLayout>& layouts, const std::string& name);
+
+	enum MEMFIELD_DECODE_RESULT : uint
+	{
+		MEMFIELD_DECODE_OK = 0,
+		MEMFIELD_DECODE_OUT_OF_BOUNDS,
+		MEMFIELD_DECODE_INVALID_TYPE,
+	};
+
+	MEMFIELD_DECODE_RESULT decodeMemField(const unsigned char* data, size_t dataSize, size_t baseOffset,
+										  const memLayoutField& field, std::string& outText);
 
 }  // namespace render
 

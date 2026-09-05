@@ -2,6 +2,7 @@
 
 #include <system/defines.hpp>
 #include <vector>
+#include <render/render_memlayout.hpp>
 
 struct buffer;
 
@@ -46,6 +47,11 @@ private:
 	std::vector<unsigned char> memReadbackData;
 	uint memReadbackResultId = ~0u;
 	bool memReadbackFailed = false;
+
+	void ensureMemLayouts();
+	std::vector<render::memLayout> memLayouts;
+	bool memLayoutsAttempted = false;
+	int selectedMemLayoutIndex = -1;
 #endif // ENGINE_DEBUG_MEMVIEW
 };
 

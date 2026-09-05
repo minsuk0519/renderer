@@ -8,6 +8,8 @@
 #include <system/gui.hpp>
 #include <algorithm>
 #include <cstring>
+#include <string>
+#include <format>
 
 static buffer* createReadBackBuffer(uint size, const char* debugName)
 {
@@ -55,6 +57,21 @@ bool renderDebug::getMemReadbackFailed() const
 {
 	return memReadbackFailed;
 }
+
+void renderDebug::ensureMemLayouts()
+{
+	if (memLayoutsAttempted)
+	{
+		return;
+	}
+	memLayoutsAttempted = true;
+
+	if (render::parseMemLayoutFile(render::MEMLAYOUT_DEFAULT_PATH, memLayouts))
+	{
+		TC_LOG_INFO(std::format("ensureMemLayouts: loaded {} layout(s) from {}",
+			memLayouts.size(), render::MEMLAYOUT_DEFAULT_PATH).c_str());
+	}
+}
 #endif // ENGINE_DEBUG_MEMVIEW
 
 void renderDebug::update()
@@ -62,6 +79,8 @@ void renderDebug::update()
 	ensureDebugReadBackBuffer();
 
 #if ENGINE_DEBUG_MEMVIEW
+	ensureMemLayouts();
+
 	if (memReadbackRequest)
 	{
 		memReadbackRequest = false;
@@ -93,6 +112,9 @@ void renderDebug::update()
 #if ENGINE_DEBUG_MEMVIEW && ENGINE_DEBUG_RESOURCEVIEW
 static int memviewOffsetBytes = 0;
 static const char* const memviewWordColumns[4] = { "+0", "+4", "+8", "+12" };
+static int memviewLayoutStrideBytes = 0;
+static int memviewLayoutBlockCount = 64;
+static int memviewLayoutStrideForIndex = -1;
 
 void renderDebug::guiMemoryReadbackSetting()
 {
@@ -156,6 +178,42 @@ void renderDebug::guiMemoryReadbackSetting()
 	}
 	ImGui::EndDisabled();
 
+	if (selectedMemLayoutIndex >= (int)memLayouts.size())
+	{
+		selectedMemLayoutIndex = -1;
+	}
+
+	const char* layoutPreview = "(raw words)";
+	if (selectedMemLayoutIndex >= 0)
+	{
+		layoutPreview = memLayouts[selectedMemLayoutIndex].name.c_str();
+	}
+
+	if (ImGui::BeginCombo("Default Layout", layoutPreview))
+	{
+		if (ImGui::Selectable("(raw words)", selectedMemLayoutIndex < 0))
+		{
+			selectedMemLayoutIndex = -1;
+		}
+
+		for (int i = 0; i < (int)memLayouts.size(); ++i)
+		{
+			ImGui::PushID(i);
+			if (ImGui::Selectable(memLayouts[i].name.c_str(), selectedMemLayoutIndex == i))
+			{
+				selectedMemLayoutIndex = i;
+			}
+			ImGui::PopID();
+		}
+
+		ImGui::EndCombo();
+	}
+
+	if (memLayouts.empty())
+	{
+		ImGui::TextDisabled("(No layouts loaded - see log)");
+	}
+
 	if (getMemReadbackFailed())
 	{
 		ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Readback failed - see log");
@@ -181,55 +239,156 @@ void renderDebug::guiMemoryReadbackSetting()
 			memviewOffsetBytes = (int)bytes.size();
 		}
 
-		size_t offset = (size_t)memviewOffsetBytes;
-		const unsigned char* sliceData = bytes.data() + offset;
-		size_t sliceSize = bytes.size() - offset;
-		size_t fullWordCount = sliceSize / 4;
-		size_t trailingBytes = sliceSize % 4;
+		bool layoutSelected = (selectedMemLayoutIndex >= 0 && selectedMemLayoutIndex < (int)memLayouts.size());
 
-		if (ImGui::BeginTable("MemviewHex", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetContentRegionAvail().y)))
+		if (layoutSelected)
 		{
-			ImGui::TableSetupColumn("Offset");
-			for (uint c = 0; c < 4u; ++c)
-			{
-				ImGui::TableSetupColumn(memviewWordColumns[c]);
-			}
-			ImGui::TableSetupScrollFreeze(1, 1);
-			ImGui::TableHeadersRow();
+			const render::memLayout& layout = memLayouts[selectedMemLayoutIndex];
 
-			uint rowCount = (uint)((fullWordCount + 3u) / 4u);
-			ImGuiListClipper clipper;
-			clipper.Begin((int)rowCount);
-			while (clipper.Step())
+			if (memviewLayoutStrideForIndex != selectedMemLayoutIndex)
 			{
-				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+				memviewLayoutStrideForIndex = selectedMemLayoutIndex;
+				memviewLayoutStrideBytes = (int)layout.size;
+			}
+
+			ImGui::Text("Layout '%s' (%u bytes)", layout.name.c_str(), layout.size);
+
+			ImGui::InputInt("Stride (bytes)", &memviewLayoutStrideBytes);
+			if (memviewLayoutStrideBytes < 1)
+			{
+				memviewLayoutStrideBytes = 1;
+			}
+
+			ImGui::InputInt("Blocks to show", &memviewLayoutBlockCount);
+			if (memviewLayoutBlockCount < 1)
+			{
+				memviewLayoutBlockCount = 1;
+			}
+			if (memviewLayoutBlockCount > 1024)
+			{
+				memviewLayoutBlockCount = 1024;
+			}
+
+			size_t blockBaseOffset = (size_t)memviewOffsetBytes;
+			size_t remainingBytes = bytes.size() - blockBaseOffset;
+			size_t blockStride = (size_t)memviewLayoutStrideBytes;
+			size_t totalBlocks = (remainingBytes + blockStride - 1) / blockStride;
+			size_t shownBlocks = (std::min)(totalBlocks, (size_t)memviewLayoutBlockCount);
+
+			if (totalBlocks == 0)
+			{
+				ImGui::TextDisabled("(Offset is at the end of the captured data - no blocks to show)");
+			}
+			else
+			{
+				ImGui::Text("showing blocks 0-%zu of %zu (stride %d bytes) from offset %d",
+					shownBlocks - 1, totalBlocks, memviewLayoutStrideBytes, memviewOffsetBytes);
+			}
+
+			if (totalBlocks > 0)
+			{
+				if (ImGui::BeginTable("MemviewFields", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetContentRegionAvail().y)))
 				{
-					ImGui::TableNextRow();
-					ImGui::TableSetColumnIndex(0);
-					ImGui::Text("%u", (uint)memviewOffsetBytes + (uint)row * 16u);
-					for (uint c = 0; c < 4u; ++c)
+					ImGui::TableSetupColumn("Field");
+					ImGui::TableSetupColumn("Type");
+					ImGui::TableSetupColumn("Value");
+					ImGui::TableSetupScrollFreeze(1, 1);
+					ImGui::TableHeadersRow();
+
+					for (size_t blockIndex = 0; blockIndex < shownBlocks; ++blockIndex)
 					{
-						uint wordIdx = (uint)row * 4u + c;
-						ImGui::TableSetColumnIndex((int)(c + 1u));
-						if (wordIdx < fullWordCount)
+						size_t blockOffset = blockBaseOffset + blockIndex * blockStride;
+
+						ImGui::TableNextRow();
+						ImGui::TableSetColumnIndex(0);
+						ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "Block %zu  @ +%zu", blockIndex, blockOffset);
+
+						for (const render::memLayoutField& field : layout.fields)
 						{
-							uint32_t value = 0;
-							memcpy(&value, sliceData + (size_t)wordIdx * 4u, sizeof(value));
-							ImGui::Text("%u", value);
+							ImGui::TableNextRow();
+
+							ImGui::TableSetColumnIndex(0);
+							ImGui::Text("%s", field.name.c_str());
+
+							ImGui::TableSetColumnIndex(1);
+							ImGui::Text("%s", render::memFieldTypeName(field.type));
+
+							ImGui::TableSetColumnIndex(2);
+							std::string valueText;
+							render::MEMFIELD_DECODE_RESULT decodeResult = render::decodeMemField(
+								bytes.data(), bytes.size(), blockOffset, field, valueText);
+
+							if (decodeResult == render::MEMFIELD_DECODE_OUT_OF_BOUNDS)
+							{
+								ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Out of Bounds");
+							}
+							else if (decodeResult == render::MEMFIELD_DECODE_INVALID_TYPE)
+							{
+								ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Invalid Type");
+							}
+							else
+							{
+								ImGui::Text("%s", valueText.c_str());
+							}
 						}
-						else
+					}
+
+					ImGui::EndTable();
+				}
+			}
+		}
+		else
+		{
+			size_t offset = (size_t)memviewOffsetBytes;
+			const unsigned char* sliceData = bytes.data() + offset;
+			size_t sliceSize = bytes.size() - offset;
+			size_t fullWordCount = sliceSize / 4;
+			size_t trailingBytes = sliceSize % 4;
+
+			if (ImGui::BeginTable("MemviewHex", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetContentRegionAvail().y)))
+			{
+				ImGui::TableSetupColumn("Offset");
+				for (uint c = 0; c < 4u; ++c)
+				{
+					ImGui::TableSetupColumn(memviewWordColumns[c]);
+				}
+				ImGui::TableSetupScrollFreeze(1, 1);
+				ImGui::TableHeadersRow();
+
+				uint rowCount = (uint)((fullWordCount + 3u) / 4u);
+				ImGuiListClipper clipper;
+				clipper.Begin((int)rowCount);
+				while (clipper.Step())
+				{
+					for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+					{
+						ImGui::TableNextRow();
+						ImGui::TableSetColumnIndex(0);
+						ImGui::Text("%u", (uint)memviewOffsetBytes + (uint)row * 16u);
+						for (uint c = 0; c < 4u; ++c)
 						{
-							ImGui::TextDisabled("--------");
+							uint wordIdx = (uint)row * 4u + c;
+							ImGui::TableSetColumnIndex((int)(c + 1u));
+							if (wordIdx < fullWordCount)
+							{
+								uint32_t value = 0;
+								memcpy(&value, sliceData + (size_t)wordIdx * 4u, sizeof(value));
+								ImGui::Text("%u", value);
+							}
+							else
+							{
+								ImGui::TextDisabled("--------");
+							}
 						}
 					}
 				}
+				ImGui::EndTable();
 			}
-			ImGui::EndTable();
-		}
 
-		if (trailingBytes > 0)
-		{
-			ImGui::TextDisabled("(%zu trailing byte%s dropped - not enough for a full uint32)", trailingBytes, trailingBytes == 1 ? "" : "s");
+			if (trailingBytes > 0)
+			{
+				ImGui::TextDisabled("(%zu trailing byte%s dropped - not enough for a full uint32)", trailingBytes, trailingBytes == 1 ? "" : "s");
+			}
 		}
 	}
 }

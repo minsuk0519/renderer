@@ -6,6 +6,7 @@
 #include <system/logger.hpp>
 #include <format>
 #include <algorithm>
+#include <cstring>
 
 namespace render
 {
@@ -198,6 +199,147 @@ namespace render
 			}
 		}
 		return nullptr;
+	}
+
+	MEMFIELD_DECODE_RESULT decodeMemField(const unsigned char* data, size_t dataSize, size_t baseOffset,
+										  const memLayoutField& field, std::string& outText)
+	{
+		outText.clear();
+
+		if (field.type == MEMFIELD_UNKNOWN || field.type >= MEMFIELD_COUNT)
+		{
+			return MEMFIELD_DECODE_INVALID_TYPE;
+		}
+
+		if (data == nullptr || field.size == 0)
+		{
+			return MEMFIELD_DECODE_OUT_OF_BOUNDS;
+		}
+
+		size_t start = baseOffset + (size_t)field.offset;
+		size_t end = start + (size_t)field.size;
+
+		if (end > dataSize || end < start)
+		{
+			return MEMFIELD_DECODE_OUT_OF_BOUNDS;
+		}
+
+		switch (field.type)
+		{
+		case MEMFIELD_FLOAT:
+		{
+			float v = 0.0f;
+			memcpy(&v, data + start, sizeof(v));
+			outText = std::format("{}", v);
+			break;
+		}
+		case MEMFIELD_FLOAT2:
+		{
+			float v[2] = { 0.0f, 0.0f };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}", v[0], v[1]);
+			break;
+		}
+		case MEMFIELD_FLOAT3:
+		{
+			float v[3] = { 0.0f, 0.0f, 0.0f };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}, {}", v[0], v[1], v[2]);
+			break;
+		}
+		case MEMFIELD_FLOAT4:
+		{
+			float v[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}, {}, {}", v[0], v[1], v[2], v[3]);
+			break;
+		}
+		case MEMFIELD_INT:
+		{
+			int32_t v = 0;
+			memcpy(&v, data + start, sizeof(v));
+			outText = std::format("{}", v);
+			break;
+		}
+		case MEMFIELD_INT2:
+		{
+			int32_t v[2] = { 0, 0 };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}", v[0], v[1]);
+			break;
+		}
+		case MEMFIELD_INT3:
+		{
+			int32_t v[3] = { 0, 0, 0 };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}, {}", v[0], v[1], v[2]);
+			break;
+		}
+		case MEMFIELD_INT4:
+		{
+			int32_t v[4] = { 0, 0, 0, 0 };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}, {}, {}", v[0], v[1], v[2], v[3]);
+			break;
+		}
+		case MEMFIELD_UINT:
+		{
+			uint32_t v = 0;
+			memcpy(&v, data + start, sizeof(v));
+			outText = std::format("{}", v);
+			break;
+		}
+		case MEMFIELD_UINT2:
+		{
+			uint32_t v[2] = { 0, 0 };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}", v[0], v[1]);
+			break;
+		}
+		case MEMFIELD_UINT3:
+		{
+			uint32_t v[3] = { 0, 0, 0 };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}, {}", v[0], v[1], v[2]);
+			break;
+		}
+		case MEMFIELD_UINT4:
+		{
+			uint32_t v[4] = { 0, 0, 0, 0 };
+			memcpy(v, data + start, sizeof(v));
+			outText = std::format("{}, {}, {}, {}", v[0], v[1], v[2], v[3]);
+			break;
+		}
+		case MEMFIELD_USHORT:
+		{
+			uint16_t v = 0;
+			memcpy(&v, data + start, sizeof(v));
+			outText = std::format("{}", v);
+			break;
+		}
+		case MEMFIELD_BOOL:
+		{
+			uint32_t v = 0;
+			memcpy(&v, data + start, sizeof(v));
+			outText = v != 0 ? "true" : "false";
+			break;
+		}
+		case MEMFIELD_FLOAT4X4:
+		{
+			float m[16] = { 0.0f };
+			memcpy(m, data + start, sizeof(m));
+			outText = std::format("{}, {}, {}, {}\n{}, {}, {}, {}\n{}, {}, {}, {}\n{}, {}, {}, {}",
+				m[0], m[1], m[2], m[3],
+				m[4], m[5], m[6], m[7],
+				m[8], m[9], m[10], m[11],
+				m[12], m[13], m[14], m[15]);
+			break;
+		}
+		default:
+			return MEMFIELD_DECODE_INVALID_TYPE;
+		}
+
+		return MEMFIELD_DECODE_OK;
 	}
 
 }  // namespace render
