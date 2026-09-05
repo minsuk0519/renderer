@@ -7,6 +7,7 @@
 #include <system/logger.hpp>
 #include <system/gui.hpp>
 #include <algorithm>
+#include <cstring>
 
 static buffer* createReadBackBuffer(uint size, const char* debugName)
 {
@@ -90,9 +91,8 @@ void renderDebug::update()
 }
 
 #if ENGINE_DEBUG_MEMVIEW && ENGINE_DEBUG_RESOURCEVIEW
-static int memviewRequestedBytes = 256;
-static const char* const memviewHexColumns[16] = {
-	"00","01","02","03","04","05","06","07","08","09","0A","0B","0C","0D","0E","0F" };
+static int memviewOffsetBytes = 0;
+static const char* const memviewWordColumns[4] = { "+0", "+4", "+8", "+C" };
 
 void renderDebug::guiMemoryReadbackSetting()
 {
@@ -143,17 +143,6 @@ void renderDebug::guiMemoryReadbackSetting()
 	if (targetValid)
 	{
 		ImGui::Text("Size: %llu bytes", buf::getResourceWidth(targetId));
-		uint maxBytes = (uint)(std::min)(buf::getResourceWidth(targetId), (UINT64)render::MEMVIEW_MAX_READBACK_BYTES);
-		ImGui::InputInt("Bytes", &memviewRequestedBytes);
-
-		if (memviewRequestedBytes < 1)
-		{
-			memviewRequestedBytes = 1;
-		}
-		if (memviewRequestedBytes > (int)maxBytes)
-		{
-			memviewRequestedBytes = (int)maxBytes;
-		}
 	}
 
 	ImGui::BeginDisabled(!targetValid);
@@ -161,7 +150,8 @@ void renderDebug::guiMemoryReadbackSetting()
 	{
 		if (targetValid)
 		{
-			requestMemReadback(buf::getResourceOwner(targetId), (uint)memviewRequestedBytes);
+			uint maxBytes = (uint)(std::min)(buf::getResourceWidth(targetId), (UINT64)render::MEMVIEW_MAX_READBACK_BYTES);
+			requestMemReadback(buf::getResourceOwner(targetId), maxBytes);
 		}
 	}
 	ImGui::EndDisabled();
@@ -181,17 +171,33 @@ void renderDebug::guiMemoryReadbackSetting()
 		ImGui::SeparatorText(buf::getResourceDisplayName(getMemReadbackResultId()));
 		ImGui::Text("%zu bytes", bytes.size());
 
-		if (ImGui::BeginTable("MemviewHex", 17, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetContentRegionAvail().y)))
+		ImGui::InputInt("Offset (bytes)", &memviewOffsetBytes);
+		if (memviewOffsetBytes < 0)
+		{
+			memviewOffsetBytes = 0;
+		}
+		if (memviewOffsetBytes > (int)bytes.size())
+		{
+			memviewOffsetBytes = (int)bytes.size();
+		}
+
+		size_t offset = (size_t)memviewOffsetBytes;
+		const unsigned char* sliceData = bytes.data() + offset;
+		size_t sliceSize = bytes.size() - offset;
+		size_t fullWordCount = sliceSize / 4;
+		size_t trailingBytes = sliceSize % 4;
+
+		if (ImGui::BeginTable("MemviewHex", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetContentRegionAvail().y)))
 		{
 			ImGui::TableSetupColumn("Offset");
-			for (uint c = 0; c < 16u; ++c)
+			for (uint c = 0; c < 4u; ++c)
 			{
-				ImGui::TableSetupColumn(memviewHexColumns[c]);
+				ImGui::TableSetupColumn(memviewWordColumns[c]);
 			}
 			ImGui::TableSetupScrollFreeze(1, 1);
 			ImGui::TableHeadersRow();
 
-			uint rowCount = ((uint)bytes.size() + 15u) / 16u;
+			uint rowCount = (uint)((fullWordCount + 3u) / 4u);
 			ImGuiListClipper clipper;
 			clipper.Begin((int)rowCount);
 			while (clipper.Step())
@@ -200,24 +206,30 @@ void renderDebug::guiMemoryReadbackSetting()
 				{
 					ImGui::TableNextRow();
 					ImGui::TableSetColumnIndex(0);
-					ImGui::Text("%08X", (uint)row * 16u);
-					for (uint c = 0; c < 16u; ++c)
+					ImGui::Text("%08X", (uint)memviewOffsetBytes + (uint)row * 16u);
+					for (uint c = 0; c < 4u; ++c)
 					{
-						uint idx = (uint)row * 16u + c;
+						uint wordIdx = (uint)row * 4u + c;
 						ImGui::TableSetColumnIndex((int)(c + 1u));
-						if (idx < bytes.size())
+						if (wordIdx < fullWordCount)
 						{
-							ImGui::Text("%02X", bytes[idx]);
+							uint32_t value = 0;
+							memcpy(&value, sliceData + (size_t)wordIdx * 4u, sizeof(value));
+							ImGui::Text("%08X", value);
 						}
 						else
 						{
-							ImGui::TextDisabled("--");
+							ImGui::TextDisabled("--------");
 						}
 					}
 				}
 			}
-
 			ImGui::EndTable();
+		}
+
+		if (trailingBytes > 0)
+		{
+			ImGui::TextDisabled("(%zu trailing byte%s dropped - not enough for a full uint32)", trailingBytes, trailingBytes == 1 ? "" : "s");
 		}
 	}
 }

@@ -95,6 +95,9 @@
     <ClInclude Include="include\render\render_debug.hpp">
       <Filter>render</Filter>
     </ClInclude>
+    <ClInclude Include="include\render\render_memview.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
     <ClInclude Include="include\system\mathhelper.hpp">
       <Filter>system</Filter>
     </ClInclude>
@@ -168,6 +171,9 @@
       <Filter>render</Filter>
     </ClCompile>
     <ClCompile Include="src\render\render_debug.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\render_memview.cpp">
       <Filter>render</Filter>
     </ClCompile>
     <ClCompile Include="src\world\world.cpp">
