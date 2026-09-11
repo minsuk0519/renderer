@@ -14,25 +14,26 @@ namespace render
 	{
 		const char* jsonName;
 		uint sizeBytes;
+		uint rowCount;
 	};
 
 	static constexpr MemFieldTypeInfo MEMFIELD_TYPE_TABLE[] = {
-		{ "", 0 },               // MEMFIELD_UNKNOWN
-		{ "float", 4 },          // MEMFIELD_FLOAT
-		{ "float2", 8 },         // MEMFIELD_FLOAT2
-		{ "float3", 12 },        // MEMFIELD_FLOAT3
-		{ "float4", 16 },        // MEMFIELD_FLOAT4
-		{ "int", 4 },            // MEMFIELD_INT
-		{ "int2", 8 },           // MEMFIELD_INT2
-		{ "int3", 12 },          // MEMFIELD_INT3
-		{ "int4", 16 },          // MEMFIELD_INT4
-		{ "uint", 4 },           // MEMFIELD_UINT
-		{ "uint2", 8 },          // MEMFIELD_UINT2
-		{ "uint3", 12 },         // MEMFIELD_UINT3
-		{ "uint4", 16 },         // MEMFIELD_UINT4
-		{ "ushort", 2 },         // MEMFIELD_USHORT
-		{ "bool", 4 },           // MEMFIELD_BOOL
-		{ "float4x4", 64 },      // MEMFIELD_FLOAT4X4
+		{ "", 0, 1 },               // MEMFIELD_UNKNOWN
+		{ "float", 4, 1 },          // MEMFIELD_FLOAT
+		{ "float2", 8, 1 },         // MEMFIELD_FLOAT2
+		{ "float3", 12, 1 },        // MEMFIELD_FLOAT3
+		{ "float4", 16, 1 },        // MEMFIELD_FLOAT4
+		{ "int", 4, 1 },            // MEMFIELD_INT
+		{ "int2", 8, 1 },           // MEMFIELD_INT2
+		{ "int3", 12, 1 },          // MEMFIELD_INT3
+		{ "int4", 16, 1 },          // MEMFIELD_INT4
+		{ "uint", 4, 1 },           // MEMFIELD_UINT
+		{ "uint2", 8, 1 },          // MEMFIELD_UINT2
+		{ "uint3", 12, 1 },         // MEMFIELD_UINT3
+		{ "uint4", 16, 1 },         // MEMFIELD_UINT4
+		{ "ushort", 2, 1 },         // MEMFIELD_USHORT
+		{ "bool", 4, 1 },           // MEMFIELD_BOOL
+		{ "float4x4", 64, 4 },      // MEMFIELD_FLOAT4X4
 	};
 
 	static_assert(sizeof(MEMFIELD_TYPE_TABLE) / sizeof(MEMFIELD_TYPE_TABLE[0]) == MEMFIELD_COUNT,
@@ -54,6 +55,15 @@ namespace render
 			return "";
 		}
 		return MEMFIELD_TYPE_TABLE[type].jsonName;
+	}
+
+	uint memFieldRowCount(MEMFIELD_TYPE type)
+	{
+		if (type >= MEMFIELD_COUNT)
+		{
+			return 1;
+		}
+		return MEMFIELD_TYPE_TABLE[type].rowCount;
 	}
 
 	MEMFIELD_TYPE memFieldTypeFromString(const std::string& typeName)

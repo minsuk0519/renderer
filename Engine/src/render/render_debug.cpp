@@ -111,10 +111,36 @@ void renderDebug::update()
 
 #if ENGINE_DEBUG_MEMVIEW && ENGINE_DEBUG_RESOURCEVIEW
 static int memviewOffsetBytes = 0;
-static const char* const memviewWordColumns[4] = { "+0", "+4", "+8", "+12" };
-static int memviewLayoutStrideBytes = 0;
-static int memviewLayoutBlockCount = 64;
-static int memviewLayoutStrideForIndex = -1;
+static const char* const memviewWordColumns[8] = { "+0", "+4", "+8", "+12", "+16", "+20", "+24", "+28" };
+static int memviewRawStrideBytes = 16;
+static std::vector<uint> memviewRowFieldIndex;
+static std::vector<uint> memviewRowLineIndex;
+static int memviewRowMapForIndex = -1;
+
+static void memviewExtractLine(const std::string& text, uint lineIndex, std::string& outLine)
+{
+	size_t start = 0;
+	for (uint i = 0; i < lineIndex; ++i)
+	{
+		size_t newlinePos = text.find('\n', start);
+		if (newlinePos == std::string::npos)
+		{
+			outLine.clear();
+			return;
+		}
+		start = newlinePos + 1;
+	}
+
+	size_t end = text.find('\n', start);
+	if (end == std::string::npos)
+	{
+		outLine = text.substr(start);
+	}
+	else
+	{
+		outLine = text.substr(start, end - start);
+	}
+}
 
 void renderDebug::guiMemoryReadbackSetting()
 {
