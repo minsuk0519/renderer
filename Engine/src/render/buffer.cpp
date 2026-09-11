@@ -3,6 +3,7 @@
 #include <render/buffer.hpp>
 #include <render/commandqueue.hpp>
 #include <render/renderer.hpp>
+#include <render/render_debug.hpp>
 #include <render/mesh.hpp>
 #include <system/window.hpp>
 #include <system/logger.hpp>
@@ -1232,18 +1233,6 @@ void buffer_allocator::getFreeBlock(uint i, uint& start, uint& size) const
 
 namespace buf
 {
-    static uint selectedResourceId = ~0u;
-
-    void setSelectedResourceId(uint bufferId)
-    {
-        selectedResourceId = bufferId;
-    }
-
-    uint getSelectedResourceId()
-    {
-        return selectedResourceId;
-    }
-
     inline const char* formatBytes(UINT64 bytes)
     {
         static char buffer[32];
@@ -1350,9 +1339,9 @@ namespace buf
                     }
 
                     ImGui::TableSetColumnIndex(0);
-                    if (ImGui::Selectable(info.name, selectedResourceId == id, ImGuiSelectableFlags_SpanAllColumns))
+                    if (ImGui::Selectable(info.name, render::getSelectedResourceId() == id, ImGuiSelectableFlags_SpanAllColumns))
                     {
-                        selectedResourceId = (selectedResourceId == id) ? ~0u : id;
+                        render::setSelectedResourceId(render::getSelectedResourceId() == id ? ~0u : id);
                     }
 
                     ImGui::TableSetColumnIndex(1);
@@ -1430,17 +1419,18 @@ namespace buf
             ImGui::EndTable();
         }
 
-        if (selectedResourceId != ~0u)
+        uint selectedId = render::getSelectedResourceId();
+        if (selectedId != ~0u)
         {
             ImGui::Separator();
-            ImGui::Text("Selected: %s", getResourceDisplayName(selectedResourceId));
+            ImGui::Text("Selected: %s", getResourceDisplayName(selectedId));
 
-            if (selectedResourceId < debugInfoCount)
+            if (selectedId < debugInfoCount)
             {
-                const resourceDebugInfo& info = debugInfoTable[selectedResourceId];
+                const resourceDebugInfo& info = debugInfoTable[selectedId];
                 if (info.valid && info.owner != nullptr)
                 {
-                    ImGui::Text("BufferId: %u", selectedResourceId);
+                    ImGui::Text("BufferId: %u", selectedId);
                     ImGui::Text("CPU Arena: %u bytes", info.cpuArenaBytes);
                     ImGui::Text("GPU Memory: %s", formatBytes(info.gpuBytes));
                     ImGui::Text("Dim/Format/Mips: %u %u %u", info.width, info.height, info.mipLevels);

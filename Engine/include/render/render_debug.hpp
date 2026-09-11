@@ -8,6 +8,11 @@ struct buffer;
 
 namespace render
 {
+#if ENGINE_DEBUG_RESOURCEVIEW
+	void setSelectedResourceId(uint bufferId);
+	uint getSelectedResourceId();
+#endif // ENGINE_DEBUG_RESOURCEVIEW
+
 #if ENGINE_DEBUG_READBACK
 	constexpr uint DEBUG_READBACK_STATS_BYTES = sizeof(uint) * 32;
 	constexpr uint DEBUG_READBACK_MEMVIEW_BYTES = 64u * 1024u * 1024u;
@@ -52,6 +57,7 @@ private:
 	std::vector<render::memLayout> memLayouts;
 	bool memLayoutsAttempted = false;
 	int selectedMemLayoutIndex = -1;
+	uint lastReadbackSelectionId = ~0u;
 #endif // ENGINE_DEBUG_MEMVIEW
 };
 

@@ -49,6 +49,7 @@ namespace render
 
 	uint memFieldTypeSize(MEMFIELD_TYPE type);
 	const char* memFieldTypeName(MEMFIELD_TYPE type);
+	uint memFieldRowCount(MEMFIELD_TYPE type);
 	MEMFIELD_TYPE memFieldTypeFromString(const std::string& typeName);
 
 	bool parseMemLayoutFile(const std::string& filePath, std::vector<memLayout>& outLayouts);

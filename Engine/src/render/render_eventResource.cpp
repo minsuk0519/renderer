@@ -1,6 +1,7 @@
 #include <render/render_eventResource.hpp>
 #include <render/commandqueue.hpp>
 #include <render/buffer.hpp>
+#include <render/render_debug.hpp>
 #include <system/logger.hpp>
 
 #if ENGINE_DEBUG_EVENTRESOURCE
@@ -37,7 +38,7 @@ namespace render
 	void setResourceViewerSelectionBackend(uint bufferId)
 	{
 		#if ENGINE_DEBUG_RESOURCEVIEW
-		buf::setSelectedResourceId(bufferId);
+		render::setSelectedResourceId(bufferId);
 		#else
 		(void)bufferId;
 		#endif
