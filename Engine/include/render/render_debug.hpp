@@ -4,13 +4,44 @@
 #include <vector>
 #include <render/render_memlayout.hpp>
 
+#if ENGINE_DEBUG_RESOURCEVIEW
+#include <d3d12.h>
+#include <wrl.h>
+#endif // ENGINE_DEBUG_RESOURCEVIEW
+
 struct buffer;
 
 namespace render
 {
 #if ENGINE_DEBUG_RESOURCEVIEW
+
+	enum TEXPREVIEW_MODE : uint
+	{
+		TEXPREVIEW_RAW = 0,
+		TEXPREVIEW_OCT_NORMAL,
+		TEXPREVIEW_OBJECT_ID,
+		TEXPREVIEW_VIS_ID,
+		TEXPREVIEW_RED_GRAY,
+		TEXPREVIEW_MODE_COUNT,
+	};
+
+	struct texPreviewInfo
+	{
+		D3D12_GPU_DESCRIPTOR_HANDLE handle = {};
+		uint  mip = 0, width = 0, height = 0;
+		float u1 = 1.0f, v1 = 1.0f;
+	};
+
 	void setSelectedResourceId(uint bufferId);
 	uint getSelectedResourceId();
+	void updateTexturePreview();
+	bool isTexturePreviewable(uint bufferId, const char** outReason);
+	bool getTexturePreviewInfo(texPreviewInfo& out);
+	void setTexturePreviewMip(int mip);
+	int  getTexturePreviewMip();
+	void setTexturePreviewMode(TEXPREVIEW_MODE mode);
+	TEXPREVIEW_MODE getTexturePreviewMode();
+	void requestTexturePreviewCopy();
 #endif // ENGINE_DEBUG_RESOURCEVIEW
 
 #if ENGINE_DEBUG_READBACK
@@ -58,6 +89,11 @@ private:
 	bool memLayoutsAttempted = false;
 	int selectedMemLayoutIndex = -1;
 	uint lastReadbackSelectionId = ~0u;
+
+#if ENGINE_DEBUG_RESOURCEVIEW
+	void guiUpdateButton(uint selectedId, bool selIsBuffer, bool selIsTexture);
+#endif // ENGINE_DEBUG_RESOURCEVIEW
+
 #endif // ENGINE_DEBUG_MEMVIEW
 };
 

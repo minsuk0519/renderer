@@ -1,6 +1,16 @@
 #include <render/render_debug.hpp>
 
 #if ENGINE_DEBUG_RESOURCEVIEW
+
+#include <render/buffer.hpp>
+#include <render/descriptorheap.hpp>
+#include <render/renderer.hpp>
+#include <system/logger.hpp>
+#include <algorithm>
+#include <render/commandqueue.hpp>
+#include <render/shader_defines.hpp>
+#include <system/eventMarker.hpp>
+
 namespace render
 {
 	static uint selectedResourceId = ~0u;
@@ -13,6 +23,281 @@ namespace render
 	uint getSelectedResourceId()
 	{
 		return selectedResourceId;
+	}
+
+	// Texture preview state — compute shader model
+	constexpr uint TEXPREVIEW_MAX_DIM = 2048;
+
+	static buffer* texPreviewScratch = nullptr;
+	static bool    texPreviewScratchAttempted = false;
+
+	static bool texPreviewCopyRequest = false;
+	static bool texPreviewHasSnapshot = false;
+	static uint texPreviewSnapshotId = ~0u;
+	static int  texPreviewSnapshotMip = -1;
+	static uint texPreviewSnapshotWidth = 0;   // used sub-rect of the scratch
+	static uint texPreviewSnapshotHeight = 0;
+	static int  texPreviewMip = 0;
+	static TEXPREVIEW_MODE texPreviewMode = TEXPREVIEW_RAW;
+	static TEXPREVIEW_MODE texPreviewSnapshotMode = TEXPREVIEW_RAW;
+
+	static bool isIntegerFormat(DXGI_FORMAT fmt)
+	{
+		switch (fmt)
+		{
+		case DXGI_FORMAT_R32_UINT:
+		case DXGI_FORMAT_R32G32_UINT:
+		case DXGI_FORMAT_R32G32B32_UINT:
+		case DXGI_FORMAT_R32G32B32A32_UINT:
+		case DXGI_FORMAT_R16_UINT:
+		case DXGI_FORMAT_R16G16_UINT:
+		case DXGI_FORMAT_R16G16B16A16_UINT:
+		case DXGI_FORMAT_R8_UINT:
+		case DXGI_FORMAT_R8G8_UINT:
+		case DXGI_FORMAT_R8G8B8A8_UINT:
+		case DXGI_FORMAT_R32_SINT:
+		case DXGI_FORMAT_R32G32_SINT:
+		case DXGI_FORMAT_R32G32B32_SINT:
+		case DXGI_FORMAT_R32G32B32A32_SINT:
+		case DXGI_FORMAT_R16_SINT:
+		case DXGI_FORMAT_R16G16_SINT:
+		case DXGI_FORMAT_R16G16B16A16_SINT:
+		case DXGI_FORMAT_R8_SINT:
+		case DXGI_FORMAT_R8G8_SINT:
+		case DXGI_FORMAT_R8G8B8A8_SINT:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	static void ensureTexturePreviewScratch()
+	{
+		if (texPreviewScratchAttempted)
+		{
+			return;
+		}
+		texPreviewScratchAttempted = true;
+
+		texPreviewScratch = e_globBufAllocator.alloc(nullptr, 0, 1,
+			buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE,
+			DXGI_FORMAT_R8G8B8A8_UNORM, TEXPREVIEW_MAX_DIM, TEXPREVIEW_MAX_DIM, 1,
+			DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f), nullptr, 0, 0, "texture preview scratch");
+
+		if (texPreviewScratch == nullptr)
+		{
+			TC_LOG_ERROR("Texture preview: failed to allocate scratch buffer");
+		}
+	}
+
+	static buffer* resolveTexPreviewSrvOwner(uint bufferId)
+	{
+		buffer* owner = buf::getResourceOwner(bufferId);
+		if (owner == nullptr)
+		{
+			return nullptr;
+		}
+		if (owner->getDesc(buf::GBF_SRV) != nullptr)
+		{
+			return owner;
+		}
+
+		// No SRV on this wrapper - look for a sibling wrapper over the same resource that has one.
+		ID3D12Resource* target = owner->getResource();
+		for (uint id = 0; id < buf::getResourceDebugInfoCount(); ++id)
+		{
+			if (id == bufferId)
+			{
+				continue;
+			}
+			buffer* other = buf::getResourceOwner(id);
+			if (other != nullptr && other->getResource() == target && other->getDesc(buf::GBF_SRV) != nullptr)
+			{
+				return other;
+			}
+		}
+		return nullptr;
+	}
+
+	bool isTexturePreviewable(uint bufferId, const char** outReason)
+	{
+		if (bufferId >= buf::getResourceDebugInfoCount() || buf::getResourceOwner(bufferId) == nullptr)
+		{
+			if (outReason != nullptr)
+			{
+				*outReason = "no live resource";
+			}
+			return false;
+		}
+
+		if (!buf::isTextureResource(bufferId))
+		{
+			if (outReason != nullptr)
+			{
+				*outReason = "not a texture";
+			}
+			return false;
+		}
+
+		buffer* owner = buf::getResourceOwner(bufferId);
+		ID3D12Resource* res = owner->getResource();
+		D3D12_RESOURCE_DESC desc = res->GetDesc();
+
+		if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D)
+		{
+			if (outReason != nullptr)
+			{
+				*outReason = "only TEXTURE2D is previewable";
+			}
+			return false;
+		}
+
+		if (desc.Format == DXGI_FORMAT_D32_FLOAT ||
+		    desc.Format == DXGI_FORMAT_D24_UNORM_S8_UINT ||
+		    desc.Format == DXGI_FORMAT_D16_UNORM ||
+		    desc.Format == DXGI_FORMAT_D32_FLOAT_S8X24_UINT)
+		{
+			if (outReason != nullptr)
+			{
+				*outReason = "depth formats are not previewable";
+			}
+			return false;
+		}
+
+		if (resolveTexPreviewSrvOwner(bufferId) == nullptr)
+		{
+			if (outReason != nullptr)
+			{
+				*outReason = "no SRV on this resource or any alias of it";
+			}
+			return false;
+		}
+
+		return true;
+	}
+
+	void updateTexturePreview()
+	{
+		uint id = render::getSelectedResourceId();
+
+		// Discard stale snapshot on selection change
+		if (texPreviewHasSnapshot && id != texPreviewSnapshotId)
+		{
+			texPreviewHasSnapshot = false;
+		}
+
+		if (!texPreviewCopyRequest)
+		{
+			return;
+		}
+
+		texPreviewCopyRequest = false;
+
+		ensureTexturePreviewScratch();
+		if (texPreviewScratch == nullptr)
+		{
+			return;
+		}
+		if (!isTexturePreviewable(id, nullptr))
+		{
+			return;
+		}
+
+		buffer* owner = buf::getResourceOwner(id);
+		buffer* srvOwner = resolveTexPreviewSrvOwner(id);
+		if (srvOwner == nullptr)
+		{
+			return;
+		}
+
+		ID3D12Resource* res = owner->getResource();
+		D3D12_RESOURCE_DESC desc = res->GetDesc();
+
+		texPreviewMip = (std::max)(0, (std::min)(texPreviewMip, (int)desc.MipLevels - 1));
+
+		uint srcW = (std::max)(1u, (uint)(desc.Width >> texPreviewMip));
+		uint srcH = (std::max)(1u, (uint)(desc.Height >> texPreviewMip));
+
+		// Fit into the scratch preserving aspect
+		float scale = (std::min)(1.0f, (std::min)((float)TEXPREVIEW_MAX_DIM / (float)srcW,
+		                                           (float)TEXPREVIEW_MAX_DIM / (float)srcH));
+		uint dstW = (std::max)(1u, (uint)((float)srcW * scale));
+		uint dstH = (std::max)(1u, (uint)((float)srcH * scale));
+
+		// Dispatch the compute shader
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(
+			isIntegerFormat(desc.Format) ? render::PSO_TEXPREVIEWUINT : render::PSO_TEXPREVIEWFLOAT);
+		{
+			GPU_EVENT(computeCmdList.Get(), "TexturePreview");
+
+			if (texPreviewScratch->getCurResourceState() != D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			{
+				CD3DX12_RESOURCE_BARRIER b = texPreviewScratch->getTransition(D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				computeCmdList->ResourceBarrier(1, &b);
+			}
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_TEXPREVIEW, texPreviewScratch, buf::GBF_UAV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_TEXPREVIEW_SRC, srvOwner, buf::GBF_SRV);
+
+			uint cbData[6] = { (uint)texPreviewMode, (uint)texPreviewMip, srcW, srcH, dstW, dstH };
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_TEXPREVIEW, 6, cbData);
+
+			computeCmdList->Dispatch((dstW + 7) / 8, (dstH + 7) / 8, 1);
+
+			CD3DX12_RESOURCE_BARRIER b2 = texPreviewScratch->getTransition(D3D12_RESOURCE_STATE_COMMON);
+			computeCmdList->ResourceBarrier(1, &b2);
+		}
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+
+		texPreviewHasSnapshot = true;
+		texPreviewSnapshotId = id;
+		texPreviewSnapshotMip = texPreviewMip;
+		texPreviewSnapshotMode = texPreviewMode;
+		texPreviewSnapshotWidth = dstW;
+		texPreviewSnapshotHeight = dstH;
+	}
+
+	bool getTexturePreviewInfo(texPreviewInfo& out)
+	{
+		if (!texPreviewHasSnapshot || texPreviewScratch == nullptr)
+		{
+			return false;
+		}
+
+		out.handle = texPreviewScratch->getDesc(buf::GBF_SRV)->getHandle();
+		out.mip    = (uint)texPreviewSnapshotMip;
+		out.width  = texPreviewSnapshotWidth;
+		out.height = texPreviewSnapshotHeight;
+		out.u1     = (float)texPreviewSnapshotWidth  / (float)TEXPREVIEW_MAX_DIM;
+		out.v1     = (float)texPreviewSnapshotHeight / (float)TEXPREVIEW_MAX_DIM;
+		return true;
+	}
+
+	void requestTexturePreviewCopy()
+	{
+		texPreviewCopyRequest = true;
+	}
+
+	void setTexturePreviewMip(int mip)
+	{
+		texPreviewMip = mip;
+	}
+
+	int getTexturePreviewMip()
+	{
+		return texPreviewMip;
+	}
+
+	void setTexturePreviewMode(TEXPREVIEW_MODE mode)
+	{
+		texPreviewMode = mode;
+	}
+
+	TEXPREVIEW_MODE getTexturePreviewMode()
+	{
+		return texPreviewMode;
 	}
 }  // namespace render
 #endif // ENGINE_DEBUG_RESOURCEVIEW
@@ -177,69 +462,178 @@ static void memviewExtractLine(const std::string& text, uint lineIndex, std::str
 	}
 }
 
-void renderDebug::guiMemoryReadbackSetting()
+static void guiTexturePreviewSection(uint id)
 {
-	uint targetId = render::getSelectedResourceId();
-	bool targetValid = (targetId != ~0u) && (targetId < buf::getResourceDebugInfoCount()) && buf::isBufferResource(targetId);
+	ImGui::SeparatorText(buf::getResourceDisplayName(id));
 
-	const char* preview = targetValid ? buf::getResourceDisplayName(targetId) : "(select a buffer)";
+	const char* reason = nullptr;
+	if (!render::isTexturePreviewable(id, &reason))
+	{
+		ImGui::TextDisabled("(not previewable - %s)", reason);
+		return;
+	}
+
+	D3D12_RESOURCE_DESC desc = buf::getResourceOwner(id)->getResource()->GetDesc();
+	ImGui::Text("%llu x %u, %u mip(s), format %u", desc.Width, desc.Height, desc.MipLevels, (uint)desc.Format);
+
+	int mip = render::getTexturePreviewMip();
+	if (desc.MipLevels == 1)
+	{
+		ImGui::TextDisabled("(single mip)");
+	}
+	else
+	{
+		if (ImGui::SliderInt("Mip", &mip, 0, (int)desc.MipLevels - 1))
+		{
+			render::setTexturePreviewMip(mip);
+		}
+	}
+
+	static const char* const modeNames[render::TEXPREVIEW_MODE_COUNT] =
+		{ "Raw bits", "Octahedral normal", "Object ID color", "visID cluster color", "Red as grayscale" };
+	render::TEXPREVIEW_MODE mode = render::getTexturePreviewMode();
+	if (ImGui::BeginCombo("Interpret as", modeNames[mode]))
+	{
+		for (uint m = 0; m < render::TEXPREVIEW_MODE_COUNT; ++m)
+		{
+			ImGui::PushID((int)m);
+			if (ImGui::Selectable(modeNames[m], mode == (render::TEXPREVIEW_MODE)m))
+			{
+				render::setTexturePreviewMode((render::TEXPREVIEW_MODE)m);
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndCombo();
+	}
+
+	// Show mode applicability notes
+	bool isInteger = render::isIntegerFormat(desc.Format);
+	if ((mode >= 1 && mode <= 3) && !isInteger)
+	{
+		ImGui::TextDisabled("(mode applies to integer formats)");
+	}
+	else if (mode == 4 && isInteger)
+	{
+		ImGui::TextDisabled("(mode applies to float formats)");
+	}
+
+	static float texPreviewGain = 1.0f;
+	ImGui::DragFloat("Gain", &texPreviewGain, 0.05f, 0.01f, 50.0f);
+
+	render::texPreviewInfo info;
+	if (render::getTexturePreviewInfo(info))
+	{
+		float availW = (std::min)(ImGui::GetContentRegionAvail().x, 512.0f);
+		float drawW = (std::max)(availW, 1.0f);
+		float drawH = drawW * ((float)info.height / (float)(std::max)(info.width, 1u));
+		ImGui::Text("mip %u: %u x %u", info.mip, info.width, info.height);
+		ImGui::Image((ImTextureID)info.handle.ptr, ImVec2(drawW, drawH), ImVec2(0, 0), ImVec2(info.u1, info.v1),
+			ImVec4(texPreviewGain, texPreviewGain, texPreviewGain, 1),
+			ImGui::GetStyleColorVec4(ImGuiCol_Border));
+		if ((int)info.mip != render::getTexturePreviewMip())
+		{
+			ImGui::TextDisabled("(snapshot is of mip %u - press Update to recapture)", info.mip);
+		}
+		if (mode != render::texPreviewSnapshotMode)
+		{
+			ImGui::TextDisabled("(mode changed since snapshot - press Update to refresh)");
+		}
+	}
+	else
+	{
+		ImGui::TextDisabled("(no snapshot - press Update to capture)");
+	}
+}
+
+static void guiResourceCombo(uint selectedId)
+{
+	uint targetId = selectedId;
+	bool targetValid = (targetId != ~0u) && (targetId < buf::getResourceDebugInfoCount());
+
+	const char* preview = "(select a resource)";
+	if (targetValid)
+	{
+		if (buf::isBufferResource(targetId))
+		{
+			preview = buf::getResourceDisplayName(targetId);
+		}
+		else if (buf::isTextureResource(targetId))
+		{
+			preview = buf::getResourceDisplayName(targetId);
+		}
+	}
+
 	if (ImGui::BeginCombo("Resource", preview))
 	{
-		uint candidateCount = 0;
 		for (uint id = 0; id < buf::getResourceDebugInfoCount(); ++id)
 		{
-			if (!buf::isBufferResource(id))
+			bool isBuffer = buf::isBufferResource(id);
+			bool isTexture = buf::isTextureResource(id);
+			if (!isBuffer && !isTexture)
 			{
 				continue;
 			}
 
-			candidateCount++;
+			const char* tag = isBuffer ? "[buf]" : "[tex]";
+			std::string label = std::string(buf::getResourceDisplayName(id)) + " " + tag;
+
 			ImGui::PushID((int)id);
-			if (ImGui::Selectable(buf::getResourceDisplayName(id), render::getSelectedResourceId() == id))
+			if (ImGui::Selectable(label.c_str(), render::getSelectedResourceId() == id))
 			{
 				render::setSelectedResourceId(id);
-				targetId = id;
-				targetValid = true;
 			}
 			ImGui::PopID();
 		}
 
 		ImGui::EndCombo();
 	}
+}
 
-	if (buf::getResourceDebugInfoCount() > 0)
-	{
-		uint bufferCount = 0;
-		for (uint id = 0; id < buf::getResourceDebugInfoCount(); ++id)
-		{
-			if (buf::isBufferResource(id))
-			{
-				bufferCount++;
-			}
-		}
-		if (bufferCount == 0)
-		{
-			ImGui::TextDisabled("(No buffer resources available)");
-		}
-	}
-
-	if (targetValid)
-	{
-		ImGui::Text("Size: %llu bytes", buf::getResourceWidth(targetId));
-	}
+void renderDebug::guiUpdateButton(uint selectedId, bool selIsBuffer, bool selIsTexture)
+{
+	bool targetValid = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount());
 
 	ImGui::BeginDisabled(!targetValid);
 	if (ImGui::Button("Update"))
 	{
 		if (targetValid)
 		{
-			uint maxBytes = (uint)(std::min)(buf::getResourceWidth(targetId), (UINT64)render::MEMVIEW_MAX_READBACK_BYTES);
-			requestMemReadback(buf::getResourceOwner(targetId), maxBytes);
+			if (selIsBuffer)
+			{
+				uint maxBytes = (uint)(std::min)(buf::getResourceWidth(selectedId), (UINT64)render::MEMVIEW_MAX_READBACK_BYTES);
+				requestMemReadback(buf::getResourceOwner(selectedId), maxBytes);
+			}
+			else if (selIsTexture)
+			{
+				render::requestTexturePreviewCopy();
+			}
 		}
 	}
 	ImGui::EndDisabled();
+}
 
-	if (selectedMemLayoutIndex >= (int)memLayouts.size())
+void renderDebug::guiMemoryReadbackSetting()
+{
+	uint selectedId = render::getSelectedResourceId();
+	bool selIsBuffer = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isBufferResource(selectedId);
+	bool selIsTexture = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isTextureResource(selectedId);
+
+	guiResourceCombo(selectedId);
+
+	guiUpdateButton(selectedId, selIsBuffer, selIsTexture);
+
+	if (selIsBuffer)
+	{
+		ImGui::Text("Size: %llu bytes", buf::getResourceWidth(selectedId));
+	}
+
+	if (selIsTexture)
+	{
+		guiTexturePreviewSection(selectedId);
+	}
+	else if (selIsBuffer)
+	{
+		if (selectedMemLayoutIndex >= (int)memLayouts.size())
 	{
 		selectedMemLayoutIndex = -1;
 	}
@@ -486,6 +880,7 @@ void renderDebug::guiMemoryReadbackSetting()
 				ImGui::TextDisabled("(%zu trailing byte%s dropped - not enough for a full uint32)", trailingBytes, trailingBytes == 1 ? "" : "s");
 			}
 		}
+	}
 	}
 }
 #endif // ENGINE_DEBUG_MEMVIEW && ENGINE_DEBUG_RESOURCEVIEW

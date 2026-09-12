@@ -1678,6 +1678,10 @@ void renderer::draw([[maybe_unused]] float dt)
 
 		transitionHZBForGui(cmdList);
 
+#if ENGINE_DEBUG_RESOURCEVIEW
+		render::updateTexturePreview();
+#endif // ENGINE_DEBUG_RESOURCEVIEW
+
 		{
 			GPU_EVENT(cmdList.Get(), "ImGui");
 
