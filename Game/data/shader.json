@@ -197,5 +197,17 @@
 		"target":"ps_6_5",
 		"shaderType":1,
 		"shaderIndex":32
+	},{
+		"shaderFile":"data/shader/source/texpreview.hlsl",
+		"entryPoint":"texPreviewFloat_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":33
+	},{
+		"shaderFile":"data/shader/source/texpreview.hlsl",
+		"entryPoint":"texPreviewUint_cs",
+		"target":"cs_6_5",
+		"shaderType":2,
+		"shaderIndex":34
 	}
 ]
