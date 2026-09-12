@@ -212,6 +212,15 @@
 ////////////////////meshviewer Buffer Ends
 #endif // #if ENGINE_DEBUG_MESH
 
+////////////////////TexPreview Begin
+//u0 preview output
+#define UAV_TEXPREVIEW          GET_HLSL_LOC_UAV(0)
+//t0 source texture
+#define SRV_TEXPREVIEW_SRC      GET_HLSL_LOC_SRV(0)
+//b0 preview constants
+#define CBV_TEXPREVIEW          GET_HLSL_LOC_CBV(0)
+////////////////////TexPreview Ends
+
 #define FEATURE_AO (1 << 0)
 
 //define PSO indcies
@@ -247,6 +256,8 @@ namespace render
 		PSO_VISBUFFERGBUFFERARGS,        //VisBufferGbufferArgs
 		PSO_VISBUFFERGBUFFER,            //VisBufferGbuffer
 		PSO_VISBUFFER,                   //VisBuffer
+		PSO_TEXPREVIEWFLOAT,             //TexPreviewFloat
+		PSO_TEXPREVIEWUINT,              //TexPreviewUint
 		PSO_END,
 	};
 }

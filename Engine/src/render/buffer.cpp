@@ -181,6 +181,17 @@ namespace buf
         return info.valid && info.owner != nullptr && info.dimension == D3D12_RESOURCE_DIMENSION_BUFFER;
     }
 
+    bool isTextureResource(uint bufferId)
+    {
+        if (bufferId >= BUFFER_MAX_COUNT)
+        {
+            return false;
+        }
+
+        const resourceDebugInfo& info = debugInfoTable[bufferId];
+        return info.valid && info.owner != nullptr && info.texture;
+    }
+
     buffer* getResourceOwner(uint bufferId)
     {
         if (bufferId >= BUFFER_MAX_COUNT)
@@ -1041,6 +1052,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
         {
             buf->resource.Attach(resource);
         }
+        buf->curState = D3D12_RESOURCE_STATE_COMMON;
     }
 
 #if ENGINE_DEBUG_RESOURCEVIEW

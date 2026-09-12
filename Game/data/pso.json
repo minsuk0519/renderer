@@ -291,5 +291,23 @@
 		"cs":false,
 		"depth":true,
 		"wireframe":false
+	},{
+		"psoIndex":28,
+		"psoName":"TexPreviewFloat",
+		"vertexIndex":33,
+		"pixelIndex":33,
+		"formats":[],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":29,
+		"psoName":"TexPreviewUint",
+		"vertexIndex":34,
+		"pixelIndex":34,
+		"formats":[],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]

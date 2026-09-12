@@ -172,7 +172,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 
 	buffer_header header;
-	D3D12_RESOURCE_STATES curState;
+	D3D12_RESOURCE_STATES curState = D3D12_RESOURCE_STATE_COMMON;
 };
 
 #if ENGINE_DEBUG_RESOURCEVIEW
@@ -184,6 +184,7 @@ namespace buf
 	void guiMemoryViewerSetting();
 	uint getResourceDebugInfoCount();
 	bool isBufferResource(uint bufferId);
+	bool isTextureResource(uint bufferId);
 	buffer* getResourceOwner(uint bufferId);
 	UINT64 getResourceWidth(uint bufferId);
 }

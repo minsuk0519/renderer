@@ -23,12 +23,21 @@ namespace shaders
 	Microsoft::WRL::ComPtr<IDxcIncludeHandler> pIncludeHandler;
 	Microsoft::WRL::ComPtr<IDxcBlobEncoding> pSource;
 
-	void loadShaderSource(DxcBuffer& source, LPCWSTR filePath)
+	bool loadShaderSource(DxcBuffer& source, LPCWSTR filePath)
 	{
-		pUtils->LoadFile(filePath, nullptr, &pSource);
+		HRESULT hr = pUtils->LoadFile(filePath, nullptr, &pSource);
+		if (FAILED(hr) || pSource == nullptr)
+		{
+			std::wstring fileStr(filePath);
+			std::string fileA(fileStr.begin(), fileStr.end());
+			std::string errorMsg = std::format("Failed to load shader file: {}", fileA.c_str());
+			TC_LOG_ERROR(errorMsg.c_str());
+			return false;
+		}
 		source.Ptr = pSource->GetBufferPointer();
 		source.Size = pSource->GetBufferSize();
 		source.Encoding = DXC_CP_ACP; // Assume BOM says UTF8 or UTF16 or this is ANSI text.
+		return true;
 	}
 
 	bool compileShader(std::wstring filePath, LPCWSTR entry, LPCWSTR target, DxcBuffer source, Microsoft::WRL::ComPtr<IDxcResult>& pResults)
@@ -94,7 +103,7 @@ namespace shaders
 		pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
 
 		shaders.resize(shaderJsons.size());
-		
+
 		for (auto shaderData : shaderJsons)
 		{
 			std::wstring filePath = std::wstring(shaderData.shaderFile.begin(), shaderData.shaderFile.end());
@@ -102,9 +111,19 @@ namespace shaders
 			std::wstring target = std::wstring(shaderData.target.begin(), shaderData.target.end());
 
 			DxcBuffer Source;
-			loadShaderSource(Source, filePath.c_str());
+			if (!loadShaderSource(Source, filePath.c_str()))
+			{
+				continue;
+			}
 			Microsoft::WRL::ComPtr<IDxcResult> pResults;
-			compileShader(filePath, entryPoint.c_str(), target.c_str(), Source, pResults);
+			if (!compileShader(filePath, entryPoint.c_str(), target.c_str(), Source, pResults))
+			{
+				std::string fileA(filePath.begin(), filePath.end());
+				std::string entryA(entryPoint.begin(), entryPoint.end());
+				std::string errorMsg = std::format("Failed to compile shader: {} ({})", fileA.c_str(), entryA.c_str());
+				TC_LOG_ERROR(errorMsg.c_str());
+				continue;
+			}
 
 			shader* newShader = new shader();
 
@@ -826,8 +845,15 @@ void shader::decipherHLSL()
 
 			while (bufData.constantContainer.size() != cbufferNum)
 			{
-				find = sourceString.find("\n%cb_", find) + 1;
-				
+				find = sourceString.find("\n%cb_", find);
+				if (find == std::string::npos)
+				{
+					std::string errorMsg = std::format("Failed to find cbuffer layout in shader disassembly for cbuffer at location {}", bufData.constantContainer[cbufferNum].loc);
+					TC_LOG_ERROR(errorMsg.c_str());
+					break;
+				}
+				find += 1;
+
 				auto find2 = sourceString.find("\n", find) + 1;
 				std::string line = sourceString.substr(find, find2 - find);
 				find = find2 - 1;
@@ -838,7 +864,14 @@ void shader::decipherHLSL()
 
 				bufData.constantContainer[cbufferNum].name = Name;
 
-				find2 = line.find("type { ") + 7;
+				find2 = line.find("type { ");
+				if (find2 == std::string::npos)
+				{
+					std::string errorMsg = std::format("Failed to find cbuffer type layout in shader disassembly for cbuffer at location {}", bufData.constantContainer[cbufferNum].loc);
+					TC_LOG_ERROR(errorMsg.c_str());
+					break;
+				}
+				find2 += 7;
 
 				uint size = 0;
 
