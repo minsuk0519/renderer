@@ -124,6 +124,7 @@
     <ClInclude Include="include\system\mathhelper.hpp" />
     <ClInclude Include="include\system\window.hpp" />
     <ClInclude Include="include\world\object.hpp" />
+    <ClInclude Include="include\world\world_load.hpp" />
     <ClInclude Include="include\world\world.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -155,6 +156,7 @@
     <ClCompile Include="src\system\mathhelper.cpp" />
     <ClCompile Include="src\system\window.cpp" />
     <ClCompile Include="src\world\object.cpp" />
+    <ClCompile Include="src\world\world_load.cpp" />
     <ClCompile Include="src\world\world.cpp" />
   </ItemGroup>
   <ItemGroup>

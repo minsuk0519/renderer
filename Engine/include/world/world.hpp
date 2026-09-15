@@ -32,6 +32,7 @@ public:
 	void setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull);
 
 	void guiSetting();
+	bool saveCurrentMap(const std::string& filePath);
 
 	uint envIndex = 0;
 	uint preEnvIndex = envIndex;
@@ -39,6 +40,7 @@ public:
 	object* getObjects();
 
 	uint objectNum = 0;
+	std::string mapName;
 
 	//index of object that is in camera frustum
 	uint cameraObjectIndex[MAX_OBJECTS] = { 0 };

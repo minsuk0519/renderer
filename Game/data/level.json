@@ -1,0 +1,74 @@
+{
+	"version": 1,
+	"name": "DefaultLevel",
+	"entities": [
+		{
+			"id": 0,
+			"name": "Cube",
+			"transform": {
+				"position": [-1.0, -0.5, 0.0],
+				"rotation": [0.0, 0.0, 0.0],
+				"scale": [0.2, 0.2, 0.2]
+			},
+			"mesh": 0,
+			"pso": 0,
+			"material": {
+				"albedo": [1.0, 1.0, 1.0],
+				"metal": 0.5,
+				"roughness": 0.5
+			},
+			"lod": 0
+		},
+		{
+			"id": 1,
+			"name": "Bunny",
+			"transform": {
+				"position": [0.0, -0.5, 0.0],
+				"rotation": [0.0, 0.0, 0.0],
+				"scale": [5.0, 5.0, 5.0]
+			},
+			"mesh": 2,
+			"pso": 0,
+			"material": {
+				"albedo": [1.0, 1.0, 1.0],
+				"metal": 0.5,
+				"roughness": 0.5
+			},
+			"lod": 0
+		},
+		{
+			"id": 2,
+			"name": "Sphere",
+			"transform": {
+				"position": [1.0, -0.5, 0.0],
+				"rotation": [0.0, 0.0, 0.0],
+				"scale": [0.005, 0.005, 0.005]
+			},
+			"mesh": 1,
+			"pso": 0,
+			"material": {
+				"albedo": [1.0, 1.0, 1.0],
+				"metal": 0.5,
+				"roughness": 0.5
+			},
+			"lod": 0
+		},
+		{
+			"id": 3,
+			"name": "Terrain",
+			"transform": {
+				"position": [0.0, -2.0, 0.0],
+				"rotation": [0.0, 0.0, 0.0],
+				"scale": [0.2, 0.2, 0.2]
+			},
+			"mesh": 3,
+			"pso": 0,
+			"material": {
+				"albedo": [1.0, 1.0, 1.0],
+				"metal": 0.5,
+				"roughness": 0.5
+			},
+			"lod": 0
+		}
+	]
+}
