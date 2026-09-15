@@ -6,6 +6,7 @@
 #include <render\mesh.hpp>
 
 #include <vector>
+#include <string>
 
 #include <wrl.h>
 
@@ -37,6 +38,8 @@ private:
 	uint id = 0;
 	uint pso = 0;
 
+	std::string name;
+
 	bool visibility = false;
 public:
 	transform* getTransform() const;
@@ -57,6 +60,18 @@ public:
 
 	void setMaterial(float m, float r);
 	void setAlbedo(float r, float g, float b);
+
+	void setName(const std::string& n);
+	const std::string& getName() const;
+
+	void setLOD(uint l);
+	uint getLOD() const;
+
+	uint getPSO() const;
+
+	float getMetal() const;
+	float getRoughness() const;
+	const DirectX::XMFLOAT4& getAlbedo() const;
 
 	uint64_t getCBVLoc() const;
 	uint getMeshIdx() const;

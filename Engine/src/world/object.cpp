@@ -199,3 +199,43 @@ void object::updateVisibility(bool vis)
 {
 	visibility = vis;
 }
+
+void object::setName(const std::string& n)
+{
+	name = n;
+}
+
+const std::string& object::getName() const
+{
+	return name;
+}
+
+void object::setLOD(uint l)
+{
+	lod = l;
+}
+
+uint object::getLOD() const
+{
+	return lod;
+}
+
+uint object::getPSO() const
+{
+	return pso;
+}
+
+float object::getMetal() const
+{
+	return metal;
+}
+
+float object::getRoughness() const
+{
+	return roughness;
+}
+
+const DirectX::XMFLOAT4& object::getAlbedo() const
+{
+	return albedo;
+}

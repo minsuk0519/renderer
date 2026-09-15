@@ -102,3 +102,37 @@ void writeJsonBuffer(const Buffer& buf, const JSON_FILE_NAME& fileIndex)
 		TC_LOG_ERROR(errorMessage.c_str());
 	}
 }
+
+template <auto Opts, typename Buffer>
+bool readJsonFileOpts(Buffer& buf, const std::string& filePath)
+{
+	std::string str{};
+	auto error = glz::read_file_json<Opts>(buf, filePath, str);
+
+	if (error.ec != glz::error_code::none)
+	{
+		std::string errorMessage = "Failed to read file : " + filePath
+								 + " : " + glz::format_error(error, str);
+		TC_LOG_ERROR(errorMessage.c_str());
+		return false;
+	}
+
+	return true;
+}
+
+template <auto Opts, typename Buffer>
+bool writeJsonFileOpts(const Buffer& buf, const std::string& filePath)
+{
+	std::string str{};
+	auto error = glz::write_file_json<Opts>(buf, filePath, str);
+
+	if (error.ec != glz::error_code::none)
+	{
+		std::string errorMessage = "Failed to write file : " + filePath
+								 + " : " + glz::format_error(error, str);
+		TC_LOG_ERROR(errorMessage.c_str());
+		return false;
+	}
+
+	return true;
+}
