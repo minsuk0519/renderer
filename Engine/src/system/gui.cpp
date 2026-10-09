@@ -16,6 +16,7 @@
 namespace gui
 {
     constexpr uint GUI_FRAMES_NUM = 3;
+	constexpr size_t GUI_STRING_BUF_SIZE = 128;
 
     struct FrameContext
     {
@@ -142,7 +143,7 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
 
     if (ImGui::BeginTabItem("World"))
     {
-        e_globWorld.guiSetting();
+        e_globWorld.guiLevelEditor();
 
         ImGui::EndTabItem();
     }
@@ -326,6 +327,19 @@ void gui::editintwithrange(std::string str, int* data, int min, int max)
     {
         *data = std::clamp(integer, min, max);
     }
+}
+
+void gui::editstring(std::string str, std::string* data)
+{
+	char buf[GUI_STRING_BUF_SIZE];
+	size_t copySize = (std::min)(data->size(), GUI_STRING_BUF_SIZE - 1);
+	std::copy(data->begin(), data->begin() + copySize, buf);
+	buf[copySize] = '\0';
+
+	if (ImGui::InputText(str.c_str(), buf, sizeof(buf)))
+	{
+		*data = buf;
+	}
 }
 
 void gui::comboBox(std::string name, const char* const items[], uint size, uint& index)

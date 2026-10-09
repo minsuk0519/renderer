@@ -15,19 +15,30 @@ transform* object::getTransform() const
 	return trans;
 }
 
-bool object::init(const msh::MESH_INDEX meshIdx, const uint psoIndex)
+bool object::allocate()
+{
+	trans = new transform();
+	cbv = e_globBufAllocator.alloc(nullptr, consts::CONST_OBJ_SIZE, 1, buf::GBF_CBV);
+	id = obj::remainID++;
+	return true;
+}
+
+bool object::reset(const msh::MESH_INDEX meshIdx, const uint psoIndex)
 {
 	pso = psoIndex;
-	trans = new transform();
-
 	meshEnumIndex = meshIdx;
 	meshPtr = msh::getMesh(meshIdx);
-
-	cbv = e_globBufAllocator.alloc(nullptr, consts::CONST_OBJ_SIZE, 1, buf::GBF_CBV);
-
-	id = obj::remainID++;
-
 	visibility = false;
+
+	metal = 0.5f;
+	roughness = 0.5f;
+	albedo = DirectX::XMFLOAT4{ 1, 1, 1, 1 };
+	lod = 0;
+	name.clear();
+
+	trans->setPosition({ 0, 0, 0 });
+	trans->setScale({ 1, 1, 1 });
+	trans->setRotation({ 0, 0, 0 });
 
 	return true;
 }
@@ -102,16 +113,20 @@ void object::boundData(unsigned char* data)
 void object::close()
 {
 	delete trans;
+	trans = nullptr;
 }
 
 void object::guiSetting()
 {
+	gui::editstring("Name##" + std::to_string(id), &name);
+
 	gui::color("Albedo##" + std::to_string(id), &albedo.x);
 	gui::editfloat("Metal##" + std::to_string(id), 1, &metal, 0.0f, 1.0f);
 	gui::editfloat("Roughness##" + std::to_string(id), 1, &roughness, 0.0f, 1.0f);
 
 	gui::editfloat("Position##" + std::to_string(id), 3, trans->getPosPointer(), 0.0f, 0.0f);
 	gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
+	gui::editfloat("Rotation##" + std::to_string(id), 3, trans->getRotationPointer(), 0.0f, 0.0f);
 
 	const int maxLOD = meshPtr->getData()->lodNum;
 	gui::editintwithrange("ForceLOD##" + std::to_string(id), reinterpret_cast<int *>(&lod), 0, maxLOD - 1);

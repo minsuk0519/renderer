@@ -44,7 +44,8 @@ private:
 public:
 	transform* getTransform() const;
 
-	bool init(const msh::MESH_INDEX meshIdx, const uint psoIndex);
+	bool allocate();
+	bool reset(const msh::MESH_INDEX meshIdx, const uint psoIndex);
 	void update(float dt);
 	void submit(void* cbvLoc, uint localID);
 

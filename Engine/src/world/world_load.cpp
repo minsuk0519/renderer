@@ -76,7 +76,7 @@ bool worldload::loadMap(const std::string& filePath, world& target)
 
 		object* obj = target.objects + target.objectNum;
 
-		obj->init(static_cast<msh::MESH_INDEX>(entity.mesh), entity.pso);
+		obj->reset(static_cast<msh::MESH_INDEX>(entity.mesh), entity.pso);
 		obj->setName(entity.name);
 		obj->setLOD(entity.lod);
 		obj->setMaterial(entity.material.metal, entity.material.roughness);

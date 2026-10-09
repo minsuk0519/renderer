@@ -35,6 +35,7 @@ namespace gui
 	void editfloat(std::string str, uint floatNum, float* data, float min, float max);
 	void edituint(std::string str, uint* data);
 	void editintwithrange(std::string str, int* data, int min, int max);
+	void editstring(std::string str, std::string* data);
 
 	bool button(std::string str);
 }
