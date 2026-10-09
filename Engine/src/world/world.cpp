@@ -80,29 +80,54 @@ void world::setMainCamera(camera* cam)
 	this->mainCamera = cam;
 }
 
-void world::guiSetting()
+void world::guiLevelEditor()
 {
-	static uint objectGUIIndex;
-	ImGui::BeginChild("left pane", ImVec2(50, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+	ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+
+	if (ImGui::Button("Load Map"))
+	{
+		loadCurrentMap(worldload::DEFAULT_LEVEL_PATH);
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Save Map"))
+	{
+		saveCurrentMap(worldload::DEFAULT_LEVEL_PATH);
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Clear Map"))
+	{
+		clearMap();
+	}
+
+	ImGui::Separator();
 
 	for (uint i = 0; i < objectNum; ++i)
 	{
-		if(ImGui::Button(("objects##" + std::to_string(i)).c_str()))
-		{
-			objectGUIIndex = i;
-		}
-	}
+		std::string displayName = objects[i].getName().empty() ? "<unnamed>" : objects[i].getName();
+		displayName += "##" + std::to_string(i);
 
-	if (ImGui::Button("Save Level"))
-	{
-		saveCurrentMap(worldload::DEFAULT_LEVEL_PATH);
+		if (ImGui::Selectable(displayName.c_str(), i == selectedObjectIndex))
+		{
+			selectedObjectIndex = i;
+		}
 	}
 
 	ImGui::EndChild();
 	ImGui::SameLine();
 	ImGui::BeginChild("object view pane", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
 
-	objects[objectGUIIndex].guiSetting();
+	if (selectedObjectIndex < objectNum)
+	{
+		objects[selectedObjectIndex].guiSetting();
+	}
+	else
+	{
+		gui::text("No entity selected");
+	}
 
 	ImGui::EndChild();
 }
@@ -122,6 +147,11 @@ bool world::init()
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 
 	objects = new object[MAX_OBJECTS];
+
+	for (uint i = 0; i < MAX_OBJECTS; ++i)
+	{
+		objects[i].allocate();
+	}
 
 	setupScene();
 
@@ -161,7 +191,7 @@ void world::update(float dt)
 
 void world::close()
 {
-	for (uint i = 0; i < objectNum; ++i)
+	for (uint i = 0; i < MAX_OBJECTS; ++i)
 	{
 		objects[i].close();
 	}
@@ -239,9 +269,23 @@ void world::setupScene()
 	}
 }
 
+bool world::loadCurrentMap(const std::string& filePath)
+{
+	bool ok = worldload::loadMap(filePath, *this);
+	selectedObjectIndex = 0;
+	return ok;
+}
+
 bool world::saveCurrentMap(const std::string& filePath)
 {
 	return worldload::saveMap(filePath, *this);
+}
+
+void world::clearMap()
+{
+	objectNum = 0;
+	mapName.clear();
+	selectedObjectIndex = 0;
 }
 
 void world::setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull)

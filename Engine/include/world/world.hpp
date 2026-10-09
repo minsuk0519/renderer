@@ -31,8 +31,10 @@ public:
 	void setupScene();
 	void setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull);
 
-	void guiSetting();
+	void guiLevelEditor();
+	bool loadCurrentMap(const std::string& filePath);
 	bool saveCurrentMap(const std::string& filePath);
+	void clearMap();
 
 	uint envIndex = 0;
 	uint preEnvIndex = envIndex;
@@ -63,6 +65,8 @@ private:
 #if ENGINE_DEBUG_DEBUGCAM
 	camera* debugCamera = nullptr;
 #endif // #if ENGINE_DEBUG_DEBUGCAM
+
+	uint selectedObjectIndex = 0;
 };
 
 extern world e_globWorld;
