@@ -10,10 +10,18 @@ RWByteAddressBuffer outVisibleTris : register(u5);
 RWByteAddressBuffer outOccludedClusters : register(u6);
 RWByteAddressBuffer debugStats : register(u7);
 RWByteAddressBuffer clusterIndirection : register(u8);
+RWByteAddressBuffer outInstanceList : register(u9);
+RWByteAddressBuffer lastVisibleFrame : register(u10);
 
 ByteAddressBuffer clusterArgs : register(t0);
 
 Texture2D<float> hzb : register(t1);
+
+ByteAddressBuffer instanceList : register(t2);
+static const uint INSTLIST_HEADER_BYTES = 64;
+static const uint INSTLIST_PASS2_BASE_BYTES = INSTLIST_HEADER_BYTES + MAX_CULL_INSTANCES * 4;
+ByteAddressBuffer cullInstances : register(t3);
+static const uint CULL_INSTANCE_STRIDE = 16;
 
 cbuffer cb_hzbCull : register(b0)
 {
@@ -31,6 +39,12 @@ cbuffer cb_cullDebug : register(b1)
 cbuffer cb_rasterDebug : register(b2)
 {
     uint triCullEnable;
+};
+
+cbuffer cb_instCull : register(b3)
+{
+    uint instanceCount;
+    uint cullFrame;
 };
 
 #define HZB_SAMPLING_PIXEL_SIZE 4
@@ -68,18 +82,19 @@ void uploadLocalObj_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPo
 {
     uint localObjectIndex = gtid.x + groupID.x * CLUSTER_THREAD_NUM;
 
-    uint count = isPost ? postObjCount : objCount;
+    uint count = instanceList.Load(isPost ? 4 : 0);
 
     if(localObjectIndex >= count)
     {
         return;
     }
 
-    uint srcIndex = isPost ? (postObjOffset + localObjectIndex) : localObjectIndex;
+    uint entryByte = (isPost ? INSTLIST_PASS2_BASE_BYTES : INSTLIST_HEADER_BYTES) + localObjectIndex * 4;
+    uint packedEntry = instanceList.Load(entryByte);
 
-    uint packedID = packedObj[srcIndex] & ((1 << 16) - 1);
+    uint packedID = packedEntry & ((1 << 16) - 1);
     uint meshIndex = packedID >> 3;
-    uint objID = packedObj[srcIndex] >> 16;
+    uint objID = packedEntry >> 16;
 
     meshInfo mesh;
     getMeshInfo(meshIndex, mesh);
@@ -98,22 +113,11 @@ void uploadLocalObj_internal(uint3 groupID, uint3 gtid, uint threadID, bool isPo
     {
         if(isPost)
         {
-            outOccludedClusters.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedObj[srcIndex], i));
+            outOccludedClusters.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedEntry, i));
         }
         else
         {
-            localClusterOffsets.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedObj[srcIndex], i));
-        }
-    }
-
-    if (!isPost)
-    {
-        GroupMemoryBarrierWithGroupSync();
-
-        if(threadID.x == 0)
-        {
-            uint totalSize = localClusterSize.Load(0);
-            localClusterSize.Store3(4, uint3((1 + (totalSize - 1) / CLUSTER_THREAD_NUM), 1, 1));
+            localClusterOffsets.Store3((offset + i) * 4 * 3, uint3(lodIndex, packedEntry, i));
         }
     }
 }
@@ -441,6 +445,13 @@ void prepPostArgs_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, 
     localClusterSize.Store4(5 * 4, uint4(0, 0, 0, 0));
 }
 
+[numthreads(1, 1, 1)]
+void prepCullArgs_cs(uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint threadID : SV_GroupIndex)
+{
+    uint total = localClusterSize.Load(0);
+    localClusterSize.Store3(4, uint3((total + CLUSTER_THREAD_NUM - 1) / CLUSTER_THREAD_NUM, 1, 1));
+}
+
 groupshared uint gsWaveCounts[2];
 
 [numthreads(CLUSTER_THREAD_NUM, 1, 1)]
@@ -579,5 +590,76 @@ void rasterizer_cs( uint3 groupID : SV_GroupID, uint3 gtid : SV_GroupThreadID, u
                 0,                        //StartVertexLocation
                 0                         //StartInstanceLocation
         ));
+    }
+}
+
+static const uint INSTCULL_THREADS = 256;
+
+groupshared uint gsPassCount[2];
+
+bool boxVisible(float3 center, float3 axisX, float3 axisY, float3 axisZ, float3 ext)
+{
+    float4x4 vp = proj.viewProj;
+    float4 planes[6] = { vp[3] + vp[0], vp[3] - vp[0], vp[3] + vp[1], vp[3] - vp[1], vp[2], vp[3] - vp[2] };
+
+    [unroll]
+    for (uint planeIdx = 0; planeIdx < 6; ++planeIdx)
+    {
+        float3 n = planes[planeIdx].xyz;
+        float d = dot(n, center) + planes[planeIdx].w;
+        float r = ext.x * abs(dot(n, axisX)) + ext.y * abs(dot(n, axisY)) + ext.z * abs(dot(n, axisZ));
+        if (d < -r)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+[numthreads(INSTCULL_THREADS, 1, 1)]
+void instCull_cs(uint threadID : SV_GroupIndex)
+{
+    if (threadID == 0)
+    {
+        gsPassCount[0] = 0;
+        gsPassCount[1] = 0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+
+    uint count = min(instanceCount, MAX_CULL_INSTANCES);
+    for (uint i = threadID; i < count; i += INSTCULL_THREADS)
+    {
+        uint4 rec = cullInstances.Load4(i * CULL_INSTANCE_STRIDE);
+        uint packed = rec.w;
+        uint objID = packed >> 16;
+
+        viewInfo view;
+        getViewInfo(objID, view);
+        float3 axisX, axisY, axisZ;
+        getAxisVecFromQuat(view.rotation, axisX, axisY, axisZ);
+        float3 ext = abs(asfloat(rec.xyz) * view.scale);
+
+        if (boxVisible(view.translate, axisX, axisY, axisZ, ext))
+        {
+            uint stampAddr = objID * 4;
+            bool wasVisible = lastVisibleFrame.Load(stampAddr) == cullFrame - 1;
+            lastVisibleFrame.Store(stampAddr, cullFrame);
+
+            uint listIdx = wasVisible ? 0 : 1;
+            uint slot;
+            InterlockedAdd(gsPassCount[listIdx], 1, slot);
+            outInstanceList.Store((listIdx == 0 ? INSTLIST_HEADER_BYTES : INSTLIST_PASS2_BASE_BYTES) + slot * 4, packed);
+        }
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (threadID == 0)
+    {
+        uint pass1 = gsPassCount[0];
+        uint pass2 = gsPassCount[1];
+        outInstanceList.Store4(0, uint4(pass1, pass2, (pass1 + 63) / 64, 1));
+        outInstanceList.Store4(16, uint4(1, (pass2 + 63) / 64, 1, 1));
     }
 }
