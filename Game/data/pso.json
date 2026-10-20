@@ -309,5 +309,23 @@
 		"cs":true,
 		"depth":false,
 		"wireframe":false
+	},{
+		"psoIndex":30,
+		"psoName":"InstCull",
+		"vertexIndex":35,
+		"pixelIndex":35,
+		"formats":[],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
+	},{
+		"psoIndex":31,
+		"psoName":"PrepCullArgs",
+		"vertexIndex":36,
+		"pixelIndex":36,
+		"formats":[],
+		"cs":true,
+		"depth":false,
+		"wireframe":false
 	}
 ]
