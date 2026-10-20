@@ -28,7 +28,6 @@ bool object::reset(const msh::MESH_INDEX meshIdx, const uint psoIndex)
 	pso = psoIndex;
 	meshEnumIndex = meshIdx;
 	meshPtr = msh::getMesh(meshIdx);
-	visibility = false;
 
 	metal = 0.5f;
 	roughness = 0.5f;
@@ -176,43 +175,6 @@ uint object::getMeshIdx() const
 uint object::getObjID() const
 {
 	return id;
-}
-
-bool object::instanceCulling(DirectX::XMVECTOR* frustum)
-{
-	DirectX::XMVECTOR scale = trans->getScale();
-
-	float xExtent = scale.m128_f32[0] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_X];
-	float yExtent = scale.m128_f32[1] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_Y];
-	float zExtent = scale.m128_f32[2] * meshPtr->getData()->boundData.halfExtent[msh::AXIS_Z];
-
-	float r = std::sqrt(xExtent * xExtent + yExtent * yExtent + zExtent * zExtent);
-
-	DirectX::XMVECTOR objCenter = trans->getPosition();
-	objCenter.m128_f32[3] = 1.0f;
-
-	//bound sphere vs frustum test
-	for (uint i = 0; i < 6; ++i)
-	{
-		bool isIn = DirectX::XMPlaneDot(frustum[i], objCenter).m128_f32[0] <= r;
-
-		if (!isIn)
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-bool object::wasVisible() const
-{
-	return visibility;
-}
-
-void object::updateVisibility(bool vis)
-{
-	visibility = vis;
 }
 
 void object::setName(const std::string& n)

@@ -40,7 +40,6 @@ private:
 
 	std::string name;
 
-	bool visibility = false;
 public:
 	transform* getTransform() const;
 
@@ -79,8 +78,5 @@ public:
 
 	uint getObjID() const;
 
-	bool instanceCulling(DirectX::XMVECTOR* frustum);
 
-	bool wasVisible() const;
-	void updateVisibility(bool vis);
 };

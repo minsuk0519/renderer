@@ -1,6 +1,7 @@
 #pragma once
 
 #include "system/defines.hpp"
+#include "system/config.hpp"
 
 #define GET_HLSL_LOC_SRV( x ) ( (x << 2) | 0)
 #define GET_HLSL_LOC_SAMP( x ) ( (x << 2) | 1)
@@ -148,7 +149,42 @@
 #define CBV_CULLING_DEBUG					GET_HLSL_LOC_CBV(1)
 //b2 triangle-cull debug toggle
 #define CBV_RASTER_DEBUG					GET_HLSL_LOC_CBV(2)
+//t2 GPU instance list (uploadLocalObj / uploadPostObj)
+#define SRV_INSTANCE_LIST_BUFFER			GET_HLSL_LOC_SRV(2)
 ////////////////////culling Buffer Ends
+
+////////////////////instance culling Buffer Begin
+//u9 instance list output
+#define UAV_INSTCULL_LIST					GET_HLSL_LOC_UAV(9)
+//u10 per-instance last visible frame stamp
+#define UAV_INSTCULL_LASTVISIBLE			GET_HLSL_LOC_UAV(10)
+//t3 CPU-written cull instance records (mesh halfExtent + packedID)
+#define SRV_INSTCULL_INSTANCES				GET_HLSL_LOC_SRV(3)
+//b3 instance cull constants (instanceCount, cullFrame)
+#define CBV_INSTCULL_CONSTS					GET_HLSL_LOC_CBV(3)
+////////////////////instance culling Buffer Ends
+
+namespace instlist
+{
+	constexpr uint HEADER_BYTES = 64;
+	constexpr uint OFF_PASS1_COUNT = 0;
+	constexpr uint OFF_PASS2_COUNT = 4;
+	constexpr uint OFF_PASS1_ARGS = 8;
+	constexpr uint OFF_PASS2_ARGS = 20;
+	constexpr uint ENTRY_BYTES = 4;
+	constexpr uint INSTLIST_BYTES = HEADER_BYTES + 2 * MAX_CULL_INSTANCES * ENTRY_BYTES;
+
+	struct cullInstance
+	{
+		float halfExtent[3];
+		uint packedID;
+	};
+	constexpr uint CULL_INSTANCE_BYTES = 16;
+	static_assert(sizeof(cullInstance) == CULL_INSTANCE_BYTES, "cullInstance must match the HLSL record stride");
+	constexpr uint CULL_INSTANCES_BYTES = MAX_CULL_INSTANCES * CULL_INSTANCE_BYTES;
+	constexpr uint LAST_VISIBLE_BYTES = MAX_CULL_INSTANCES * 4;
+	constexpr uint CULL_CONSTS_DWORDS = 2;
+}
 
 ////////////////////visBuffer Buffer Begin
 //t0 visID gbuffer
@@ -258,6 +294,8 @@ namespace render
 		PSO_VISBUFFER,                   //VisBuffer
 		PSO_TEXPREVIEWFLOAT,             //TexPreviewFloat
 		PSO_TEXPREVIEWUINT,              //TexPreviewUint
+		PSO_INSTCULL,                    //InstCull
+		PSO_PREPCULLARGS,                //PrepCullArgs
 		PSO_END,
 	};
 }

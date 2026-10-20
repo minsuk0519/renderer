@@ -3,10 +3,10 @@
 #include <system/defines.hpp>
 #include <system/config.hpp>
 
-#include <vector>
 #include <string>
 #include <d3dx12.h>
 #include <wrl.h>
+#include <DirectXMath.h>
 
 class camera;
 class object;
@@ -24,9 +24,9 @@ public:
 	void update(float dt);
 	void close();
 
-	uint submitObjects(void* cbvLoc);
+	uint writeCullInstanceList(unsigned char* dst) const;
 	void uploadObjectInfo(void* viewInfoLoc, void* materialLoc);
-	void boundData(void* cbvLoc);
+	uint writeInstanceBounds(unsigned char* dst) const;
 
 	void setupScene();
 	void setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull);
@@ -44,15 +44,10 @@ public:
 	uint objectNum = 0;
 	std::string mapName;
 
-	//index of object that is in camera frustum
-	uint cameraObjectIndex[MAX_OBJECTS] = { 0 };
-	uint cameraObjNum[DRAW_PASS_NUM];
-
 	object* objects;
 
 	camera* getMainCam() const;
 
-	void instanceCulling();
 #if ENGINE_DEBUG_DEBUGCAM
 	void updateDebugCamera(float dt);
 #endif // #if ENGINE_DEBUG_DEBUGCAM

@@ -36,3 +36,6 @@ constexpr uint MAX_MESHES_LOD = 128;
 constexpr uint MAX_MESHES_CLUSTERS = 8096;
 
 constexpr uint MAX_LODS = 8;
+
+constexpr uint MAX_CULL_INSTANCES = 16384;
+static_assert(MAX_OBJECTS <= MAX_CULL_INSTANCES, "instance-cull capacity must cover the world object cap");

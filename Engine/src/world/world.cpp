@@ -2,9 +2,13 @@
 #include <world/world_load.hpp>
 #include <world/object.hpp>
 #include <render/camera.hpp>
+#include <render/mesh.hpp>
 #include <render/pipelinestate.hpp>
+#include <render/shader_defines.hpp>
 #include <system/gui.hpp>
 #include <system/input.hpp>
+
+#include <cstring>
 
 world e_globWorld;
 
@@ -28,43 +32,6 @@ object* world::getObjects()
 camera* world::getMainCam() const
 {
 	return mainCamera;
-}
-
-void world::instanceCulling()
-{
-	mainCamera->updateView();
-
-	for (uint i = 0; i < objectNum; ++i)
-	{
-		object* obj = objects + i;
-
-		DirectX::XMVECTOR* frustum = mainCamera->getFrustum();
-
-		bool vis = false;
-
-		if (obj->instanceCulling(frustum))
-		{
-			//if drawn previous frame, we will put it on the first pass
-			//TODO : some obj will be drawn first pass no matter if they are drawn previous frame
-			if (obj->wasVisible())
-			{
-				cameraObjectIndex[cameraObjNum[0]] = i;
-				++cameraObjNum[0];
-			}
-			//second pass
-			else
-			{
-				cameraObjectIndex[MAX_OBJECTS - 1 - cameraObjNum[1]] = i;
-				++cameraObjNum[1];
-			}
-
-			vis = true;
-
-			TC_ASSERT((cameraObjNum[0] + cameraObjNum[1]) < MAX_OBJECTS);
-		}
-
-		obj->updateVisibility(vis);
-	}
 }
 
 #if ENGINE_DEBUG_DEBUGCAM
@@ -155,11 +122,6 @@ bool world::init()
 
 	setupScene();
 
-	for (uint i = 0; i < DRAW_PASS_NUM; ++i)
-	{
-		cameraObjNum[i] = 0;
-	}
-
 	return true;
 }
 
@@ -177,11 +139,6 @@ void world::update(float dt)
 		debugCamera->toggleDebugMode();
 	}
 #endif // #if ENGINE_DEBUG_DEBUGCAM
-
-	for (uint i = 0; i < DRAW_PASS_NUM; ++i)
-	{
-		cameraObjNum[i] = 0;
-	}
 
 	mainCamera->update(dt);
 #if ENGINE_DEBUG_DEBUGCAM
@@ -206,59 +163,42 @@ void world::close()
 #endif // #if ENGINE_DEBUG_DEBUGCAM
 }
 
-uint world::submitObjects(void* cbvLoc)
-{
-	uint* location = static_cast<uint*>(cbvLoc);
-	for (uint i = 0; i < cameraObjNum[0]; ++i)
-	{
-		objects[cameraObjectIndex[i]].submit(static_cast<void*>(location), i);
-		location += 1;
-	}
-
-	for (uint j = 0; j < cameraObjNum[1]; ++j)
-	{
-		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].submit(static_cast<void*>(location), cameraObjNum[0] + j);
-		location += 1;
-	}
-
-	return cameraObjNum[0];
-}
-
 void world::uploadObjectInfo(void* viewInfoLoc, void* materialLoc)
 {
 	unsigned char* viewInfoGpuAddress = reinterpret_cast<unsigned char*>(viewInfoLoc);
 	unsigned char* materialGpuAddress = reinterpret_cast<unsigned char*>(materialLoc);
-	for (uint i = 0; i < cameraObjNum[0]; ++i)
-	{
-		objects[cameraObjectIndex[i]].uploadViewInfo(viewInfoGpuAddress);
-		objects[cameraObjectIndex[i]].uploadMaterial(materialGpuAddress);
-		viewInfoGpuAddress += sizeof(uint) * 10;
-		materialGpuAddress += sizeof(uint) * 5;
-	}
 
-	for (uint j = 0; j < cameraObjNum[1]; ++j)
+	for (uint i = 0; i < objectNum; ++i)
 	{
-		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].uploadViewInfo(viewInfoGpuAddress);
-		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].uploadMaterial(materialGpuAddress);
+		objects[i].uploadViewInfo(viewInfoGpuAddress);
+		objects[i].uploadMaterial(materialGpuAddress);
+
 		viewInfoGpuAddress += sizeof(uint) * 10;
 		materialGpuAddress += sizeof(uint) * 5;
 	}
 }
 
-void world::boundData(void* cbvLoc)
+uint world::writeCullInstanceList(unsigned char* dst) const
 {
-	unsigned char* gpuAddress = reinterpret_cast<unsigned char*>(cbvLoc);
-	for (uint i = 0; i < cameraObjNum[0]; ++i)
+	for (uint i = 0; i < objectNum; ++i)
 	{
-		objects[cameraObjectIndex[i]].boundData(gpuAddress);
-		gpuAddress += 6 * sizeof(float);
+		instlist::cullInstance rec = {};
+		memcpy(rec.halfExtent, objects[i].getMesh()->getData()->boundData.halfExtent, sizeof(rec.halfExtent));
+		objects[i].submit(&rec.packedID, i);
+		memcpy(dst + i * instlist::CULL_INSTANCE_BYTES, &rec, sizeof(rec));
 	}
 
-	for (uint j = 0; j < cameraObjNum[1]; ++j)
+	return objectNum;
+}
+
+uint world::writeInstanceBounds(unsigned char* dst) const
+{
+	for (uint i = 0; i < objectNum; ++i)
 	{
-		objects[cameraObjectIndex[MAX_OBJECTS - 1 - j]].boundData(gpuAddress);
-		gpuAddress += 6 * sizeof(float);
+		objects[i].boundData(dst + i * 6 * sizeof(float));
 	}
+
+	return objectNum;
 }
 
 void world::setupScene()

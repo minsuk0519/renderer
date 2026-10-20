@@ -1,6 +1,7 @@
 #pragma once
 
 #include <system/defines.hpp>
+#include <system/config.hpp>
 #include <vector>
 #include <render/render_memlayout.hpp>
 
@@ -47,11 +48,15 @@ namespace render
 #if ENGINE_DEBUG_READBACK
 	constexpr uint DEBUG_READBACK_STATS_BYTES = sizeof(uint) * 32;
 	constexpr uint DEBUG_READBACK_MEMVIEW_BYTES = 64u * 1024u * 1024u;
+	constexpr uint DEBUG_READBACK_INSTCULL_OFFSET = 4096;
+	constexpr uint DEBUG_READBACK_INSTCULL_BYTES = 2 * sizeof(uint);
 #if ENGINE_DEBUG_MEMVIEW
 	constexpr uint DEBUG_READBACK_BUFFER_SIZE = DEBUG_READBACK_MEMVIEW_BYTES;
 #else
-	constexpr uint DEBUG_READBACK_BUFFER_SIZE = DEBUG_READBACK_STATS_BYTES;
+	constexpr uint DEBUG_READBACK_BUFFER_SIZE = DEBUG_READBACK_INSTCULL_OFFSET + DEBUG_READBACK_INSTCULL_BYTES;
 #endif // ENGINE_DEBUG_MEMVIEW
+	static_assert(DEBUG_READBACK_BUFFER_SIZE >= DEBUG_READBACK_INSTCULL_OFFSET + DEBUG_READBACK_INSTCULL_BYTES,
+		"debug readback buffer must hold the instance-cull copy");
 #endif // ENGINE_DEBUG_READBACK
 }  // namespace render
 

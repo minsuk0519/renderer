@@ -123,9 +123,12 @@ private:
 #endif //#if ENGINE_DEBUG_BUFFER
 	buffer* viewInfoBuffer = nullptr;
 	buffer* materialBuffer = nullptr;
+	buffer* instanceListBuffer = nullptr;
+	buffer* instanceLastVisibleBuffer = nullptr;
+	buffer* cullInstanceBuffer = nullptr;
+	uint instCullFrame = 1;
 	buffer* clusterBoundBuffer = nullptr;
 	
-	buffer* cmdConstBuffer = nullptr;
 
 	bool debugCamMode = false;
 

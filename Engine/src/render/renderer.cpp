@@ -168,6 +168,9 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::
 	visibleTriBuffer = e_globBufAllocator.alloc(nullptr, MAX_CLUSTERS * THREADS_NUM_CLUSTERS * sizeof(uint), 1, buf::GBF_UAV | buf::GBF_SRV, 0);
 	viewInfoBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 10, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
 	materialBuffer = e_globBufAllocator.alloc(nullptr, MAX_OBJECTS * sizeof(float) * 5, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
+	instanceListBuffer = e_globBufAllocator.alloc(nullptr, instlist::INSTLIST_BYTES, 1, buf::GBF_UAV | buf::GBF_SRV, 0);
+	instanceLastVisibleBuffer = e_globBufAllocator.alloc(nullptr, instlist::LAST_VISIBLE_BYTES, 1, buf::GBF_UAV, 0);
+	cullInstanceBuffer = e_globBufAllocator.alloc(nullptr, instlist::CULL_INSTANCES_BYTES, 1, buf::GBF_SRV, buf::RESOURCE_UPLOAD, DXGI_FORMAT_R32_TYPELESS);
 
 #if ENGINE_DEBUG_BUFFER
 	outDebugBuffer = e_globBufAllocator.alloc(nullptr, 65536 * 1024 * sizeof(uint), 1, buf::GBF_UAV, 0);
@@ -387,6 +390,8 @@ bool renderer::createFrameResources()
 		render::getpipelinestate(render::PSO_CULLCLUSTER)->setCommandSignature(sigData[1]);
 		render::getpipelinestate(render::PSO_RASTERIZER)->setCommandSignature(sigData[2]);
 		render::getpipelinestate(render::PSO_CULLCLUSTER_POST)->setCommandSignature(sigData[1]);
+		render::getpipelinestate(render::PSO_UPLOADLOCALOBJ)->setCommandSignature(sigData[1]);
+		render::getpipelinestate(render::PSO_UPLOADPOSTOBJ)->setCommandSignature(sigData[1]);
 
 		sigData[3].push_back({ D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT, CBV_VISBUFFER_MATERIALID, 1 });
 
@@ -600,6 +605,7 @@ void renderer::guiCullingSetting()
 
 	ImGui::PlotLines("Cluster survivors", getClusterSurvivorHistory(), (int)CULLSTATS_HISTORY, (int)getCullStatsHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
 	ImGui::PlotLines("Triangle survivors", getTriSurvivorHistory(), (int)CULLSTATS_HISTORY, (int)getCullStatsHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
+
 }
 
 void renderer::guiHZBSetting()
@@ -745,7 +751,7 @@ void renderer::preDraw([[maybe_unused]] float dt)
 	debugSubsystem.update();
 #endif // ENGINE_DEBUG_READBACK
 
-	e_globWorld.instanceCulling();
+	e_globWorld.getMainCam()->updateView();
 }
 
 void renderer::setUpTerrain()
@@ -824,20 +830,9 @@ void renderer::setUpTerrain()
 	e_globRenderer.uploadMeshToUB(terrainVert[0], terrainVert[1], terrainVert[2], newData, msh::MESH_TERRAIN, MESH_INFO_FLAGS_TERRAIN);
 }
 
-struct cmdConsts
-{
-	uint packedID[128 * 4] = { 0 };
-	uint objCount = 0;
-};
-
 void renderer::setUp()
 {
 	setUpTerrain();
-
-	{
-		//todo stride
-		cmdConstBuffer = e_globBufAllocator.alloc(nullptr, 513 * sizeof(uint), 6, buf::GBF_CBV, buf::RESOURCE_UPLOAD);
-	}
 
 #if ENGINE_DEBUG_DEBUGCAM
 	{
@@ -1006,6 +1001,38 @@ void renderer::draw([[maybe_unused]] float dt)
 		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
 	}
 
+	++instCullFrame;
+
+	unsigned char* cullInstanceDataPtr = nullptr;
+	cullInstanceBuffer->mapBuffer(&cullInstanceDataPtr);
+	const uint cullInstanceCount = e_globWorld.writeCullInstanceList(cullInstanceDataPtr);
+	cullInstanceBuffer->unmapBuffer();
+
+	{
+		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_INSTCULL);
+
+		{
+			GPU_EVENT(computeCmdList.Get(), "InstCull");
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_INSTCULL_LIST, instanceListBuffer, buf::GBF_UAV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_INSTCULL_LASTVISIBLE, instanceLastVisibleBuffer, buf::GBF_UAV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INSTCULL_INSTANCES, cullInstanceBuffer, buf::GBF_SRV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_VIEWINFO_BUFFER, viewInfoBuffer, buf::GBF_SRV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_PROJECTION, e_globWorld.getMainCam()->projectionBuffer, buf::GBF_CBV);
+
+			uint cullConsts[instlist::CULL_CONSTS_DWORDS] = { cullInstanceCount, instCullFrame };
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_INSTCULL_CONSTS, instlist::CULL_CONSTS_DWORDS, cullConsts);
+
+			computeCmdList->Dispatch(1, 1, 1);
+		}
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+	}
+
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
@@ -1017,27 +1044,25 @@ void renderer::draw([[maybe_unused]] float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTEROFFSET_BUFFER, localClusterOffsetBuffer, buf::GBF_UAV);
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeBuffer, buf::GBF_UAV);
 
-			unsigned char* cbvDataBegin;
-			cmdConstBuffer->mapBuffer(&cbvDataBegin);
-			uint objCount = e_globWorld.submitObjects(cbvDataBegin);
-			uint postOffset = objCount;
-			uint postCount = e_globWorld.cameraObjNum[1];
-
-			memcpy(cbvDataBegin + 64 * 4 * 4, &objCount, 4);
-			memcpy(cbvDataBegin + 64 * 4 * 4 + 4, &postOffset, 4);
-			memcpy(cbvDataBegin + 64 * 4 * 4 + 8, &postCount, 4);
-
-			cmdConstBuffer->unmapBuffer();
-
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, cmdConstBuffer, buf::GBF_CBV);
-
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, ubManager->meshInfoBuffer, buf::GBF_SRV);
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, ubManager->lodInfoBuffer, buf::GBF_SRV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INSTANCE_LIST_BUFFER, instanceListBuffer, buf::GBF_SRV);
 
-			if (objCount > 0)
-			{
-				computeCmdList->Dispatch(objCount, 1, 1);
-			}
+			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_UPLOADLOCALOBJ)->getCmdSignature(), 1, instanceListBuffer->getResource(), instlist::OFF_PASS1_ARGS, nullptr, 0);
+		}
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->flush();
+
+		render::getCmdQueue(render::QUEUE_COMPUTE)->bindPSO(render::PSO_PREPCULLARGS);
+
+		{
+			GPU_EVENT(computeCmdList.Get(), "PrepCullArgs");
+
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeBuffer, buf::GBF_UAV);
+
+			computeCmdList->Dispatch(1, 1, 1);
 		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
@@ -1187,7 +1212,6 @@ void renderer::draw([[maybe_unused]] float dt)
 
 	generateHZB();
 
-	if (e_globWorld.cameraObjNum[1] > 0)
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
 
@@ -1198,13 +1222,11 @@ void renderer::draw([[maybe_unused]] float dt)
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_OCCLUDED_CLUSTERS, occludedClusterBuffer, buf::GBF_UAV);
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_CLUSTERSIZE_BUFFER, localClusterSizeBuffer, buf::GBF_UAV);
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CMDBUFCONSTS, cmdConstBuffer, buf::GBF_CBV);
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_MESHINFO_BUFFER, ubManager->meshInfoBuffer, buf::GBF_SRV);
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_LOD_INFO_BUFFER, ubManager->lodInfoBuffer, buf::GBF_SRV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(SRV_INSTANCE_LIST_BUFFER, instanceListBuffer, buf::GBF_SRV);
 
-			const uint CLUSTER_THREAD_NUM_CPU = 64;
-			uint postCount = e_globWorld.cameraObjNum[1];
-			computeCmdList->Dispatch((postCount + CLUSTER_THREAD_NUM_CPU - 1) / CLUSTER_THREAD_NUM_CPU, 1, 1);
+			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_UPLOADPOSTOBJ)->getCmdSignature(), 1, instanceListBuffer->getResource(), instlist::OFF_PASS2_ARGS, nullptr, 0);
 		}
 
 		render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
@@ -1329,6 +1351,17 @@ void renderer::draw([[maybe_unused]] float dt)
 				CD3DX12_RESOURCE_BARRIER toUAV = CD3DX12_RESOURCE_BARRIER::Transition(
 					debugStatsBuffer->getResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 				computeCmdList->ResourceBarrier(1, &toUAV);
+
+				CD3DX12_RESOURCE_BARRIER instToCopySrc = CD3DX12_RESOURCE_BARRIER::Transition(
+					instanceListBuffer->getResource(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE);
+				computeCmdList->ResourceBarrier(1, &instToCopySrc);
+
+				computeCmdList->CopyBufferRegion(statsReadback->getResource(), render::DEBUG_READBACK_INSTCULL_OFFSET,
+					instanceListBuffer->getResource(), 0, render::DEBUG_READBACK_INSTCULL_BYTES);
+
+				CD3DX12_RESOURCE_BARRIER instToCommon = CD3DX12_RESOURCE_BARRIER::Transition(
+					instanceListBuffer->getResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON);
+				computeCmdList->ResourceBarrier(1, &instToCommon);
 			}
 
 			render::getCmdQueue(render::QUEUE_COMPUTE)->execute({ computeCmdList });
@@ -1337,10 +1370,13 @@ void renderer::draw([[maybe_unused]] float dt)
 
 			{
 				unsigned char* statsPtr = nullptr;
-				if (statsReadback->mapReadbackBuffer(&statsPtr, render::DEBUG_READBACK_STATS_BYTES))
+				if (statsReadback->mapReadbackBuffer(&statsPtr, render::DEBUG_READBACK_INSTCULL_OFFSET + render::DEBUG_READBACK_INSTCULL_BYTES))
 				{
 					uint slots[render::DEBUG_READBACK_STATS_BYTES / sizeof(uint)] = {};
 					memcpy(slots, statsPtr, render::DEBUG_READBACK_STATS_BYTES);
+
+					uint instCounts[2] = {};
+					memcpy(instCounts, statsPtr + render::DEBUG_READBACK_INSTCULL_OFFSET, sizeof(instCounts));
 
 					statsReadback->unmapReadbackBuffer();
 
@@ -1359,8 +1395,8 @@ void renderer::draw([[maybe_unused]] float dt)
 					cullStatsData.pass2.triSurvivors = slots[5];
 
 					cullStatsData.instancesTotal = e_globWorld.objectNum;
-					cullStatsData.instancesPass1 = e_globWorld.cameraObjNum[0];
-					cullStatsData.instancesPass2 = e_globWorld.cameraObjNum[1];
+					cullStatsData.instancesPass1 = instCounts[0];
+					cullStatsData.instancesPass2 = instCounts[1];
 					cullStatsData.hzbActive = hzbCullEnable;
 
 					float survivorTotal = (float)(cullStatsData.pass1.clusterSurvivors + cullStatsData.pass2.clusterSurvivors);
@@ -1697,10 +1733,11 @@ void renderer::draw([[maybe_unused]] float dt)
 
 	if(renderGuiSetting::guiDebug.AABBDraw)
 	{
+		uint aabbCount = 0;
 		unsigned char* aabbGPUAddress = nullptr;
 		AABBwireframeBuffer[1]->mapBuffer(&aabbGPUAddress);
 
-		e_globWorld.boundData(aabbGPUAddress);
+		aabbCount = e_globWorld.writeInstanceBounds(aabbGPUAddress);
 
 		AABBwireframeBuffer[1]->unmapBuffer();
 
@@ -1719,7 +1756,7 @@ void renderer::draw([[maybe_unused]] float dt)
 			setVertexBuffer(cmdList, 1, AABBwireframeBuffer[1]);
 			setIndexBuffer(cmdList, AABBwireframeBuffer[2]);
 
-			cmdList->DrawIndexedInstanced(24, e_globWorld.objectNum, 0, 0, 0);
+			cmdList->DrawIndexedInstanced(24, aabbCount, 0, 0, 0);
 
 			swapchainFB[frameIndex]->closeFB(cmdList);
 		}
