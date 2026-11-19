@@ -152,14 +152,14 @@ public:
 	buffer_header* getHeader();
 	const buffer_header* getHeader() const;
 
-	void uploadBuffer(uint size, uint offset, void* data);
+	bool uploadBuffer(uint size, uint offset, void* data);
 
 	descriptor* getDesc(buf::graphicBufferFlags flag);
 
 	CD3DX12_RESOURCE_BARRIER getTransition(D3D12_RESOURCE_STATES after);
 	D3D12_RESOURCE_STATES getCurResourceState() const;
 
-	void mapBuffer(unsigned char** dataPtr);
+	bool mapBuffer(unsigned char** dataPtr);
 	void unmapBuffer();
 
 	bool mapReadbackBuffer(unsigned char** dataPtr, uint readSize);

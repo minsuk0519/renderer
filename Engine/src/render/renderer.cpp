@@ -450,7 +450,11 @@ void renderer::uploadGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>
 	//todo : change it to srcOffset
 	const uint offset = 0;
 
-	uploadBuffer->uploadBuffer(size, offset, data);
+	if (!uploadBuffer->uploadBuffer(size, offset, data))
+	{
+		TC_LOG_ERROR("renderer::uploadGPUBuffer: staging upload rejected; GPU copy skipped");
+		return;
+	}
 
 	copyGPUBuffer(cmdList, dst, dstOffset, uploadBuffer, offset, size);
 }
@@ -461,7 +465,11 @@ void renderer::uploadCopyGPUBuffer(ID3D12Resource* resource, void* data, uint si
 
 	const uint offset = 0;
 
-	uploadBuffer->uploadBuffer(size, offset, data);
+	if (!uploadBuffer->uploadBuffer(size, offset, data))
+	{
+		TC_LOG_ERROR("renderer::uploadCopyGPUBuffer: staging upload rejected; GPU copy skipped");
+		return;
+	}
 
 	const HRESULT copyResetResult = cmdList->Reset(render::getCmdQueue(render::QUEUE_COPY)->getAllocator().Get(), nullptr);
 	TC_CONDITION(SUCCEEDED(copyResetResult), "Failed to reset copy command list for buffer upload");
@@ -976,11 +984,20 @@ void renderer::draw([[maybe_unused]] float dt)
 {
 	unsigned char* viewInfoDataPtr = nullptr;
 	unsigned char* materialDataPtr = nullptr;
-	viewInfoBuffer->mapBuffer(&viewInfoDataPtr);
-	materialBuffer->mapBuffer(&materialDataPtr);
-	e_globWorld.uploadObjectInfo(viewInfoDataPtr, materialDataPtr);
-	viewInfoBuffer->unmapBuffer();
-	materialBuffer->unmapBuffer();
+	const bool viewInfoMapped = viewInfoBuffer->mapBuffer(&viewInfoDataPtr);
+	const bool materialMapped = materialBuffer->mapBuffer(&materialDataPtr);
+	if (viewInfoMapped && materialMapped)
+	{
+		e_globWorld.uploadObjectInfo(viewInfoDataPtr, materialDataPtr);
+	}
+	if (viewInfoMapped)
+	{
+		viewInfoBuffer->unmapBuffer();
+	}
+	if (materialMapped)
+	{
+		materialBuffer->unmapBuffer();
+	}
 
 	bool hzbCullEnable = false;
 
@@ -1006,9 +1023,12 @@ void renderer::draw([[maybe_unused]] float dt)
 	++instCullFrame;
 
 	unsigned char* cullInstanceDataPtr = nullptr;
-	cullInstanceBuffer->mapBuffer(&cullInstanceDataPtr);
-	const uint cullInstanceCount = e_globWorld.writeCullInstanceList(cullInstanceDataPtr);
-	cullInstanceBuffer->unmapBuffer();
+	const bool cullInstanceMapped = cullInstanceBuffer->mapBuffer(&cullInstanceDataPtr);
+	const uint cullInstanceCount = cullInstanceMapped ? e_globWorld.writeCullInstanceList(cullInstanceDataPtr) : 0u;
+	if (cullInstanceMapped)
+	{
+		cullInstanceBuffer->unmapBuffer();
+	}
 
 	{
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
@@ -1737,11 +1757,14 @@ void renderer::draw([[maybe_unused]] float dt)
 	{
 		uint aabbCount = 0;
 		unsigned char* aabbGPUAddress = nullptr;
-		AABBwireframeBuffer[1]->mapBuffer(&aabbGPUAddress);
+		const bool aabbMapped = AABBwireframeBuffer[1]->mapBuffer(&aabbGPUAddress);
 
-		aabbCount = e_globWorld.writeInstanceBounds(aabbGPUAddress);
+		aabbCount = aabbMapped ? e_globWorld.writeInstanceBounds(aabbGPUAddress) : 0u;
 
-		AABBwireframeBuffer[1]->unmapBuffer();
+		if (aabbMapped)
+		{
+			AABBwireframeBuffer[1]->unmapBuffer();
+		}
 
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->bindPSO(render::PSO_AABBDEBUGDRAW);
 

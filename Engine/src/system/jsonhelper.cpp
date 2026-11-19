@@ -2,9 +2,14 @@
 
 #include <Windows.h>
 
+#include <format>
+#include <limits>
+
 int rawFileRead(const std::string& fileName, char** data, uint bufferSize)
 {
-	HANDLE hFile = CreateFileA(
+	*data = nullptr;
+
+	const HANDLE hFile = CreateFileA(
 		fileName.c_str(),
 		GENERIC_READ,
 		0,
@@ -13,68 +18,69 @@ int rawFileRead(const std::string& fileName, char** data, uint bufferSize)
 		FILE_ATTRIBUTE_READONLY,
 		nullptr);
 
-	std::error_code errorCode;
-
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
-		errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+		TC_LOG_ERROR(std::format("rawFileRead: failed to open '{}' (error {})", fileName, GetLastError()).c_str());
 		return -1;
 	}
 
-	auto size = LARGE_INTEGER{};
-	if (!GetFileSizeEx(hFile, &size))
+	LARGE_INTEGER fileSize = {};
+	if (!GetFileSizeEx(hFile, &fileSize))
 	{
-		errorCode = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+		const DWORD sizeError = GetLastError();
 		CloseHandle(hFile);
+		TC_LOG_ERROR(std::format("rawFileRead: GetFileSizeEx failed for '{}' (error {})", fileName, sizeError).c_str());
 		return -1;
 	}
 
-	uint fileBufferSize = 0;
-	if (bufferSize == 0)
+	if (fileSize.QuadPart < 0)
 	{
-		fileBufferSize = BUFFERSIZE;
-	}
-	else
-	{
-		fileBufferSize = bufferSize;
-	}
-	
-	*data = new char[fileBufferSize];
-
-	const uint offset = 0;
-
-	HANDLE m_handle = CreateEventA(nullptr, FALSE, FALSE, nullptr);
-
-	auto error = std::error_code();
-	if (m_handle == INVALID_HANDLE_VALUE)
-	{
-		error = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+		CloseHandle(hFile);
+		TC_LOG_ERROR(std::format("rawFileRead: negative file size reported for '{}'", fileName).c_str());
+		return -1;
 	}
 
-	OVERLAPPED overlapped{};
-	overlapped.hEvent = m_handle;
-	overlapped.Offset = static_cast<DWORD>(offset);
-	overlapped.OffsetHigh = static_cast<DWORD>(offset >> 32);
+	const UINT64 readSizeWide = static_cast<UINT64>(fileSize.QuadPart);
+
+	const UINT64 cap = (bufferSize == 0) ? static_cast<UINT64>(BUFFERSIZE) : static_cast<UINT64>(bufferSize);
+	if (readSizeWide > static_cast<UINT64>((std::numeric_limits<DWORD>::max)()) || readSizeWide > cap)
+	{
+		CloseHandle(hFile);
+		TC_LOG_ERROR(std::format("rawFileRead: '{}' is {} bytes, larger than the {} byte read cap; refusing to truncate", fileName, readSizeWide, cap).c_str());
+		return -1;
+	}
+
+	if (readSizeWide > static_cast<UINT64>((std::numeric_limits<int>::max)()))
+	{
+		CloseHandle(hFile);
+		TC_LOG_ERROR(std::format("rawFileRead: '{}' is {} bytes, larger than INT_MAX; cannot be returned as int", fileName, readSizeWide).c_str());
+		return -1;
+	}
+
+	const uint readSize = static_cast<uint>(readSizeWide);
+
+	char* buffer = new char[static_cast<size_t>(readSize) + 1];
 
 	DWORD bytesRead = 0;
-
-	const bool success = ReadFile(hFile, reinterpret_cast<void**>(*data), static_cast<DWORD>(BUFFERSIZE), &bytesRead, nullptr);
-
-	(*data)[bytesRead] = '\0';
+	const BOOL success = ReadFile(hFile, buffer, static_cast<DWORD>(readSize), &bytesRead, nullptr);
+	const DWORD readError = success ? ERROR_SUCCESS : GetLastError();
+	CloseHandle(hFile);
 
 	if (!success)
 	{
-		if (auto ec = GetLastError(); ec != ERROR_IO_PENDING)
-		{
-			error = std::error_code(ec, std::system_category());
-		}
-
+		delete[] buffer;
+		TC_LOG_ERROR(std::format("rawFileRead: ReadFile failed for '{}' (error {})", fileName, readError).c_str());
 		return -1;
 	}
 
-	// It is always good practice to close the open file handles even though
-	// the app will exit here and clean up open handles anyway.
-	CloseHandle(hFile);
+	if (bytesRead != readSize)
+	{
+		delete[] buffer;
+		TC_LOG_ERROR(std::format("rawFileRead: short read for '{}' ({} of {} bytes)", fileName, bytesRead, readSize).c_str());
+		return -1;
+	}
 
-	return bytesRead;
+	buffer[readSize] = '\0';
+	*data = buffer;
+	return static_cast<int>(readSize);
 }

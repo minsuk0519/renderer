@@ -12,6 +12,7 @@
 #include <system/gui.hpp>
 
 #include <vector>
+#include <format>
 
 #include <d3d12.h>
 #include <d3dx12.h>
@@ -516,17 +517,25 @@ namespace buf
 
 namespace buf
 {
-    void copyResource(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, void* data, uint offset, uint size)
+    bool copyResource(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, void* data, uint offset, uint size)
     {
-        if (data != nullptr)
+        // nothing to copy
+        if (data == nullptr)
         {
-            UINT8* pVertexDataBegin = nullptr;
-            CD3DX12_RANGE readRange(0, 0);
-            const HRESULT mapResult = resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-            TC_CONDITION(SUCCEEDED(mapResult), "Failed to map upload resource");
-            memcpy(pVertexDataBegin + offset, data, size);
-            resource->Unmap(0, nullptr);
+            return true;
         }
+
+        UINT8* pVertexDataBegin = nullptr;
+        CD3DX12_RANGE readRange(0, 0);
+        const HRESULT mapResult = resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+        if (FAILED(mapResult) || pVertexDataBegin == nullptr)
+        {
+            TC_LOG_ERROR(std::format("buf::copyResource: Map failed (hr 0x{:08X}); upload skipped", static_cast<unsigned long>(mapResult)).c_str());
+            return false;
+        }
+        memcpy(pVertexDataBegin + offset, data, size);
+        resource->Unmap(0, nullptr);
+        return true;
     }
 
     D3D12_RESOURCE_STATES createResource(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, CD3DX12_RESOURCE_DESC* bufDesc, uint size, void* data, CD3DX12_CLEAR_VALUE* clear, uint flags)
@@ -786,14 +795,42 @@ const buffer_header* buffer::getHeader() const
     return &header;
 }
 
-void buffer::uploadBuffer(uint size, uint offset, void* data)
+bool buffer::uploadBuffer(uint size, uint offset, void* data)
 {
+    if (data == nullptr)
+    {
+        TC_LOG_ERROR("buffer::uploadBuffer: data is nullptr; nothing uploaded");
+        return false;
+    }
+
+    // Empty upload: nothing to map, nothing to copy.
+    if (size == 0)
+    {
+        return true;
+    }
+
+    const UINT64 capacity = static_cast<UINT64>(header.dataSize);
+    const UINT64 end = static_cast<UINT64>(offset) + static_cast<UINT64>(size);
+    if (end > capacity)
+    {
+        TC_LOG_ERROR(std::format("buffer::uploadBuffer: offset {} + size {} exceeds capacity {} (buffer id {}); upload rejected",
+            offset, size, header.dataSize, static_cast<uint>(header.packedData.bufferId)).c_str());
+        return false;
+    }
+
     UINT8* pVertexDataBegin = nullptr;
     CD3DX12_RANGE readRange(0, 0);
     const HRESULT mapResult = resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-    TC_CONDITION(SUCCEEDED(mapResult), "Failed to map vertex buffer for upload");
+    if (FAILED(mapResult) || pVertexDataBegin == nullptr)
+    {
+        TC_LOG_ERROR(std::format("buffer::uploadBuffer: Map failed (hr 0x{:08X}, buffer id {}); upload skipped",
+            static_cast<unsigned long>(mapResult), static_cast<uint>(header.packedData.bufferId)).c_str());
+        return false;
+    }
+
     memcpy(pVertexDataBegin + offset, data, size);
     resource->Unmap(0, nullptr);
+    return true;
 }
 
 descriptor* buffer::getDesc(buf::graphicBufferFlags flag)
@@ -829,11 +866,25 @@ D3D12_RESOURCE_STATES buffer::getCurResourceState() const
     return curState;
 }
 
-void buffer::mapBuffer(unsigned char** dataPtr)
+bool buffer::mapBuffer(unsigned char** dataPtr)
 {
+    if (dataPtr == nullptr)
+    {
+        TC_LOG_ERROR("buffer::mapBuffer: dataPtr is nullptr; not mapped");
+        return false;
+    }
+
+    *dataPtr = nullptr;
     CD3DX12_RANGE readRange(0, 0);
     const HRESULT mapResult = resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
-    TC_CONDITION(SUCCEEDED(mapResult), "Failed to map buffer");
+    if (FAILED(mapResult) || *dataPtr == nullptr)
+    {
+        *dataPtr = nullptr;
+        TC_LOG_ERROR(std::format("buffer::mapBuffer: Map failed (hr 0x{:08X}, buffer id {})",
+            static_cast<unsigned long>(mapResult), static_cast<uint>(header.packedData.bufferId)).c_str());
+        return false;
+    }
+    return true;
 }
 
 void buffer::unmapBuffer()
@@ -845,7 +896,7 @@ bool buffer::mapReadbackBuffer(unsigned char** dataPtr, uint readSize)
 {
     CD3DX12_RANGE readRange(0, readSize);
     const HRESULT hr = resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
-    if (FAILED(hr))
+    if (FAILED(hr) || *dataPtr == nullptr)
     {
         *dataPtr = nullptr;
         return false;
