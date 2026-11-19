@@ -80,6 +80,9 @@
     <ClInclude Include="include\world\world_load.hpp">
       <Filter>world</Filter>
     </ClInclude>
+    <ClInclude Include="include\world\spatial_hierarchy.hpp">
+      <Filter>world</Filter>
+    </ClInclude>
     <ClInclude Include="include\world\world.hpp">
       <Filter>world</Filter>
     </ClInclude>
@@ -192,6 +195,9 @@
       <Filter>world</Filter>
     </ClCompile>
     <ClCompile Include="src\world\world_load.cpp">
+      <Filter>world</Filter>
+    </ClCompile>
+    <ClCompile Include="src\world\spatial_hierarchy.cpp">
       <Filter>world</Filter>
     </ClCompile>
     <ClCompile Include="src\system\mathhelper.cpp">

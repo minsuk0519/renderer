@@ -7,6 +7,8 @@
 #include <render/shader_defines.hpp>
 #include <system/gui.hpp>
 #include <system/input.hpp>
+#include <system/logger.hpp>
+#include <world/spatial_hierarchy.hpp>
 
 #include <cstring>
 
