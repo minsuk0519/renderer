@@ -5,6 +5,7 @@
 #include <render/shader.hpp>
 #include <render/shader_defines.hpp>
 
+#include <format>
 #include <string>
 #include <iterator>
 #include <array>
@@ -29,6 +30,15 @@ struct dataInfo
 
 bool rootsignature::initFromShader(const std::vector<uint>& shaderIDs, std::map<uint, uint>& hlslPos, bool cs)
 {
+	for (auto id : shaderIDs)
+	{
+		if (shaders::getShader(id) == nullptr)
+		{
+			TC_LOG_ERROR(std::format("initFromShader: shader {} is missing", id).c_str());
+			return false;
+		}
+	}
+
 	compute = cs;
 
 	std::array<std::map<uint, dataInfo>, render::D3D12_RANGE_TYPE_SIZE> typeMaps;
@@ -155,7 +165,7 @@ bool rootsignature::initFromShader(const std::vector<uint>& shaderIDs, std::map<
 	Microsoft::WRL::ComPtr<ID3DBlob> signature;
 	Microsoft::WRL::ComPtr<ID3DBlob> error;
 
-	D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+	const HRESULT serializeResult = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
 
 	std::string errorMsg;
 	if (error != nullptr)
@@ -174,87 +184,14 @@ bool rootsignature::initFromShader(const std::vector<uint>& shaderIDs, std::map<
 		return false;
 	}
 
-	const HRESULT createResult = e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
-	TC_CONDITION(SUCCEEDED(createResult), "Failed to create root signature");
-
-	return true;
-}
-
-bool rootsignature::init(std::vector<render::root_init_param> descriptors, const std::vector<uint>& constantNums, bool CS)
-{
-	compute = CS;
-
-	std::vector<CD3DX12_DESCRIPTOR_RANGE> ranges;
-	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters;
-
-	ranges.resize(descriptors.size());
-	rootParameters.resize(descriptors.size() + constantNums.size());
-
-	uint index[render::D3D12_RANGE_TYPE_CONSTANT] = { 0 };
-	for (int i = 0; i < descriptors.size(); ++i)
+	if (FAILED(serializeResult) || signature == nullptr)
 	{
-		const D3D12_DESCRIPTOR_RANGE_TYPE type = descriptors[i].type;
-		const D3D12_SHADER_VISIBILITY visibility = descriptors[i].vis;
-		const uint descNum = descriptors[i].num;
-
-		if (type == (D3D12_DESCRIPTOR_RANGE_TYPE)render::D3D12_RANGE_TYPE_CONSTANT)
-		{
-			rootParameters[i].InitAsConstantBufferView(index[D3D12_DESCRIPTOR_RANGE_TYPE_CBV], 0, visibility);
-			++index[D3D12_DESCRIPTOR_RANGE_TYPE_CBV];
-		}
-		else
-		{
-			ranges[i].Init(type, descNum, index[type], 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
-			//++index[type];
-			index[type] += descNum;
-			rootParameters[i].InitAsDescriptorTable(1, &ranges[i], visibility);
-		}
-	}
-
-	uint rootParamIndex = (uint)descriptors.size();
-
-	for (auto cons : constantNums)
-	{
-		rootParameters[rootParamIndex].InitAsConstants(cons, index[D3D12_DESCRIPTOR_RANGE_TYPE_CBV]);
-		++index[D3D12_DESCRIPTOR_RANGE_TYPE_CBV];
-		++rootParamIndex;
-	}
-
-	const D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
-
-	CD3DX12_STATIC_SAMPLER_DESC samplerDesc = CD3DX12_STATIC_SAMPLER_DESC(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
-
-	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init(static_cast<UINT>(rootParameters.size()), rootParameters.data(), 1, &samplerDesc, rootSignatureFlags);
-
-	Microsoft::WRL::ComPtr<ID3DBlob> signature;
-	Microsoft::WRL::ComPtr<ID3DBlob> error;
-
-	D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
-
-	std::string errorMsg;
-	if (error != nullptr)
-	{
-		auto* p = reinterpret_cast<unsigned char*>(error->GetBufferPointer());
-		auto  n = error->GetBufferSize();
-		std::vector<unsigned char> buff;
-
-		buff.reserve(n);
-		std::copy(p, p + n, std::back_inserter(buff));
-
-		for (auto c : buff) errorMsg += c;
-
 		TC_LOG_ERROR("Cannot serialize root signature!");
-
 		return false;
 	}
 
 	const HRESULT createResult = e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
-	TC_CONDITION(SUCCEEDED(createResult), "Failed to create root signature");
+	TC_CONDITIONB(SUCCEEDED(createResult), "Failed to create root signature");
 
 	return true;
 }

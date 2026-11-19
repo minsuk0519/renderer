@@ -86,14 +86,14 @@ private:
 	buffer* memReadbackTarget = nullptr;
 	uint memReadbackByteCount = 0;
 	std::vector<unsigned char> memReadbackData;
-	uint memReadbackResultId = ~0u;
+	uint memReadbackResultId = BUFFER_ID_INVALID;
 	bool memReadbackFailed = false;
 
 	void ensureMemLayouts();
 	std::vector<render::memLayout> memLayouts;
 	bool memLayoutsAttempted = false;
 	int selectedMemLayoutIndex = -1;
-	uint lastReadbackSelectionId = ~0u;
+	uint lastReadbackSelectionId = BUFFER_ID_INVALID;
 
 #if ENGINE_DEBUG_RESOURCEVIEW
 	void guiUpdateButton(uint selectedId, bool selIsBuffer, bool selIsTexture);

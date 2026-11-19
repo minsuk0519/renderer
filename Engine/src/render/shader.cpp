@@ -114,6 +114,17 @@ namespace shaders
 
 		for (auto shaderData : shaderJsons)
 		{
+			if (shaderData.shaderIndex >= shaders.size())
+			{
+				TC_LOG_ERROR(std::format("shader.json: shaderIndex {} for {} ({}) is out of range (table size {})", shaderData.shaderIndex, shaderData.shaderFile, shaderData.entryPoint, shaders.size()).c_str());
+				continue;
+			}
+			if (shaders[shaderData.shaderIndex] != nullptr)
+			{
+				TC_LOG_ERROR(std::format("shader.json: shaderIndex {} for {} ({}) is already loaded; duplicate entry skipped", shaderData.shaderIndex, shaderData.shaderFile, shaderData.entryPoint).c_str());
+				continue;
+			}
+
 			std::wstring filePath = std::wstring(shaderData.shaderFile.begin(), shaderData.shaderFile.end());
 			std::wstring entryPoint = std::wstring(shaderData.entryPoint.begin(), shaderData.entryPoint.end());
 			std::wstring target = std::wstring(shaderData.target.begin(), shaderData.target.end());
@@ -169,6 +180,10 @@ namespace shaders
 
 	shader* getShader(const uint index)
 	{
+		if (index >= shaders.size())
+		{
+			return nullptr;
+		}
 		return shaders[index];
 	}
 

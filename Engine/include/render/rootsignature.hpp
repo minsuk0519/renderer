@@ -11,16 +11,6 @@
 
 class rootsignature;
 
-namespace render
-{
-	struct root_init_param
-	{
-		D3D12_DESCRIPTOR_RANGE_TYPE type = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-		D3D12_SHADER_VISIBILITY vis = D3D12_SHADER_VISIBILITY_ALL;
-		uint num = 1;
-	};
-};
-
 class rootsignature
 {
 private:
@@ -30,7 +20,6 @@ private:
 
 	bool compute = false;
 public:
-	bool init(std::vector<render::root_init_param> descriptors, const std::vector<uint>& constantNums, bool CS = false);
 	bool initFromShader(const std::vector<uint>& shaderIDs, std::map<uint, uint>& hlslPos, bool cs);
 	void setDescriptorHeap(std::vector<render::descriptorHeapIndex> descHeapsIdx);
 

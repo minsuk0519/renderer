@@ -27,13 +27,10 @@ constexpr uint CBVALLIGNMENT = 256;
 
 buffer_allocator e_globBufAllocator;
 
-constexpr uint BUFFER_HEADER_SIZE = ((4 + 4 + 4));
-//state + comptr + dataPointer
-constexpr uint BUFFER_VAR_SIZE = sizeof(char*) + sizeof(Microsoft::WRL::ComPtr<ID3D12Resource>) + sizeof(D3D12_RESOURCE_STATES);
-constexpr uint BUFFER_VIEW_OFFSET = BUFFER_HEADER_SIZE + BUFFER_VAR_SIZE;
+constexpr uint BUFFER_HEADER_SIZE = ((4 + 4 + 4 + 4));
+constexpr uint BUFFER_VIEW_OFFSET = sizeof(buffer);
 
 TC_STATICASSERT((BUFFER_HEADER_SIZE) == sizeof(buffer_header));
-TC_STATICASSERT((BUFFER_VAR_SIZE + BUFFER_HEADER_SIZE) == sizeof(buffer));
 
 namespace meshloadhelper
 {
@@ -228,7 +225,7 @@ namespace buf
         if (buf == nullptr)
             return;
 
-        const uint bufferId = buf->getHeader()->packedData.bufferId;
+        const uint bufferId = buf->getHeader()->bufferId;
         if (bufferId >= BUFFER_MAX_COUNT)
             return;
 
@@ -944,7 +941,7 @@ uint buffer::getElemSize() const
 
 uint buffer::getId() const
 {
-    return header.packedData.bufferId;
+    return header.bufferId;
 }
 
 ID3D12Resource* buffer::getResource() const
@@ -978,7 +975,7 @@ bool buffer::uploadBuffer(uint size, uint offset, void* data)
     if (!buf::uploadRangeValid(header.dataSize, offset, size))
     {
         TC_LOG_ERROR(std::format("buffer::uploadBuffer: offset {} + size {} exceeds capacity {} (buffer id {}); upload rejected",
-            offset, size, header.dataSize, static_cast<uint>(header.packedData.bufferId)).c_str());
+            offset, size, header.dataSize, header.bufferId).c_str());
         return false;
     }
 
@@ -988,7 +985,7 @@ bool buffer::uploadBuffer(uint size, uint offset, void* data)
     if (FAILED(mapResult) || pVertexDataBegin == nullptr)
     {
         TC_LOG_ERROR(std::format("buffer::uploadBuffer: Map failed (hr 0x{:08X}, buffer id {}); upload skipped",
-            static_cast<unsigned long>(mapResult), static_cast<uint>(header.packedData.bufferId)).c_str());
+            static_cast<unsigned long>(mapResult), header.bufferId).c_str());
         return false;
     }
 
@@ -1045,7 +1042,7 @@ bool buffer::mapBuffer(unsigned char** dataPtr)
     {
         *dataPtr = nullptr;
         TC_LOG_ERROR(std::format("buffer::mapBuffer: Map failed (hr 0x{:08X}, buffer id {})",
-            static_cast<unsigned long>(mapResult), static_cast<uint>(header.packedData.bufferId)).c_str());
+            static_cast<unsigned long>(mapResult), header.bufferId).c_str());
         return false;
     }
     return true;
@@ -1211,7 +1208,7 @@ void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
     {
         auto& current = *iter;
 
-        if (current->header.packedData.bufferId == bufferId)
+        if (current->header.bufferId == bufferId)
         {
 #if ENGINE_DEBUG_RESOURCEVIEW
             if (bufferId < BUFFER_MAX_COUNT)
@@ -1228,10 +1225,28 @@ void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
     TC_LOG_ERROR("freeInternal Error! something wrong with memBlocks");
 }
 
+void buffer_id_source::reset(uint firstId)
+{
+    nextId = firstId;
+}
+
+bool buffer_id_source::acquire(uint& id)
+{
+    if (nextId == BUFFER_ID_INVALID)
+    {
+        id = BUFFER_ID_INVALID;
+        return false;
+    }
+
+    id = nextId;
+    ++nextId;
+    return true;
+}
+
 void buffer_allocator::init()
 {
     data = new char[BUFFER_MAX_SIZE];
-    nextID = 0;
+    idSource.reset(0);
 
     freeList.reset(BUFFER_MAX_SIZE);
 }
@@ -1239,6 +1254,13 @@ void buffer_allocator::init()
 buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8 viewFlags,
     uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor, ID3D12Resource* resource, UINT16 mipSlice, UINT16 mipViewCount, const char* debugName, std::source_location debugLoc)
 {
+    uint newId = BUFFER_ID_INVALID;
+    if (!idSource.acquire(newId))
+    {
+        TC_LOG_ERROR("buffer_allocator::alloc: buffer id space exhausted");
+        return nullptr;
+    }
+
     //cbv size should be multiplied by 256 bytes
     if (viewFlags & (buf::graphicBufferFlags::GBF_CBV))
     {
@@ -1261,7 +1283,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
 
     buf->header.dataSize = size;
     buf->header.totalSize = totalSize;
-    buf->header.packedData.bufferId = nextID++;
+    buf->header.bufferId = newId;
     buf->header.packedData.allocated = 1;
     buf->header.packedData.viewFlags = viewFlags;
     buf->header.packedData.stride = stride;
@@ -1344,7 +1366,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
 
 #if ENGINE_DEBUG_RESOURCEVIEW
     {
-        const uint bufferId = buf->header.packedData.bufferId;
+        const uint bufferId = buf->header.bufferId;
         if (bufferId < BUFFER_MAX_COUNT)
         {
             buf::debugInfoTable[bufferId].views.clear();
@@ -1379,7 +1401,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
 
 #if ENGINE_DEBUG_RESOURCEVIEW
     {
-        const uint bufferId = buf->header.packedData.bufferId;
+        const uint bufferId = buf->header.bufferId;
         if (bufferId < BUFFER_MAX_COUNT)
         {
             buf::resourceDebugInfo& info = buf::debugInfoTable[bufferId];
@@ -1466,13 +1488,6 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     return buf;
 }
 
-void buffer_allocator::free(char* bufferData)
-{
-    const buffer* buf = reinterpret_cast<buffer*>(bufferData);
-
-    freeInternal(static_cast<uint>(data - bufferData), buf->header.totalSize, buf->header.packedData.bufferId);
-}
-
 void buffer_allocator::free(uint index)
 {
     bool found = false;
@@ -1481,7 +1496,7 @@ void buffer_allocator::free(uint index)
 
     for (auto& mem : memBlocks)
     {
-        if (mem->header.packedData.bufferId == index)
+        if (mem->header.bufferId == index)
         {
             startDiff = reinterpret_cast<char*>(mem) - data;
             found = true;
@@ -1635,7 +1650,7 @@ namespace buf
                     ImGui::TableSetColumnIndex(0);
                     if (ImGui::Selectable(info.name, render::getSelectedResourceId() == id, ImGuiSelectableFlags_SpanAllColumns))
                     {
-                        render::setSelectedResourceId(render::getSelectedResourceId() == id ? ~0u : id);
+                        render::setSelectedResourceId(render::getSelectedResourceId() == id ? BUFFER_ID_INVALID : id);
                     }
 
                     ImGui::TableSetColumnIndex(1);
@@ -1714,7 +1729,7 @@ namespace buf
         }
 
         const uint selectedId = render::getSelectedResourceId();
-        if (selectedId != ~0u)
+        if (selectedId != BUFFER_ID_INVALID)
         {
             ImGui::Separator();
             ImGui::Text("Selected: %s", getResourceDisplayName(selectedId));

@@ -182,16 +182,26 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, const Micro
 
 void renderer::close()
 {
-	msh::cleanUp();
+	for (uint q = 0; q < render::QUEUE_MAX; ++q)
+	{
+		commandqueue* queue = render::getCmdQueue(static_cast<render::QUEUE_INDEX>(q));
+		if (queue != nullptr)
+		{
+			queue->flush();
+		}
+	}
 
 	gui::close();
-	render::cleanUpPSO();
-	render::cleanUpDescHeap();
+	msh::cleanUp();
+	delete ubManager;
+	ubManager = nullptr;
 	buf::cleanUp();
 #if ENGINE_DEBUG_GPUPROF
 	prof::closeGPUProf();
 #endif // ENGINE_DEBUG_GPUPROF
+	render::cleanUpDescHeap();
 	render::closeCmdQueue();
+	render::cleanUpPSO();
 	shaders::cleanup();
 }
 

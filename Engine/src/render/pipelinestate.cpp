@@ -21,15 +21,32 @@ namespace render
 
 		readJsonBuffer(psoJsons, JSON_FILE_NAME::PSO_FILE);
 
-		TC_ASSERT(psoJsons.size() == render::PSO_END);
+		TC_CONDITIONB(psoJsons.size() == render::PSO_END, "initPSO: pso.json entry count does not match PSO_END");
 
 		for (const auto& psoData : psoJsons)
 		{
+			if (psoData.psoIndex >= render::PSO_END || pipelineStateObjects[psoData.psoIndex] != nullptr)
+			{
+				TC_LOG_ERROR(std::format("initPSO: psoIndex {} for '{}' is out of range or duplicated", psoData.psoIndex, psoData.psoName).c_str());
+				cleanUpPSO();
+				return false;
+			}
+
 			pipelinestate* newObject = new pipelinestate();
 
-			if (!psoData.cs) newObject->init(psoData.psoName, psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_CULL_MODE_NONE, psoData.wireframe, psoData.depth);
-			else newObject->initCS(psoData.psoName, psoData.vertexIndex);
-			
+			const bool created = psoData.cs
+				? newObject->initCS(psoData.psoName, psoData.vertexIndex)
+				: newObject->init(psoData.psoName, psoData.vertexIndex, psoData.pixelIndex, psoData.formats, D3D12_CULL_MODE_NONE, psoData.wireframe, psoData.depth);
+
+			if (!created)
+			{
+				TC_LOG_ERROR(std::format("initPSO: failed to create PSO '{}' (index {})", psoData.psoName, psoData.psoIndex).c_str());
+				newObject->close();
+				delete newObject;
+				cleanUpPSO();
+				return false;
+			}
+
 			pipelineStateObjects[psoData.psoIndex] = newObject;
 		}
 
@@ -40,11 +57,17 @@ namespace render
 	{
 		for (uint i = 0; i < PSO_END; ++i)
 		{
+			if (pipelineStateObjects[i] == nullptr)
+			{
+				continue;
+			}
+
 			pipelineStateObjects[i]->close();
 			delete pipelineStateObjects[i];
+			pipelineStateObjects[i] = nullptr;
 		}
 	}
-	
+
 	pipelinestate* getpipelinestate(PSO_INDEX index)
 	{
 		return pipelineStateObjects[index];
@@ -56,6 +79,11 @@ namespace render
 		{
 			pipelinestate* pso = pipelineStateObjects[i];
 
+			if (pso == nullptr)
+			{
+				continue;
+			}
+
 			pso->guiSetting();
 		}
 	}
@@ -63,6 +91,14 @@ namespace render
 
 bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_CULL_MODE cull, bool wireframe, bool depth)
 {
+	shader* vs = shaders::getShader(VS);
+	const shader* ps = shaders::getShader(PS);
+	if (vs == nullptr || ps == nullptr)
+	{
+		TC_LOG_ERROR(std::format("PSO '{}': vertex shader {} or pixel shader {} is missing", psoName, VS, PS).c_str());
+		return false;
+	}
+
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	if (wireframe)
 	{
@@ -71,12 +107,15 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 
 	isCompute = false;
 
-	shader* vs = shaders::getShader(VS);
-	const shader* ps = shaders::getShader(PS); //wireframe ? nullptr : shaders::getShader(PS);
-
 	rootsig = new rootsignature();
 
-	rootsig->initFromShader({VS, PS}, hlslLoc, false);
+	if (!rootsig->initFromShader({VS, PS}, hlslLoc, false))
+	{
+		delete rootsig;
+		rootsig = nullptr;
+		hlslLoc.clear();
+		return false;
+	}
 	rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
 
 	data.vertexIndex = VS;
@@ -121,26 +160,37 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 	}
 	psoDesc.SampleDesc.Count = 1;
 	const HRESULT psoResult = e_globRenderer.device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
-	TC_CONDITION(SUCCEEDED(psoResult), "Failed to create graphics pipeline state");
+	TC_CONDITIONB(SUCCEEDED(psoResult), "Failed to create graphics pipeline state");
 
  	return true;
 }
 
 bool pipelinestate::initCS(std::string psoName, uint CS)
 {
+	const shader* cs = shaders::getShader(CS);
+	if (cs == nullptr)
+	{
+		TC_LOG_ERROR(std::format("PSO '{}': compute shader {} is missing", psoName, CS).c_str());
+		return false;
+	}
+
 	isCompute = true;
 
 	data.psoName = std::move(psoName);
 	data.vertexIndex = CS;
 	data.cs = true;
 
-	const shader* cs = shaders::getShader(CS);
-
 	//TODO : creating rootsig on pso creation is not suitable for bindless engine design
 	//this is inefficient when we need multiple psos in a frame
 	rootsig = new rootsignature();
 
-	rootsig->initFromShader({ CS }, hlslLoc, true);
+	if (!rootsig->initFromShader({ CS }, hlslLoc, true))
+	{
+		delete rootsig;
+		rootsig = nullptr;
+		hlslLoc.clear();
+		return false;
+	}
 	rootsig->setDescriptorHeap({ render::DESCRIPTORHEAP_BUFFER });
 
 	struct PipelineStateStream
@@ -155,7 +205,7 @@ bool pipelinestate::initCS(std::string psoName, uint CS)
 	const D3D12_PIPELINE_STATE_STREAM_DESC psoDesc ={ sizeof(PipelineStateStream), &pipelineStateStream };
 
 	const HRESULT pipelineStreamResult = e_globRenderer.device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
-	TC_CONDITION(SUCCEEDED(pipelineStreamResult), "Failed to create compute pipeline state");
+	TC_CONDITIONB(SUCCEEDED(pipelineStreamResult), "Failed to create compute pipeline state");
 
 	return true;
 }
@@ -233,6 +283,7 @@ void pipelinestate::setCommandSignature(const std::vector<render::cmdSigData>& c
 void pipelinestate::close()
 {
 	delete rootsig;
+	rootsig = nullptr;
 }
 
 ID3D12PipelineState* pipelinestate::getPSO() const
@@ -262,8 +313,10 @@ void pipelinestate::guiSetting()
 	{
 		const shader* vs = shaders::getShader(data.vertexIndex);
 		const shader* ps = shaders::getShader(data.pixelIndex);
-		ImGui::Text(("VertexShader : " + vs->getName()).c_str());
-		ImGui::Text(("PixelShader : " + ps->getName()).c_str());
+		const std::string vsName = vs != nullptr ? vs->getName() : std::string("<missing>");
+		const std::string psName = ps != nullptr ? ps->getName() : std::string("<missing>");
+		ImGui::Text(("VertexShader : " + vsName).c_str());
+		ImGui::Text(("PixelShader : " + psName).c_str());
 
 		const std::string depthText =(data.depth ? "enabled" : "disabled");
 		ImGui::Text(("Depth is " + depthText).c_str());
@@ -323,6 +376,7 @@ void pipelinestate::guiSetting()
 	else
 	{
 		const shader* cs = shaders::getShader(data.vertexIndex);
-		ImGui::Text(("ComputeShader : " + cs->getName()).c_str());
+		const std::string csName = cs != nullptr ? cs->getName() : std::string("<missing>");
+		ImGui::Text(("ComputeShader : " + csName).c_str());
 	}
 }

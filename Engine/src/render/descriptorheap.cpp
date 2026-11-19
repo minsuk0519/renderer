@@ -47,6 +47,7 @@ namespace render
 		for (uint i = 0; i < DESCRIPTORHEAP_MAX; ++i)
 		{
 			delete descriptorHeaps[i];
+			descriptorHeaps[i] = nullptr;
 		}
 	}
 

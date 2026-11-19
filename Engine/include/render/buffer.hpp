@@ -133,12 +133,22 @@ public:
 	bool block(uint index, uint& start, uint& size) const;
 };
 
+class buffer_id_source
+{
+private:
+	uint nextId = 0;
+
+public:
+	void reset(uint firstId);
+	bool acquire(uint& id);
+};
+
 struct buffer_allocator
 {
 private:
 	char* data = nullptr;
 
-	uint16_t nextID = 0;
+	buffer_id_source idSource;
 
 	arena_free_list freeList;
 	std::vector<buffer*> memBlocks;
@@ -151,7 +161,6 @@ public:
 	buffer* alloc(char* bufferData = nullptr, uint size = 0, uint stride = sizeof(float), uint_8 viewFlags = buf::GBF_NONE, uint flag = buf::RESOURCE_NONE,
 		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN, UINT64 width = 0, UINT height = 0, UINT16 mipLevels = 1, DirectX::XMFLOAT4 clearColor = {}, ID3D12Resource* resource = nullptr,
 		UINT16 mipSlice = 0, UINT16 mipViewCount = 0, const char* debugName = nullptr, std::source_location debugLoc = std::source_location::current());
-	void free(char* bufferData);
 	void free(uint index);
 
 #if ENGINE_DEBUG_RESOURCEVIEW
@@ -166,10 +175,10 @@ struct buffer_header
 {
 	uint dataSize;
 	uint totalSize;
+	uint bufferId;
 
 	struct packed_data
 	{
-		uint bufferId	: 16;
 		uint allocated	: 1;
 		uint viewFlags	: 8;
 		uint stride		: 4;

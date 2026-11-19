@@ -13,7 +13,7 @@
 
 namespace render
 {
-	static uint selectedResourceId = ~0u;
+	static uint selectedResourceId = BUFFER_ID_INVALID;
 
 	void setSelectedResourceId(uint bufferId)
 	{
@@ -33,7 +33,7 @@ namespace render
 
 	static bool texPreviewCopyRequest = false;
 	static bool texPreviewHasSnapshot = false;
-	static uint texPreviewSnapshotId = ~0u;
+	static uint texPreviewSnapshotId = BUFFER_ID_INVALID;
 	static int  texPreviewSnapshotMip = -1;
 	static uint texPreviewSnapshotWidth = 0;   // used sub-rect of the scratch
 	static uint texPreviewSnapshotHeight = 0;
@@ -388,14 +388,14 @@ void renderDebug::update()
 	if (currentId != lastReadbackSelectionId)
 	{
 		lastReadbackSelectionId = currentId;
-		if (currentId != ~0u && currentId < buf::getResourceDebugInfoCount() && buf::isBufferResource(currentId) && buf::getResourceOwner(currentId) != nullptr)
+		if (currentId != BUFFER_ID_INVALID && currentId < buf::getResourceDebugInfoCount() && buf::isBufferResource(currentId) && buf::getResourceOwner(currentId) != nullptr)
 		{
 			requestMemReadback(buf::getResourceOwner(currentId), (uint)(std::min)(buf::getResourceWidth(currentId), (UINT64)render::MEMVIEW_MAX_READBACK_BYTES));
 		}
 		else
 		{
 			memReadbackData.clear();
-			memReadbackResultId = ~0u;
+			memReadbackResultId = BUFFER_ID_INVALID;
 			memReadbackFailed = false;
 		}
 	}
@@ -415,13 +415,13 @@ void renderDebug::update()
 			else
 			{
 				memReadbackFailed = true;
-				memReadbackResultId = ~0u;
+				memReadbackResultId = BUFFER_ID_INVALID;
 			}
 		}
 		else
 		{
 			memReadbackFailed = true;
-			memReadbackResultId = ~0u;
+			memReadbackResultId = BUFFER_ID_INVALID;
 		}
 
 		memReadbackTarget = nullptr;
@@ -548,7 +548,7 @@ static void guiTexturePreviewSection(uint id)
 static void guiResourceCombo(uint selectedId)
 {
 	const uint targetId = selectedId;
-	const bool targetValid = (targetId != ~0u) && (targetId < buf::getResourceDebugInfoCount());
+	const bool targetValid = (targetId != BUFFER_ID_INVALID) && (targetId < buf::getResourceDebugInfoCount());
 
 	const char* preview = "(select a resource)";
 	if (targetValid && (buf::isBufferResource(targetId) || buf::isTextureResource(targetId)))
@@ -584,7 +584,7 @@ static void guiResourceCombo(uint selectedId)
 
 void renderDebug::guiUpdateButton(uint selectedId, bool selIsBuffer, bool selIsTexture)
 {
-	const bool targetValid = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount());
+	const bool targetValid = (selectedId != BUFFER_ID_INVALID) && (selectedId < buf::getResourceDebugInfoCount());
 
 	ImGui::BeginDisabled(!targetValid);
 	if (ImGui::Button("Update"))
@@ -608,8 +608,8 @@ void renderDebug::guiUpdateButton(uint selectedId, bool selIsBuffer, bool selIsT
 void renderDebug::guiMemoryReadbackSetting()
 {
 	const uint selectedId = render::getSelectedResourceId();
-	const bool selIsBuffer = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isBufferResource(selectedId);
-	const bool selIsTexture = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isTextureResource(selectedId);
+	const bool selIsBuffer = (selectedId != BUFFER_ID_INVALID) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isBufferResource(selectedId);
+	const bool selIsTexture = (selectedId != BUFFER_ID_INVALID) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isTextureResource(selectedId);
 
 	guiResourceCombo(selectedId);
 

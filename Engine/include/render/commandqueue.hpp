@@ -76,6 +76,7 @@ public:
 
 	void execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>>& cmdLists);
 	void flush();
+	void close();
 
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> createCommandList(bool close);
 	void signalFence();

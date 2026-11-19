@@ -288,7 +288,7 @@ namespace prof
 	static constexpr ImU32 EVENTRESOURCE_ROW_COLOR_EXACT = IM_COL32(70, 140, 230, 150);
 	static constexpr ImU32 EVENTRESOURCE_ROW_COLOR_BUFFER = IM_COL32(70, 140, 230, 25);
 
-	static uint selectedEventResourceBufferId = ~0u;
+	static uint selectedEventResourceBufferId = BUFFER_ID_INVALID;
 	static uint selectedEventResourceHeapSlot = 0;
 	static EVENT_INDEX lastEventForResourceSelection = EVENT_INVALID;
 
@@ -350,7 +350,7 @@ namespace prof
 #if ENGINE_DEBUG_EVENTRESOURCE
 		if (selectedEventViewerEvent != lastEventForResourceSelection)
 		{
-			selectedEventResourceBufferId = ~0u;
+			selectedEventResourceBufferId = BUFFER_ID_INVALID;
 			lastEventForResourceSelection = selectedEventViewerEvent;
 		}
 
@@ -360,7 +360,7 @@ namespace prof
 			prof::setEventResourceCaptureActive(captureActive);
 			if (!captureActive)
 			{
-				selectedEventResourceBufferId = ~0u;
+				selectedEventResourceBufferId = BUFFER_ID_INVALID;
 			}
 		}
 
@@ -386,7 +386,7 @@ namespace prof
 							ImGui::PushID((int)i);
 							ImGui::TableNextRow();
 
-							const bool bufferMatch = (selectedEventResourceBufferId != ~0u && entry->bufferId == selectedEventResourceBufferId);
+							const bool bufferMatch = (selectedEventResourceBufferId != BUFFER_ID_INVALID && entry->bufferId == selectedEventResourceBufferId);
 							const bool viewMatch = (bufferMatch && entry->heapSlot == selectedEventResourceHeapSlot);
 
 							if (viewMatch)
@@ -403,8 +403,8 @@ namespace prof
 							{
 								if (viewMatch)
 								{
-									selectedEventResourceBufferId = ~0u;
-									render::setResourceViewerSelectionBackend(~0u);
+									selectedEventResourceBufferId = BUFFER_ID_INVALID;
+									render::setResourceViewerSelectionBackend(BUFFER_ID_INVALID);
 								}
 								else
 								{

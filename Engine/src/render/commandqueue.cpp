@@ -66,7 +66,13 @@ namespace render
 	{
 		for (uint i = 0; i < QUEUE_MAX; ++i)
 		{
+			if (cmdQueues[i] == nullptr)
+			{
+				continue;
+			}
+			cmdQueues[i]->close();
 			delete cmdQueues[i];
+			cmdQueues[i] = nullptr;
 		}
 	}
 }
@@ -143,6 +149,16 @@ bool commandqueue::createFence()
 	fenceEvent = result;
 
 	return true;
+}
+
+void commandqueue::close()
+{
+	if (fenceEvent != nullptr)
+	{
+		const BOOL closed = CloseHandle(fenceEvent);
+		TC_CONDITION(closed != FALSE, "Failed to close fence event");
+		fenceEvent = nullptr;
+	}
 }
 
 void commandqueue::flush()

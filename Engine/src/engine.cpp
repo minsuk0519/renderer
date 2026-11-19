@@ -117,7 +117,16 @@ bool engine::init(HINSTANCE hInstance, int nCmdShow, LPSTR cmdArgs)
         }
     }
 
-    readJsonBuffer(configFile, JSON_FILE_NAME::CONFIG_FILE);
+    if (!readJsonFile(configFile, JSON_FILE_PATHS[JSON_FILE_NAME::CONFIG_FILE]))
+    {
+        TC_LOG_ERROR("engine::init: data/config.json could not be read; refusing to start");
+        return false;
+    }
+    if (configFile.width == 0 || configFile.height == 0)
+    {
+        TC_LOG_ERROR("engine::init: config width/height must be nonzero");
+        return false;
+    }
 
 #if ENGINE_DEBUG_CPUPROF
 	TC_INIT(prof::initCPUProf());
@@ -156,6 +165,11 @@ void engine::run()
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
             }
+        }
+
+        if (msg.message == WM_QUIT)
+        {
+            break;
         }
 
         //when user press the escape key break the loop
@@ -200,6 +214,10 @@ void engine::run()
 
 void engine::close()
 {
+    e_globWorld.close();
+    e_globRenderer.close();
+    e_globWindow.close();
+
 #if ENGINE_DEBUG_CPUPROF
     prof::closeCPUProf();
 #endif // ENGINE_DEBUG_CPUPROF

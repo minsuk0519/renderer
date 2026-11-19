@@ -194,9 +194,13 @@ namespace msh
     {
         for (uint i = 0; i < MESH_END; ++i)
         {
-            if (meshes[i] == nullptr) continue;
+            if (meshes[i] == nullptr)
+            {
+                continue;
+            }
             meshes[i]->close();
             delete meshes[i];
+            meshes[i] = nullptr;
         }
     }
 
