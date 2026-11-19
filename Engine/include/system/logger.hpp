@@ -31,4 +31,25 @@
 #define TC_LOG_FATAL(str) logger::print_log(str, __LINE__, __FILE__, logger::LOG_LEVEL::LOG_FATAL)
 #define TC_LOG(str) TC_LOG_INFO(str)
 
+#else // CONFIG_LOG_ENABLED
+
+#define TC_CHECK(func) ((void)(func))
+#define TC_ASSERT(cond) ((void)sizeof(cond))
+#define TC_BREAK() ((void)0)
+//this asserstion is only for static condition
+#define TC_STATICASSERT(cond) static_assert(cond)
+
+#define TC_CONDITION(cond, str) ((void)(cond))
+#define TC_CONDITIONB(cond, str) if (!(cond)) { return false; }
+
+#define TC_APPEND_STR(A, B) #A " " #B
+
+#define TC_INIT(func) ((void)(func))
+
+#define TC_LOG_INFO(str) ((void)sizeof(str))
+#define TC_LOG_WARNING(str) ((void)sizeof(str))
+#define TC_LOG_ERROR(str) ((void)sizeof(str))
+#define TC_LOG_FATAL(str) ((void)sizeof(str))
+#define TC_LOG(str) TC_LOG_INFO(str)
+
 #endif // #if CONFIG_LOG_ENABLED

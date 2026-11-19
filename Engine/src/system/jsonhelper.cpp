@@ -1,5 +1,7 @@
 #include "system/jsonhelper.hpp"
 
+#include <Windows.h>
+
 int rawFileRead(const std::string& fileName, char** data, uint bufferSize)
 {
 	HANDLE hFile = CreateFileA(
