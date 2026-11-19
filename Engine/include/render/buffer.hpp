@@ -10,6 +10,7 @@
 #include <DirectXMath.h>
 
 #include <array>
+#include <deque>
 #include <string>
 #include <source_location>
 #include <vector>
@@ -60,6 +61,7 @@ namespace buf
 
 	bool parseMeshInfoText(const std::string& text, meshInfoRecord& out);
 	bool uploadRangeValid(UINT64 capacity, uint offset, uint size);
+	bool alignArenaSize(UINT64 rawSize, uint& alignedSize);
 	bool commitMeshInfo(const meshInfoRecord& info, meshData& out);
 
 	void loadFiletoMesh(const std::string& fileName, meshData* meshdata, uint id);
@@ -231,6 +233,49 @@ private:
 #if ENGINE_DEBUG_RESOURCEVIEW
 namespace buf
 {
+	struct resourceViewRecord
+	{
+		uint heapIndex;
+		uint heapOffset;
+		BUFFER_TYPE viewType;
+	};
+
+	struct resourceDebugInfo
+	{
+		char name[64]{};
+		buffer* owner = nullptr;
+		std::vector<resourceViewRecord> views;
+		uint cpuArenaBytes = 0;
+		uint_8 viewFlags = 0;
+		bool texture = false;
+		bool external = false;
+		bool oneTime = false;
+
+		const char* file = nullptr;
+		uint line = 0;
+		bool valid = false;
+
+		D3D12_RESOURCE_DIMENSION dimension = D3D12_RESOURCE_DIMENSION_UNKNOWN;
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+		UINT64 width = 0;
+		UINT height = 0;
+		UINT16 mipLevels = 0;
+		D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT;
+		UINT64 gpuBytes = 0;
+	};
+
+	class resource_debug_table
+	{
+	private:
+		std::deque<resourceDebugInfo> entries;
+
+	public:
+		resourceDebugInfo* ensure(uint bufferId);
+		resourceDebugInfo* find(uint bufferId);
+		const resourceDebugInfo* find(uint bufferId) const;
+		uint count() const;
+	};
+
 	const char* getResourceDisplayName(uint bufferId);
 	void recordResourceView(buffer* buf, const descriptor& desc, BUFFER_TYPE type);
 	void guiResourceViewerSetting();
@@ -242,5 +287,7 @@ namespace buf
 	UINT64 getResourceWidth(uint bufferId);
 }
 #endif // ENGINE_DEBUG_RESOURCEVIEW
+
+constexpr uint BUFFER_ARENA_ALIGNMENT = alignof(buffer);
 
 extern buffer_allocator e_globBufAllocator;

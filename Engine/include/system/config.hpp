@@ -14,7 +14,6 @@ namespace config
 }
 
 #define BUFFER_MAX_SIZE		1073741824
-#define BUFFER_MAX_COUNT	16384
 constexpr uint BUFFER_ID_INVALID = 0xFFFFFFFFu;
 
 

@@ -15,6 +15,22 @@ namespace render
 {
 	std::array<pipelinestate*, PSO_END> pipelineStateObjects;
 	
+	bool fillRTVFormats(const std::vector<uint>& formats, D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc)
+	{
+		if (formats.size() > static_cast<size_t>(D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT))
+		{
+			return false;
+		}
+
+		desc.NumRenderTargets = static_cast<UINT>(formats.size());
+		for (uint i = 0; i < formats.size(); ++i)
+		{
+			desc.RTVFormats[i] = static_cast<DXGI_FORMAT>(formats[i]);
+		}
+
+		return true;
+	}
+
 	bool initPSO()
 	{
 		std::vector<psoJson> psoJsons;
@@ -99,6 +115,13 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 		return false;
 	}
 
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+	if (!render::fillRTVFormats(formats, psoDesc))
+	{
+		TC_LOG_ERROR(std::format("PSO '{}': {} render-target formats exceed the D3D12 limit of {}", psoName, formats.size(), D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT).c_str());
+		return false;
+	}
+
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE primitiveType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	if (wireframe)
 	{
@@ -125,8 +148,6 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 	data.cs = false;
 	data.depth = depth;
 	
-	// Describe and create the graphics pipeline state object (PSO).
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 	psoDesc.InputLayout.NumElements = static_cast<uint>(vs->inputs.size());
 	psoDesc.InputLayout.pInputElementDescs = vs->inputs.data();
 	psoDesc.pRootSignature = rootsig->getrootSignature();
@@ -139,11 +160,6 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.SampleMask = UINT_MAX;
 	psoDesc.PrimitiveTopologyType = primitiveType;
-	psoDesc.NumRenderTargets = static_cast<uint>(formats.size());
-	for (int i = 0; i < formats.size(); ++i)
-	{
-		psoDesc.RTVFormats[i] = (DXGI_FORMAT)(formats[i]);
-	}
 
 	if (depth)
 	{

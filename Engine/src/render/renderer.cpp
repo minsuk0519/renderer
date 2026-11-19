@@ -9,6 +9,7 @@
 #include <render/camera.hpp>
 #include <render/mesh.hpp>
 #include <render/framebuffer.hpp>
+#include <render/hzb.hpp>
 #include <render/render_debug.hpp>
 #include <world/world.hpp>
 #include <render/shader_defines.hpp>
@@ -180,6 +181,17 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, const Micro
 	return true;
 }
 
+static void closeFramebuffer(framebuffer*& fb)
+{
+	if (fb == nullptr)
+	{
+		return;
+	}
+	fb->close();
+	delete fb;
+	fb = nullptr;
+}
+
 void renderer::close()
 {
 	for (uint q = 0; q < render::QUEUE_MAX; ++q)
@@ -192,6 +204,21 @@ void renderer::close()
 	}
 
 	gui::close();
+	for (uint i = 0; i < FRAME_COUNT; ++i)
+	{
+		closeFramebuffer(swapchainFB[i]);
+	}
+	closeFramebuffer(visBufferFB);
+	closeFramebuffer(gbufferFB);
+#if ENGINE_DEBUG_CLEARGBUFFER
+	closeFramebuffer(gbufferClearFB);
+#endif // #if ENGINE_DEBUG_CLEARGBUFFER
+#if ENGINE_DEBUG_DEBUGCAM
+	closeFramebuffer(gbufferDebugFB);
+#endif // #if ENGINE_DEBUG_DEBUGCAM
+#if ENGINE_DEBUG_MESH
+	closeFramebuffer(debugFB);
+#endif // #if ENGINE_DEBUG_MESH
 	msh::cleanUp();
 	delete ubManager;
 	ubManager = nullptr;
@@ -316,7 +343,7 @@ bool renderer::createFrameResources()
 	}
 
 	{
-		hzbMipCount = (uint)std::floor(std::log2((double)(std::max)(sWidth, sHeight))) + 1;
+		hzbMipCount = hzb::mipCount(sWidth, sHeight);
 
 		hzbDepth = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_TEXTURE, DXGI_FORMAT_R32_FLOAT, sWidth, sHeight, (UINT16)hzbMipCount);
 
@@ -699,8 +726,8 @@ D3D12_GPU_DESCRIPTOR_HANDLE renderer::getHZBMipHandle(uint mip) const
 
 void renderer::getHZBMipSize(uint mip, uint& w, uint& h) const
 {
-	w = (std::max)(1u, e_globWindow.width() >> mip);
-	h = (std::max)(1u, e_globWindow.height() >> mip);
+	w = hzb::mipDim(e_globWindow.width(), mip);
+	h = hzb::mipDim(e_globWindow.height(), mip);
 }
 
 void renderer::transitionHZBForGui(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList)
@@ -946,43 +973,32 @@ void renderer::generateHZB()
 			hzbCmdList->ResourceBarrier(2, postCopyBarriers);
 		}
 
-		for (uint m = 1; m < hzbMipCount; m += 4)
+		const uint hzbWidth = e_globWindow.width();
+		const uint hzbHeight = e_globWindow.height();
+		for (uint m = 1; m < hzbMipCount; ++m)
 		{
-			const uint levels = (std::min)(4u, hzbMipCount - m);
 			GPU_EVENT(hzbCmdList.Get(), "genHZB Mip");
 
-			// Batch pre-barriers for all mips in this pass
-			CD3DX12_RESOURCE_BARRIER preBarriers[4];
-			for (uint k = 0; k < levels; ++k)
-			{
-				const uint mipIdx = m + k;
-				preBarriers[k] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[mipIdx], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, mipIdx);
-				hzbMipState[mipIdx] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			}
-			hzbCmdList->ResourceBarrier(levels, preBarriers);
+			CD3DX12_RESOURCE_BARRIER toUAV = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[m], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, m);
+			hzbMipState[m] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			hzbCmdList->ResourceBarrier(1, &toUAV);
 
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(SRV_HZB_SRC, hzbMipBuffer[m - 1], buf::GBF_SRV);
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST, hzbMipBuffer[m], buf::GBF_UAV);
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST1, hzbMipBuffer[(std::min)(m + 1, hzbMipCount - 1)], buf::GBF_UAV);
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST2, hzbMipBuffer[(std::min)(m + 2, hzbMipCount - 1)], buf::GBF_UAV);
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST3, hzbMipBuffer[(std::min)(m + 3, hzbMipCount - 1)], buf::GBF_UAV);
 
-			const uint dstW = (std::max)(1u, e_globWindow.width() >> m);
-			const uint dstH = (std::max)(1u, e_globWindow.height() >> m);
+			const uint srcW = hzb::mipDim(hzbWidth, m - 1);
+			const uint srcH = hzb::mipDim(hzbHeight, m - 1);
+			const uint dstW = hzb::mipDim(hzbWidth, m);
+			const uint dstH = hzb::mipDim(hzbHeight, m);
 
-			uint texSize[3] = { dstW, dstH, levels };
-			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_HZBCONST, 3, texSize);
+			uint texSize[4] = { srcW, srcH, dstW, dstH };
+			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_HZBCONST, 4, texSize);
 
 			hzbCmdList->Dispatch((dstW + 7) / 8, (dstH + 7) / 8, 1);
 
-			CD3DX12_RESOURCE_BARRIER postBarriers[4];
-			for (uint k = 0; k < levels; ++k)
-			{
-				const uint mipIdx = m + k;
-				postBarriers[k] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, mipIdx);
-				hzbMipState[mipIdx] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-			}
-			hzbCmdList->ResourceBarrier(levels, postBarriers);
+			CD3DX12_RESOURCE_BARRIER toSRV = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, m);
+			hzbMipState[m] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			hzbCmdList->ResourceBarrier(1, &toSRV);
 		}
 	}
 

@@ -31,6 +31,11 @@ constexpr uint BUFFER_HEADER_SIZE = ((4 + 4 + 4 + 4));
 constexpr uint BUFFER_VIEW_OFFSET = sizeof(buffer);
 
 TC_STATICASSERT((BUFFER_HEADER_SIZE) == sizeof(buffer_header));
+TC_STATICASSERT((BUFFER_ARENA_ALIGNMENT & (BUFFER_ARENA_ALIGNMENT - 1)) == 0);
+TC_STATICASSERT(alignof(descriptor) <= BUFFER_ARENA_ALIGNMENT);
+TC_STATICASSERT(sizeof(buffer) % alignof(descriptor) == 0);
+TC_STATICASSERT(BUFFER_MAX_SIZE % BUFFER_ARENA_ALIGNMENT == 0);
+TC_STATICASSERT(BUFFER_ARENA_ALIGNMENT <= __STDCPP_DEFAULT_NEW_ALIGNMENT__);
 
 namespace meshloadhelper
 {
@@ -121,115 +126,103 @@ namespace buf
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediates;
 
 #if ENGINE_DEBUG_RESOURCEVIEW
-    struct resourceViewRecord
+    resourceDebugInfo* resource_debug_table::ensure(uint bufferId)
     {
-        uint             heapIndex;   // render::descriptorHeapIndex value, stored as uint
-        uint             heapOffset;
-        buf::BUFFER_TYPE viewType;
-    };
+        if (bufferId < entries.size())
+        {
+            return &entries[bufferId];
+        }
+        if (bufferId == entries.size() && bufferId != BUFFER_ID_INVALID)
+        {
+            entries.emplace_back();
+            return &entries.back();
+        }
+        return nullptr;
+    }
 
-    struct resourceDebugInfo
+    resourceDebugInfo* resource_debug_table::find(uint bufferId)
     {
-        char                     name[64]{};         // formatted display name, written once at creation
-        buffer*                  owner = nullptr;    // back-pointer; non-null == live, nullptr == freed
-        std::vector<resourceViewRecord> views;    // variable-length descriptor list
-        uint                     cpuArenaBytes = 0;
-        uint_8                   viewFlags = 0;
-        bool                     texture = false;
-        bool                     external = false;
-        bool                     oneTime = false;
+        return bufferId < entries.size() ? &entries[bufferId] : nullptr;
+    }
 
-        const char*              file = nullptr;
-        uint                     line = 0;
-        bool                     valid = false;
+    const resourceDebugInfo* resource_debug_table::find(uint bufferId) const
+    {
+        return bufferId < entries.size() ? &entries[bufferId] : nullptr;
+    }
 
-        D3D12_RESOURCE_DIMENSION dimension = D3D12_RESOURCE_DIMENSION_UNKNOWN;
-        DXGI_FORMAT              format = DXGI_FORMAT_UNKNOWN;
-        UINT64                   width = 0;
-        UINT                     height = 0;
-        UINT16                   mipLevels = 0;
-        D3D12_HEAP_TYPE          heapType = D3D12_HEAP_TYPE_DEFAULT;
-        UINT64                   gpuBytes = 0;
-    };
+    uint resource_debug_table::count() const
+    {
+        return static_cast<uint>(entries.size());
+    }
 
-    static resourceDebugInfo debugInfoTable[BUFFER_MAX_COUNT];
-    static uint debugInfoCount = 0;
+    static resource_debug_table debugInfoTable;
 
     const char* getResourceDisplayName(uint bufferId)
     {
-        if (bufferId >= BUFFER_MAX_COUNT)
+        const resourceDebugInfo* info = debugInfoTable.find(bufferId);
+        if (info == nullptr)
         {
             return "buffer #INVALID";
         }
-
-        const resourceDebugInfo& info = debugInfoTable[bufferId];
-        if (!info.valid)
+        if (!info->valid)
         {
             return "buffer #UNKNOWN";
         }
 
-        return info.name;
+        return info->name;
     }
 
     uint getResourceDebugInfoCount()
     {
-        return debugInfoCount;
+        return debugInfoTable.count();
     }
 
     bool isBufferResource(uint bufferId)
     {
-        if (bufferId >= BUFFER_MAX_COUNT)
-        {
-            return false;
-        }
-
-        const resourceDebugInfo& info = debugInfoTable[bufferId];
-        return info.valid && info.owner != nullptr && info.dimension == D3D12_RESOURCE_DIMENSION_BUFFER;
+        const resourceDebugInfo* info = debugInfoTable.find(bufferId);
+        return info != nullptr && info->valid && info->owner != nullptr && info->dimension == D3D12_RESOURCE_DIMENSION_BUFFER;
     }
 
     bool isTextureResource(uint bufferId)
     {
-        if (bufferId >= BUFFER_MAX_COUNT)
-        {
-            return false;
-        }
-
-        const resourceDebugInfo& info = debugInfoTable[bufferId];
-        return info.valid && info.owner != nullptr && info.texture;
+        const resourceDebugInfo* info = debugInfoTable.find(bufferId);
+        return info != nullptr && info->valid && info->owner != nullptr && info->texture;
     }
 
     buffer* getResourceOwner(uint bufferId)
     {
-        if (bufferId >= BUFFER_MAX_COUNT)
+        const resourceDebugInfo* info = debugInfoTable.find(bufferId);
+        if (info == nullptr || !info->valid)
         {
             return nullptr;
         }
-
-        const resourceDebugInfo& info = debugInfoTable[bufferId];
-        return info.valid ? info.owner : nullptr;
+        return info->owner;
     }
 
     UINT64 getResourceWidth(uint bufferId)
     {
-        if (bufferId >= BUFFER_MAX_COUNT)
+        const resourceDebugInfo* info = debugInfoTable.find(bufferId);
+        if (info == nullptr || !info->valid)
         {
             return 0;
         }
-
-        const resourceDebugInfo& info = debugInfoTable[bufferId];
-        return info.valid ? info.width : 0;
+        return info->width;
     }
 
     void recordResourceView(buffer* buf, const descriptor& desc, BUFFER_TYPE type)
     {
         if (buf == nullptr)
+        {
             return;
+        }
 
-        const uint bufferId = buf->getHeader()->bufferId;
-        if (bufferId >= BUFFER_MAX_COUNT)
+        resourceDebugInfo* info = debugInfoTable.find(buf->getHeader()->bufferId);
+        if (info == nullptr)
+        {
             return;
+        }
 
-        debugInfoTable[bufferId].views.push_back({ (uint)desc.heapIndex, desc.heapOffset, type });
+        info->views.push_back({ (uint)desc.heapIndex, desc.heapOffset, type });
     }
 
 #endif // ENGINE_DEBUG_RESOURCEVIEW
@@ -377,6 +370,25 @@ namespace buf
             }
         }
 
+        return true;
+    }
+
+    bool alignArenaSize(UINT64 rawSize, uint& alignedSize)
+    {
+        if (rawSize > 0xFFFFFFFFull)
+        {
+            alignedSize = 0;
+            return false;
+        }
+
+        const UINT64 aligned = (rawSize + (BUFFER_ARENA_ALIGNMENT - 1)) & ~static_cast<UINT64>(BUFFER_ARENA_ALIGNMENT - 1);
+        if (aligned > 0xFFFFFFFFull)
+        {
+            alignedSize = 0;
+            return false;
+        }
+
+        alignedSize = static_cast<uint>(aligned);
         return true;
     }
 
@@ -1211,12 +1223,14 @@ void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
         if (current->header.bufferId == bufferId)
         {
 #if ENGINE_DEBUG_RESOURCEVIEW
-            if (bufferId < BUFFER_MAX_COUNT)
+            buf::resourceDebugInfo* info = buf::debugInfoTable.find(bufferId);
+            if (info != nullptr)
             {
-                buf::debugInfoTable[bufferId].owner = nullptr;
+                info->owner = nullptr;
             }
 #endif // ENGINE_DEBUG_RESOURCEVIEW
 
+            current->~buffer();
             memBlocks.erase(iter);
             return;
         }
@@ -1254,26 +1268,32 @@ void buffer_allocator::init()
 buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8 viewFlags,
     uint flag, DXGI_FORMAT format, UINT64 width, UINT height, UINT16 mipLevels, DirectX::XMFLOAT4 clearColor, ID3D12Resource* resource, UINT16 mipSlice, UINT16 mipViewCount, const char* debugName, std::source_location debugLoc)
 {
-    uint newId = BUFFER_ID_INVALID;
-    if (!idSource.acquire(newId))
-    {
-        TC_LOG_ERROR("buffer_allocator::alloc: buffer id space exhausted");
-        return nullptr;
-    }
-
     //cbv size should be multiplied by 256 bytes
     if (viewFlags & (buf::graphicBufferFlags::GBF_CBV))
     {
         size = ((size / CBVALLIGNMENT) + 1) * CBVALLIGNMENT;
     }
 
-    uint totalSize = buf::estimateBufferSize(viewFlags);
-
-    if(bufferData) totalSize += size;
+    const UINT64 rawSize = static_cast<UINT64>(buf::estimateBufferSize(viewFlags)) + (bufferData != nullptr ? size : 0u);
+    uint totalSize = 0;
+    if (!buf::alignArenaSize(rawSize, totalSize))
+    {
+        TC_LOG_ERROR("buffer_allocator::alloc: allocation size overflows the arena size type");
+        return nullptr;
+    }
 
     uint pos = 0;
     if (!freeList.reserve(totalSize, pos))
     {
+        return nullptr;
+    }
+    TC_ASSERT((pos % BUFFER_ARENA_ALIGNMENT) == 0);
+
+    uint newId = BUFFER_ID_INVALID;
+    if (!idSource.acquire(newId))
+    {
+        freeList.release(pos, totalSize);
+        TC_LOG_ERROR("buffer_allocator::alloc: buffer id space exhausted");
         return nullptr;
     }
 
@@ -1367,10 +1387,10 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
 #if ENGINE_DEBUG_RESOURCEVIEW
     {
         const uint bufferId = buf->header.bufferId;
-        if (bufferId < BUFFER_MAX_COUNT)
+        buf::resourceDebugInfo* viewInfo = buf::debugInfoTable.ensure(bufferId);
+        if (viewInfo != nullptr)
         {
-            buf::debugInfoTable[bufferId].views.clear();
-            buf::debugInfoCount = std::max(buf::debugInfoCount, bufferId + 1);
+            viewInfo->views.clear();
         }
     }
 #endif // ENGINE_DEBUG_RESOURCEVIEW
@@ -1397,14 +1417,15 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
 
     const uint addrDiff = (uint)(viewPos - allocatedData);
 
-    TC_ASSERT(addrDiff == totalSize);
+    TC_ASSERT(addrDiff <= totalSize && (totalSize - addrDiff) < BUFFER_ARENA_ALIGNMENT);
 
 #if ENGINE_DEBUG_RESOURCEVIEW
     {
         const uint bufferId = buf->header.bufferId;
-        if (bufferId < BUFFER_MAX_COUNT)
+        buf::resourceDebugInfo* infoPtr = buf::debugInfoTable.ensure(bufferId);
+        if (infoPtr != nullptr)
         {
-            buf::resourceDebugInfo& info = buf::debugInfoTable[bufferId];
+            buf::resourceDebugInfo& info = *infoPtr;
             info.valid = true;
             info.owner = buf;
             info.cpuArenaBytes = buf->header.totalSize;
@@ -1592,9 +1613,9 @@ namespace buf
         uint liveCount = 0;
         uint viewCount = 0;
         uint viewsPerHeap[render::DESCRIPTORHEAP_MAX] = {};
-        for (uint id = 0; id < debugInfoCount; ++id)
+        for (uint id = 0; id < debugInfoTable.count(); ++id)
         {
-            const resourceDebugInfo& info = debugInfoTable[id];
+            const resourceDebugInfo& info = *debugInfoTable.find(id);
             if (info.valid && info.owner != nullptr)
             {
                 liveCount++;
@@ -1627,9 +1648,9 @@ namespace buf
             ImGui::TableHeadersRow();
 
             uint rowIndex = 0;
-            for (uint id = 0; id < debugInfoCount; ++id)
+            for (uint id = 0; id < debugInfoTable.count(); ++id)
             {
-                const resourceDebugInfo& info = debugInfoTable[id];
+                const resourceDebugInfo& info = *debugInfoTable.find(id);
                 if (!info.valid || info.owner == nullptr || info.views.empty())
                 {
                     continue;
@@ -1734,9 +1755,9 @@ namespace buf
             ImGui::Separator();
             ImGui::Text("Selected: %s", getResourceDisplayName(selectedId));
 
-            if (selectedId < debugInfoCount)
+            if (selectedId < debugInfoTable.count())
             {
-                const resourceDebugInfo& info = debugInfoTable[selectedId];
+                const resourceDebugInfo& info = *debugInfoTable.find(selectedId);
                 if (info.valid && info.owner != nullptr)
                 {
                     ImGui::Text("BufferId: %u", selectedId);
@@ -1805,9 +1826,9 @@ namespace buf
         ImGui::Dummy(ImVec2(0, 30));
 
         uint debugLiveBufferCount = 0;
-        for (uint id = 0; id < debugInfoCount; ++id)
+        for (uint id = 0; id < debugInfoTable.count(); ++id)
         {
-            if (debugInfoTable[id].valid && debugInfoTable[id].owner != nullptr)
+            if (debugInfoTable.find(id)->valid && debugInfoTable.find(id)->owner != nullptr)
             {
                 debugLiveBufferCount++;
             }
@@ -1868,9 +1889,9 @@ namespace buf
             { (D3D12_HEAP_TYPE)999, "Attached (External)", 0, 0, 0 }
         };
 
-        for (uint id = 0; id < debugInfoCount; ++id)
+        for (uint id = 0; id < debugInfoTable.count(); ++id)
         {
-            const resourceDebugInfo& info = debugInfoTable[id];
+            const resourceDebugInfo& info = *debugInfoTable.find(id);
             if (!info.valid || info.owner == nullptr)
             {
                 continue;
@@ -1922,9 +1943,9 @@ namespace buf
                 snprintf(headerLabel, sizeof(headerLabel), "%s - %u resources, %s", heapGroups[i].label, heapGroups[i].resourceCount, totalSizeText);
                 if (ImGui::CollapsingHeader(headerLabel))
                 {
-                    for (uint id = 0; id < debugInfoCount; ++id)
+                    for (uint id = 0; id < debugInfoTable.count(); ++id)
                     {
-                        const resourceDebugInfo& info = debugInfoTable[id];
+                        const resourceDebugInfo& info = *debugInfoTable.find(id);
                         if (!info.valid || info.owner == nullptr)
                         {
                             continue;

@@ -23,6 +23,8 @@ namespace render
 
 	void guiPSOSetting();
 
+	bool fillRTVFormats(const std::vector<uint>& formats, D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc);
+
 	struct psoData
 	{
 		uint vertexIndex = 0;

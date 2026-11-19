@@ -29,4 +29,5 @@ public:
 	D3D12_GPU_DESCRIPTOR_HANDLE getDescHandle(uint FBOIndex);
 	ID3D12Resource* getFBOResource(uint FBOIndex);
 	buffer* getFBO(uint FBOIndex);
+	void close();
 };

@@ -18,7 +18,7 @@ bool framebuffer::attachResource(ID3D12Resource* resource, uint width, uint heig
 {
 	clearColors.push_back(clear);
 
-	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT, 0, format, width, height, 0, clear, resource);
+	buffer* FBO = e_globBufAllocator.alloc(nullptr, width * height, 4, buf::GBF_RT, buf::RESOURCE_SHARED, format, width, height, 0, clear, resource);
 
 	FBOs.push_back(FBO);
 
@@ -31,6 +31,21 @@ bool framebuffer::attachDepth(buffer* depth, float clear)
 	clearDepth = clear;
 
 	return depth != nullptr;
+}
+
+void framebuffer::close()
+{
+	for (buffer* FBO : FBOs)
+	{
+		if (FBO != nullptr)
+		{
+			e_globBufAllocator.free(FBO->getId());
+		}
+	}
+
+	FBOs.clear();
+	clearColors.clear();
+	depthBuffer = nullptr;
 }
 
 void framebuffer::openFB(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, bool clear)
