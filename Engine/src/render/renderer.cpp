@@ -112,7 +112,8 @@ bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, const Micro
 #if ENGINE_DEBUG_RESOURCEVIEW
 	if (adapter != nullptr)
 	{
-		adapter.As(&adapter3);
+		const HRESULT adapterResult = adapter.As(&adapter3);
+		TC_CONDITIONB(SUCCEEDED(adapterResult), "Failed to query IDXGIAdapter3");
 	}
 #endif // ENGINE_DEBUG_RESOURCEVIEW
 	TC_INIT(shaders::loadResources());
@@ -287,8 +288,10 @@ bool renderer::createSwapChain()
 
 	TC_CONDITIONB(result == S_OK, "Failed to create SwapChain");
 
-	factory->MakeWindowAssociation(e_globWindow.getWindow(), DXGI_MWA_NO_ALT_ENTER);
-	swapChain1.As(&swapChain);
+	const HRESULT associationResult = factory->MakeWindowAssociation(e_globWindow.getWindow(), DXGI_MWA_NO_ALT_ENTER);
+	TC_CONDITIONB(SUCCEEDED(associationResult), "Failed to make window association");
+	const HRESULT swapChainResult = swapChain1.As(&swapChain);
+	TC_CONDITIONB(SUCCEEDED(swapChainResult), "Failed to query IDXGISwapChain4");
 
 	return true;
 }

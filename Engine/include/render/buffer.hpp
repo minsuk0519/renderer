@@ -12,6 +12,7 @@
 #include <array>
 #include <string>
 #include <source_location>
+#include <vector>
 
 struct buffer;
 
@@ -33,6 +34,31 @@ namespace buf
 
 	bool loadResources();
 	void cleanUp();
+
+	struct meshInfoCluster
+	{
+		uint indexCount = 0;
+		float sphereCenter[3] = {};
+		float sphereRadius = 0.0f;
+		float aabbCenter[3] = {};
+		float aabbHalfExtent[3] = {};
+	};
+
+	struct meshInfoLod
+	{
+		uint clusterCount = 0;
+		uint totalIndicesCount = 0;
+	};
+
+	struct meshInfoRecord
+	{
+		uint lodNum = 0;
+		float halfExtent[3] = {};
+		std::vector<meshInfoLod> lods;
+		std::vector<meshInfoCluster> clusters;
+	};
+
+	bool parseMeshInfoText(const std::string& text, meshInfoRecord& out);
 
 	void loadFiletoMesh(const std::string& fileName, meshData* meshdata, uint id);
 	void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id);

@@ -127,7 +127,12 @@ void object::guiSetting()
 	gui::editfloat("Scale##" + std::to_string(id), 3, trans->getScalePointer(), 0.0f, 0.0f);
 	gui::editfloat("Rotation##" + std::to_string(id), 3, trans->getRotationPointer(), 0.0f, 0.0f);
 
-	const int maxLOD = meshPtr->getData()->lodNum;
+	if (meshPtr == nullptr)
+    {
+        return;
+    }
+
+    const int maxLOD = meshPtr->getData()->lodNum;
 	gui::editintwithrange("ForceLOD##" + std::to_string(id), reinterpret_cast<int *>(&lod), 0, maxLOD - 1);
 
 	meshEnumIndex = meshPtr->getId();
