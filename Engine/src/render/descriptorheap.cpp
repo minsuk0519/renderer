@@ -99,11 +99,6 @@ unsigned __int64 descriptorheap::getCPUPos(uint index)
 	return result;
 }
 
-void descriptorheap::updateData(void* data, uint size, uint index)
-{
-	memcpy(reinterpret_cast<void*>(getGPUPos(index)), data, size);
-}
-
 ID3D12DescriptorHeap* descriptorheap::getHeap() const
 {
 	return heap.Get();

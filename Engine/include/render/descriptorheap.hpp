@@ -66,8 +66,6 @@ public:
 	unsigned __int64 getGPUPos(uint index = 0);
 	unsigned __int64 getCPUPos(uint index = 0);
 
-	void updateData(void* data, uint size, uint index = 0);
-
 	ID3D12DescriptorHeap* getHeap() const;
 
 	uint setRootTable(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint offset);

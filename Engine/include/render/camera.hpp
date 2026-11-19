@@ -86,7 +86,7 @@ public:
 private:
 #if ENGINE_DEBUG_DEBUGCAM
 	cam::CAMTYPE type = cam::CAMTYPE_DEBUG;
-#else #if ENGINE_DEBUG_DEBUGCAM
+#else
 	cam::CAMTYPE type = cam::CAMTYPE_MAIN;
 #endif // #else #if ENGINE_DEBUG_DEBUGCAM
 

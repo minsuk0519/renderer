@@ -26,7 +26,7 @@ bool window::init(HINSTANCE hInstance, int nCmdShow, uint width, uint height)
     windowClass.lpszClassName = L"Window";
     ATOM atom = RegisterClassEx(&windowClass);
 
-    TC_CONDITIONB(atom != 0, "Failed to register class")
+    TC_CONDITIONB(atom != 0, "Failed to register class");
 
     RECT windowRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     TC_CONDITIONB(AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE), "The width and height is not proper number");
@@ -45,7 +45,7 @@ bool window::init(HINSTANCE hInstance, int nCmdShow, uint width, uint height)
         hInstance,
         NULL);
 
-    TC_CONDITIONB(hWindow != nullptr, "Failed to create Window")
+    TC_CONDITIONB(hWindow != nullptr, "Failed to create Window");
 
     ShowWindow(hWindow, nCmdShow);
 

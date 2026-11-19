@@ -59,6 +59,8 @@ namespace buf
 	};
 
 	bool parseMeshInfoText(const std::string& text, meshInfoRecord& out);
+	bool uploadRangeValid(UINT64 capacity, uint offset, uint size);
+	bool commitMeshInfo(const meshInfoRecord& info, meshData& out);
 
 	void loadFiletoMesh(const std::string& fileName, meshData* meshdata, uint id);
 	void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id);
@@ -115,6 +117,22 @@ namespace buf
 	};
 }
 
+class arena_free_list
+{
+private:
+	uint capacityBytes = 0;
+	std::vector<std::pair<uint, uint>> blocks;
+
+public:
+	void reset(uint capacity);
+	bool reserve(uint size, uint& start);
+	bool release(uint start, uint size);
+	uint capacity() const;
+	uint usedBytes() const;
+	uint blockCount() const;
+	bool block(uint index, uint& start, uint& size) const;
+};
+
 struct buffer_allocator
 {
 private:
@@ -122,7 +140,7 @@ private:
 
 	uint16_t nextID = 0;
 
-	std::vector<std::pair<uint, uint>> freedMem;
+	arena_free_list freeList;
 	std::vector<buffer*> memBlocks;
 
 	void freeInternal(uint startPos, uint size, uint bufferId);

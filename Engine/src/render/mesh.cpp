@@ -364,7 +364,15 @@ mesh::mesh(int index)
 
 bool mesh::init(meshData* meshdata)
 {
-	data = meshdata;
+    if (meshdata == nullptr)
+    {
+        return false;
+    }
+    if (meshdata != data)
+    {
+        delete data;
+        data = meshdata;
+    }
 
     return true;
 }

@@ -83,6 +83,7 @@ public:
 	void bindPSO(render::PSO_INDEX psoIndex);
 	void sendData(uint pos, buffer* buf, buf::graphicBufferFlags viewType);
 	void sendData(uint pos, uint size, void* data);
+	void sendDataIfReferenced(uint pos, buffer* buf, buf::graphicBufferFlags viewType);
 
 #if ENGINE_DEBUG_EVENTRESOURCE
 	void drainBindScratchToEvent(prof::EVENT_INDEX nameID);

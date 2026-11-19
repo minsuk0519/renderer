@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <format>
+#include <algorithm>
 #include <charconv>
 #include <cstddef>
 #include <limits>
@@ -382,6 +383,71 @@ namespace buf
         return true;
     }
 
+    bool uploadRangeValid(UINT64 capacity, uint offset, uint size)
+    {
+        return static_cast<UINT64>(offset) + static_cast<UINT64>(size) <= capacity;
+    }
+
+    bool commitMeshInfo(const meshInfoRecord& info, meshData& out)
+    {
+        if (info.lodNum == 0 || info.lods.size() != info.lodNum)
+        {
+            return false;
+        }
+
+        size_t totalClusterCount = 0;
+        for (const meshInfoLod& lod : info.lods)
+        {
+            totalClusterCount += lod.clusterCount;
+        }
+        if (totalClusterCount != info.clusters.size())
+        {
+            return false;
+        }
+
+        out.lodNum = info.lodNum;
+        out.lodData.assign(info.lodNum, lodInfos{});
+        out.clusterBounds.clear();
+
+        size_t clusterIndex = 0;
+        for (uint i = 0; i < info.lodNum; ++i)
+        {
+            const meshInfoLod& lod = info.lods[i];
+            out.lodData[i].clusterNum = lod.clusterCount;
+            out.lodData[i].totalIndicesCount = lod.totalIndicesCount;
+            for (uint j = 0; j < lod.clusterCount; ++j)
+            {
+                out.lodData[i].indexSize.push_back(info.clusters[clusterIndex].indexCount);
+                ++clusterIndex;
+            }
+        }
+
+        out.boundData.halfExtent[msh::AXIS_X] = info.halfExtent[0];
+        out.boundData.halfExtent[msh::AXIS_Y] = info.halfExtent[1];
+        out.boundData.halfExtent[msh::AXIS_Z] = info.halfExtent[2];
+
+        for (const meshInfoCluster& cluster : info.clusters)
+        {
+            spherebound sphere{};
+            sphere.center[0] = cluster.sphereCenter[0];
+            sphere.center[1] = cluster.sphereCenter[1];
+            sphere.center[2] = cluster.sphereCenter[2];
+            sphere.radius = cluster.sphereRadius;
+
+            aabbbound aabb{};
+            aabb.center[0] = cluster.aabbCenter[0];
+            aabb.center[1] = cluster.aabbCenter[1];
+            aabb.center[2] = cluster.aabbCenter[2];
+            aabb.hExtent[0] = cluster.aabbHalfExtent[0];
+            aabb.hExtent[1] = cluster.aabbHalfExtent[1];
+            aabb.hExtent[2] = cluster.aabbHalfExtent[2];
+
+            out.clusterBounds.push_back({ sphere, aabb });
+        }
+
+        return true;
+    }
+
     bool loadMeshInfo(std::string fileName, meshData* meshData)
     {
         auto pos = fileName.find(".obj");
@@ -407,49 +473,16 @@ namespace buf
             return false;
         }
 
-        meshData->lodNum = info.lodNum;
-        meshData->lodData.resize(info.lodNum);
-
-        size_t clusterIndex = 0;
-        for (uint i = 0; i < info.lodNum; ++i)
-        {
-            const meshInfoLod& lod = info.lods[i];
-            meshData->lodData[i].clusterNum = lod.clusterCount;
-            meshData->lodData[i].totalIndicesCount = lod.totalIndicesCount;
-            for (uint j = 0; j < lod.clusterCount; ++j)
-            {
-                TC_ASSERT(clusterIndex < info.clusters.size());
-                meshData->lodData[i].indexSize.push_back(info.clusters[clusterIndex].indexCount);
-                ++clusterIndex;
-            }
-        }
-
 #if ENGINE_DEBUG_DATATEST
         TC_ASSERT(math::compare_float(info.halfExtent[0], meshData->boundData.halfExtent[msh::AXIS_X]));
         TC_ASSERT(math::compare_float(info.halfExtent[1], meshData->boundData.halfExtent[msh::AXIS_Y]));
         TC_ASSERT(math::compare_float(info.halfExtent[2], meshData->boundData.halfExtent[msh::AXIS_Z]));
 #endif // #if ENGINE_DEBUG_DATATEST
-        meshData->boundData.halfExtent[msh::AXIS_X] = info.halfExtent[0];
-        meshData->boundData.halfExtent[msh::AXIS_Y] = info.halfExtent[1];
-        meshData->boundData.halfExtent[msh::AXIS_Z] = info.halfExtent[2];
 
-        for (const meshInfoCluster& cluster : info.clusters)
+        if (!commitMeshInfo(info, *meshData))
         {
-            spherebound sphere{};
-            sphere.center[0] = cluster.sphereCenter[0];
-            sphere.center[1] = cluster.sphereCenter[1];
-            sphere.center[2] = cluster.sphereCenter[2];
-            sphere.radius = cluster.sphereRadius;
-
-            aabbbound aabb{};
-            aabb.center[0] = cluster.aabbCenter[0];
-            aabb.center[1] = cluster.aabbCenter[1];
-            aabb.center[2] = cluster.aabbCenter[2];
-            aabb.hExtent[0] = cluster.aabbHalfExtent[0];
-            aabb.hExtent[1] = cluster.aabbHalfExtent[1];
-            aabb.hExtent[2] = cluster.aabbHalfExtent[2];
-
-            meshData->clusterBounds.push_back({ sphere, aabb });
+            TC_LOG_ERROR(std::format("loadMeshInfo: inconsistent record in '{}'", fileName).c_str());
+            return false;
         }
 
         return true;
@@ -651,6 +684,12 @@ namespace buf
         if (data == nullptr)
         {
             return true;
+        }
+
+        if (!uploadRangeValid(resource->GetDesc().Width, offset, size))
+        {
+            TC_LOG_ERROR(std::format("buf::copyResource: offset {} + size {} exceeds resource width {}; upload rejected", offset, size, resource->GetDesc().Width).c_str());
+            return false;
         }
 
         UINT8* pVertexDataBegin = nullptr;
@@ -936,9 +975,7 @@ bool buffer::uploadBuffer(uint size, uint offset, void* data)
         return true;
     }
 
-    const UINT64 capacity = static_cast<UINT64>(header.dataSize);
-    const UINT64 end = static_cast<UINT64>(offset) + static_cast<UINT64>(size);
-    if (end > capacity)
+    if (!buf::uploadRangeValid(header.dataSize, offset, size))
     {
         TC_LOG_ERROR(std::format("buffer::uploadBuffer: offset {} + size {} exceeds capacity {} (buffer id {}); upload rejected",
             offset, size, header.dataSize, static_cast<uint>(header.packedData.bufferId)).c_str());
@@ -1037,54 +1074,138 @@ void buffer::unmapReadbackBuffer()
     resource->Unmap(0, &writtenRange);
 }
 
-void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
+void arena_free_list::reset(uint capacity)
 {
-    const uint memSize = (uint)freedMem.size();
+    capacityBytes = capacity;
+    blocks.clear();
 
-    for (uint i = 0; i + 1 < memSize; ++i)
+    if (capacity > 0)
     {
-        auto& current = freedMem[i];
-        bool leftMerged = false;
+        blocks.emplace_back(0, capacity);
+    }
+}
 
-        if (startPos < current.first) continue;
-
-        //check left
-        if ((current.first + current.second) == startPos)
-        {
-            current.second += size;
-            leftMerged = true;
-        }
-
-        //check right
-        auto& next = freedMem[i + 1];
-        if (next.first == (startPos + size))
-        {
-            if (leftMerged)
-            {
-                current.second += next.second;
-
-                freedMem.erase(freedMem.begin() + i + 1);
-            }
-            else
-            {
-                next.first = startPos;
-            }
-        }
-        else if (next.first > (startPos + size))
-        {
-            if (!leftMerged)
-            {
-                freedMem.insert(freedMem.begin() + i + 1, std::make_pair(startPos, size));
-            }
-        }
-        else
-        {
-            TC_LOG_ERROR("freeInternal Error! something wrong with freedMem");
-        }
-
-        break;
+bool arena_free_list::reserve(uint size, uint& start)
+{
+    if (size == 0)
+    {
+        return false;
     }
 
+    const auto fit = std::find_if(blocks.begin(), blocks.end(), [size](const std::pair<uint, uint>& block) { return block.second >= size; });
+    if (fit == blocks.end())
+    {
+        return false;
+    }
+
+    start = fit->first;
+    fit->first += size;
+    fit->second -= size;
+
+    if (fit->second == 0)
+    {
+        blocks.erase(fit);
+    }
+
+    return true;
+}
+
+bool arena_free_list::release(uint start, uint size)
+{
+    if (size == 0)
+    {
+        return false;
+    }
+
+    const UINT64 end = static_cast<UINT64>(start) + size;
+    if (end > capacityBytes)
+    {
+        return false;
+    }
+
+    auto next = std::find_if(blocks.begin(), blocks.end(), [start](const std::pair<uint, uint>& block) { return block.first >= start; });
+    auto prev = next;
+    const bool hasPrev = next != blocks.begin();
+    if (hasPrev)
+    {
+        --prev;
+    }
+    const bool hasNext = next != blocks.end();
+
+    const bool overlapsPrev = hasPrev && (static_cast<UINT64>(prev->first) + prev->second > start);
+    const bool overlapsNext = hasNext && (end > next->first);
+    if (overlapsPrev || overlapsNext)
+    {
+        return false;
+    }
+
+    const bool joinsPrev = hasPrev && (static_cast<UINT64>(prev->first) + prev->second == start);
+    const bool joinsNext = hasNext && (end == next->first);
+    if (joinsPrev && joinsNext)
+    {
+        prev->second += size + next->second;
+        blocks.erase(next);
+    }
+    else if (joinsPrev)
+    {
+        prev->second += size;
+    }
+    else if (joinsNext)
+    {
+        next->first = start;
+        next->second += size;
+    }
+    else
+    {
+        blocks.insert(next, std::make_pair(start, size));
+    }
+
+    return true;
+}
+
+uint arena_free_list::capacity() const
+{
+    return capacityBytes;
+}
+
+uint arena_free_list::usedBytes() const
+{
+    uint freeBytes = 0;
+    for (const auto& block : blocks)
+    {
+        freeBytes += block.second;
+    }
+
+    TC_ASSERT(freeBytes <= capacityBytes);
+    return capacityBytes - freeBytes;
+}
+
+uint arena_free_list::blockCount() const
+{
+    return static_cast<uint>(blocks.size());
+}
+
+bool arena_free_list::block(uint index, uint& start, uint& size) const
+{
+    if (index < blocks.size())
+    {
+        start = blocks[index].first;
+        size = blocks[index].second;
+        return true;
+    }
+
+    start = 0;
+    size = 0;
+    return false;
+}
+
+void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
+{
+    if (!freeList.release(startPos, size))
+    {
+        TC_LOG_ERROR("freeInternal Error! freed range overlaps the free list or exceeds the arena");
+        return;
+    }
 
     for (auto iter = memBlocks.begin(); iter < memBlocks.end(); ++iter)
     {
@@ -1112,7 +1233,7 @@ void buffer_allocator::init()
     data = new char[BUFFER_MAX_SIZE];
     nextID = 0;
 
-    freedMem.push_back(std::make_pair(0, BUFFER_MAX_SIZE - 1));
+    freeList.reset(BUFFER_MAX_SIZE);
 }
 
 buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8 viewFlags,
@@ -1128,30 +1249,11 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
 
     if(bufferData) totalSize += size;
 
-    int pos = -1;
-
-    bool found = false;
-
-    for (auto iter = freedMem.begin(); iter < freedMem.end(); ++iter)
+    uint pos = 0;
+    if (!freeList.reserve(totalSize, pos))
     {
-        if ((*iter).second >= totalSize)
-        {
-            const uint remainSize = (*iter).second - totalSize;
-            const int allocatedPos = (*iter).first + totalSize;
-
-            pos = (*iter).first;
-
-            (*iter).first = allocatedPos;
-            (*iter).second = remainSize;
-
-            found = true;
-
-            break;
-        }
+        return nullptr;
     }
-
-    if (!found) return nullptr;
-    if (pos == -1) return nullptr;
 
     char* allocatedData = data + pos;
 
@@ -1405,36 +1507,22 @@ void buffer_allocator::free(uint index)
 #if ENGINE_DEBUG_RESOURCEVIEW
 uint buffer_allocator::getArenaCapacity() const
 {
-    return BUFFER_MAX_SIZE;
+    return freeList.capacity();
 }
 
 uint buffer_allocator::getArenaUsed() const
 {
-    uint used = 0;
-    for (const auto& freeBlock : freedMem)
-    {
-        used += freeBlock.second;
-    }
-    return BUFFER_MAX_SIZE - used;
+    return freeList.usedBytes();
 }
 
 uint buffer_allocator::getFreeBlockCount() const
 {
-    return (uint)freedMem.size();
+    return freeList.blockCount();
 }
 
 void buffer_allocator::getFreeBlock(uint i, uint& start, uint& size) const
 {
-    if (i < freedMem.size())
-    {
-        start = freedMem[i].first;
-        size = freedMem[i].second;
-    }
-    else
-    {
-        start = 0;
-        size = 0;
-    }
+    freeList.block(i, start, size);
 }
 
 namespace buf

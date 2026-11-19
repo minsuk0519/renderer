@@ -52,12 +52,11 @@ namespace shaders
 class shader
 {
 public:
-	void load(const std::wstring& filename);
 	void close();
 
 	void setshaderSource(const Microsoft::WRL::ComPtr<IDxcResult>& result, shaders::SHADER_TYPE shaderType, std::string shaderName);
 
-	void decipherHLSL();
+	bool decipherHLSL();
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputs;
 	D3D12_SHADER_BYTECODE getByteCode() const;

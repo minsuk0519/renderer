@@ -30,7 +30,7 @@ bool framebuffer::attachDepth(buffer* depth, float clear)
 	depthBuffer = depth;
 	clearDepth = clear;
 
-	return false;
+	return depth != nullptr;
 }
 
 void framebuffer::openFB(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, bool clear)

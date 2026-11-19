@@ -71,6 +71,11 @@ namespace shaders
 			TC_LOG_ERROR(warning.c_str());
 		}
 
+		if (pResults == nullptr)
+		{
+			return false;
+		}
+
 		Microsoft::WRL::ComPtr<IDxcBlobUtf8> pErrors = nullptr;
 		pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
 
@@ -81,10 +86,10 @@ namespace shaders
 		}
 
 		HRESULT hrStatus = E_FAIL;
-		pResults->GetStatus(&hrStatus);
-		if (FAILED(hrStatus))
+		const HRESULT statusResult = pResults->GetStatus(&hrStatus);
+		if (compileStatus != S_OK || FAILED(statusResult) || FAILED(hrStatus))
 		{
-			std::string errorMsg = std::format("Failed to compile Shader! : %s", fileStr.c_str());
+			std::string errorMsg = std::format("Failed to compile Shader! : {}", fileStr.c_str());
 			TC_LOG_ERROR(errorMsg.c_str());
 			return false;
 		}
@@ -98,10 +103,12 @@ namespace shaders
 
 		readJsonBuffer(shaderJsons, JSON_FILE_NAME::SHADER_FILE);
 
-		DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
-		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
+		const HRESULT utilsResult = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
+		TC_CONDITIONB(SUCCEEDED(utilsResult), "Failed to create DXC utils");
+		const HRESULT compilerResult = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
+		TC_CONDITIONB(SUCCEEDED(compilerResult), "Failed to create DXC compiler");
 		const HRESULT includeHandlerResult = pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
-	TC_CONDITION(SUCCEEDED(includeHandlerResult), "Failed to create default include handler");
+		TC_CONDITIONB(SUCCEEDED(includeHandlerResult), "Failed to create default include handler");
 
 		shaders.resize(shaderJsons.size());
 
@@ -129,7 +136,15 @@ namespace shaders
 			shader* newShader = new shader();
 
 			newShader->setshaderSource(pResults, (shaders::SHADER_TYPE)shaderData.shaderType, shaderData.entryPoint);
-			newShader->decipherHLSL();
+			if (!newShader->decipherHLSL())
+			{
+				const std::string fileA(filePath.begin(), filePath.end());
+				const std::string entryA(entryPoint.begin(), entryPoint.end());
+				const std::string errorMsg = std::format("Failed to decipher shader: {} ({})", fileA.c_str(), entryA.c_str());
+				TC_LOG_ERROR(errorMsg.c_str());
+				delete newShader;
+				continue;
+			}
 
 			shaders[shaderData.shaderIndex] = newShader;
 		}
@@ -141,6 +156,10 @@ namespace shaders
 	{
 		for (uint i = 0; i < shaders.size(); ++i)
 		{
+			if (shaders[i] == nullptr)
+			{
+				continue;
+			}
 			shaders[i]->close();
 			delete shaders[i];
 		}
@@ -271,6 +290,10 @@ namespace shaders
 		for (shaderIndex = 0; shaderIndex < shaderNum; ++shaderIndex)
 		{
 			shader* sh = shaders[shaderIndex];
+			if (sh == nullptr)
+			{
+				continue;
+			}
 
 			if (ImGui::TreeNode(sh->getName().c_str()))
 			{
@@ -361,23 +384,11 @@ namespace shaders
 	}
 }
 
-void shader::load(const std::wstring& filename)
-{
-	Microsoft::WRL::ComPtr<IDxcUtils> pUtils;
-	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
-
-	Microsoft::WRL::ComPtr<IDxcIncludeHandler> pIncludeHandler;
-	const HRESULT includeHandlerResult = pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
-	TC_CONDITION(SUCCEEDED(includeHandlerResult), "Failed to create default include handler");
-
-	pIncludeHandler->LoadSource(filename.c_str(), &shaderSource);
-}
-
 void shader::close()
 {
 	inputs.clear();
 
-	shaderSource->Release();
+	shaderSource.Reset();
 }
 
 void shader::setshaderSource(const Microsoft::WRL::ComPtr<IDxcResult>& result, shaders::SHADER_TYPE shaderType, std::string shaderName)
@@ -389,17 +400,32 @@ void shader::setshaderSource(const Microsoft::WRL::ComPtr<IDxcResult>& result, s
 	name = std::move(shaderName);
 }
 
-void shader::decipherHLSL()
+bool shader::decipherHLSL()
 {
-	//get desaseembly from program
+	if (shaderSource == nullptr)
+	{
+		TC_LOG_ERROR("decipherHLSL: shader has no compiled object");
+		return false;
+	}
+
 	DxcBuffer source{};
 	source.Ptr = shaderSource->GetBufferPointer();
 	source.Size = shaderSource->GetBufferSize();
 
 	Microsoft::WRL::ComPtr<IDxcResult> pResults;
-	shaders::pCompiler->Disassemble(&source, IID_PPV_ARGS(&pResults));
+	const HRESULT disassembleResult = shaders::pCompiler->Disassemble(&source, IID_PPV_ARGS(&pResults));
+	if (FAILED(disassembleResult) || pResults == nullptr)
+	{
+		TC_LOG_ERROR("decipherHLSL: disassembly failed");
+		return false;
+	}
 	Microsoft::WRL::ComPtr<IDxcBlobUtf8> pText = nullptr;
 	pResults->GetOutput(DXC_OUT_DISASSEMBLY, IID_PPV_ARGS(&pText), nullptr);
+	if (pText == nullptr)
+	{
+		TC_LOG_ERROR("decipherHLSL: disassembly text is missing");
+		return false;
+	}
 	std::string sourceString;
 	sourceString.assign(reinterpret_cast<const char*>(pText->GetBufferPointer()), pText->GetBufferSize());
 
@@ -1042,6 +1068,8 @@ void shader::decipherHLSL()
 			}
 		}
 	}
+
+	return true;
 }
 
 D3D12_SHADER_BYTECODE shader::getByteCode() const

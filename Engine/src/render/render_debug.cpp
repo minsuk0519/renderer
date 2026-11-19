@@ -551,17 +551,9 @@ static void guiResourceCombo(uint selectedId)
 	const bool targetValid = (targetId != ~0u) && (targetId < buf::getResourceDebugInfoCount());
 
 	const char* preview = "(select a resource)";
-	if (targetValid)
+	if (targetValid && (buf::isBufferResource(targetId) || buf::isTextureResource(targetId)))
 	{
-		if (buf::isBufferResource(targetId))
-			// NOLINTNEXTLINE(bugprone-branch-clone) -- buffer and texture branches intentionally share the type-agnostic display-name lookup; kept as separate type tests so per-type labels can diverge later
-		{
-			preview = buf::getResourceDisplayName(targetId);
-		}
-		else if (buf::isTextureResource(targetId))
-		{
-			preview = buf::getResourceDisplayName(targetId);
-		}
+		preview = buf::getResourceDisplayName(targetId);
 	}
 
 	if (ImGui::BeginCombo("Resource", preview))

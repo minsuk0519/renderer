@@ -1123,7 +1123,7 @@ void renderer::draw([[maybe_unused]] float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_DEBUG, 1, &clusterCullFlag);
 
 #if ENGINE_DEBUG_BUFFER
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBuffer, buf::GBF_UAV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendDataIfReferenced(UAV_GLOBAL_DEBUG_BUFFER, outDebugBuffer, buf::GBF_UAV);
 #endif // #if ENGINE_DEBUG_BUFFER
 
 			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_CULLCLUSTER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), sizeof(uint), nullptr, 0);
@@ -1155,7 +1155,7 @@ void renderer::draw([[maybe_unused]] float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_RASTER_DEBUG, 1, &triCullFlag);
 
 #if ENGINE_DEBUG_BUFFER
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBuffer, buf::GBF_UAV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendDataIfReferenced(UAV_GLOBAL_DEBUG_BUFFER, outDebugBuffer, buf::GBF_UAV);
 #endif // #if ENGINE_DEBUG_BUFFER
 
 			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_RASTERIZER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 16 * sizeof(uint), nullptr, 0);
@@ -1307,7 +1307,7 @@ void renderer::draw([[maybe_unused]] float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_CULLING_DEBUG, 1, &clusterCullPostFlag);
 
 #if ENGINE_DEBUG_BUFFER
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBuffer, buf::GBF_UAV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendDataIfReferenced(UAV_GLOBAL_DEBUG_BUFFER, outDebugBuffer, buf::GBF_UAV);
 #endif // #if ENGINE_DEBUG_BUFFER
 
 			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_CULLCLUSTER_POST)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 13 * sizeof(uint), nullptr, 0);
@@ -1343,7 +1343,7 @@ void renderer::draw([[maybe_unused]] float dt)
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_RASTER_DEBUG, 1, &triCullPostFlag);
 
 #if ENGINE_DEBUG_BUFFER
-			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(UAV_GLOBAL_DEBUG_BUFFER, outDebugBuffer, buf::GBF_UAV);
+			render::getCmdQueue(render::QUEUE_COMPUTE)->sendDataIfReferenced(UAV_GLOBAL_DEBUG_BUFFER, outDebugBuffer, buf::GBF_UAV);
 #endif // #if ENGINE_DEBUG_BUFFER
 
 			computeCmdList->ExecuteIndirect(render::getpipelinestate(render::PSO_RASTERIZER)->getCmdSignature(), 1, localClusterSizeBuffer->getResource(), 16 * sizeof(uint), nullptr, 0);

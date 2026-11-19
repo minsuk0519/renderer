@@ -213,6 +213,16 @@ void commandqueue::sendData(uint pos, buffer* buf, buf::graphicBufferFlags viewT
 #endif // ENGINE_DEBUG_EVENTRESOURCE
 }
 
+void commandqueue::sendDataIfReferenced(uint pos, buffer* buf, buf::graphicBufferFlags viewType)
+{
+	if (currentPSO == nullptr || !currentPSO->usesHlslLoc(pos))
+	{
+		return;
+	}
+
+	sendData(pos, buf, viewType);
+}
+
 void commandqueue::sendData(uint pos, uint size, void* data)
 {
 	currentPSO->sendConstantData(commandList, pos, size, data);
