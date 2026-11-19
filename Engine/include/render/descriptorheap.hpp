@@ -56,7 +56,7 @@ class descriptorheap
 private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap;
 	uint incrementalSize = 0;
-	uint numDescriptor;
+	uint numDescriptor = 0;
 
 	std::array<std::vector<descriptor>, render::DESCRIPTORHEAP_MAX> occupiedDescriptor;
 
@@ -70,7 +70,7 @@ public:
 
 	ID3D12DescriptorHeap* getHeap() const;
 
-	uint setRootTable(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint offset);
+	uint setRootTable(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint offset);
 
 	descriptor requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf, void* view);
 

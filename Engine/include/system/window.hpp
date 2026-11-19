@@ -8,8 +8,8 @@
 class window
 {
 private:
-	uint screenWidth;
-	uint screenHeight;
+	uint screenWidth = 0;
+	uint screenHeight = 0;
 
 	std::string windowTitle;
 

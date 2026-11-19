@@ -23,7 +23,7 @@ namespace render
 
 		TC_ASSERT(psoJsons.size() == render::PSO_END);
 
-		for (auto psoData : psoJsons)
+		for (const auto& psoData : psoJsons)
 		{
 			pipelinestate* newObject = new pipelinestate();
 
@@ -72,7 +72,7 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 	isCompute = false;
 
 	shader* vs = shaders::getShader(VS);
-	shader* ps = shaders::getShader(PS); //wireframe ? nullptr : shaders::getShader(PS);
+	const shader* ps = shaders::getShader(PS); //wireframe ? nullptr : shaders::getShader(PS);
 
 	rootsig = new rootsignature();
 
@@ -81,7 +81,7 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 
 	data.vertexIndex = VS;
 	data.pixelIndex = PS;
-	data.psoName = psoName;
+	data.psoName = std::move(psoName);
 	data.formats.assign(formats.begin(), formats.end());
 	data.cs = false;
 	data.depth = depth;
@@ -120,7 +120,8 @@ bool pipelinestate::init(std::string psoName, uint VS, uint PS, std::vector<uint
 		psoDesc.DepthStencilState.StencilEnable = FALSE;
 	}
 	psoDesc.SampleDesc.Count = 1;
-	e_globRenderer.device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	const HRESULT psoResult = e_globRenderer.device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	TC_CONDITION(SUCCEEDED(psoResult), "Failed to create graphics pipeline state");
 
  	return true;
 }
@@ -129,11 +130,11 @@ bool pipelinestate::initCS(std::string psoName, uint CS)
 {
 	isCompute = true;
 
-	data.psoName = psoName;
+	data.psoName = std::move(psoName);
 	data.vertexIndex = CS;
 	data.cs = true;
 
-	shader* cs = shaders::getShader(CS);
+	const shader* cs = shaders::getShader(CS);
 
 	//TODO : creating rootsig on pso creation is not suitable for bindless engine design
 	//this is inefficient when we need multiple psos in a frame
@@ -151,14 +152,15 @@ bool pipelinestate::initCS(std::string psoName, uint CS)
 	pipelineStateStream.pRootSignature = rootsig->getrootSignature();
 	pipelineStateStream.CS = cs->getByteCode();
 
-	D3D12_PIPELINE_STATE_STREAM_DESC psoDesc = { sizeof(PipelineStateStream), &pipelineStateStream };
+	const D3D12_PIPELINE_STATE_STREAM_DESC psoDesc ={ sizeof(PipelineStateStream), &pipelineStateStream };
 
-	e_globRenderer.device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	const HRESULT pipelineStreamResult = e_globRenderer.device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateObject));
+	TC_CONDITION(SUCCEEDED(pipelineStreamResult), "Failed to create compute pipeline state");
 
 	return true;
 }
 
-void pipelinestate::sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
+void pipelinestate::sendGraphicsData(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc)
 {
 	if (hlslLoc.find(loc) != hlslLoc.end())
 	{
@@ -167,12 +169,12 @@ void pipelinestate::sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	}
 	else
 	{
-		std::string warnMsg = std::format("You send {}, but there is no hlsl location", loc);
+		const std::string warnMsg = std::format("You send {}, but there is no hlsl location", loc);
 		TC_LOG_WARNING(warnMsg.c_str());
 	}
 }
 
-void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, uint dataSize, void* dataPtr)
+void pipelinestate::sendConstantData(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint loc, uint dataSize, void* dataPtr)
 {
 	if (hlslLoc.find(loc) != hlslLoc.end())
 	{
@@ -181,7 +183,7 @@ void pipelinestate::sendConstantData(Microsoft::WRL::ComPtr<ID3D12GraphicsComman
 	}
 	else
 	{
-		std::string warnMsg = std::format("You send {}, but there is no hlsl location", loc);
+		const std::string warnMsg = std::format("You send {}, but there is no hlsl location", loc);
 		TC_LOG_WARNING(warnMsg.c_str());
 	}
 }
@@ -222,8 +224,10 @@ void pipelinestate::setCommandSignature(const std::vector<render::cmdSigData>& c
 	commandSignatureDesc.NumArgumentDescs = (uint)cmdSigs.size() + 1;
 	commandSignatureDesc.ByteStride = byteStride;
 
-	if(cmdSigs.empty()) e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, NULL, IID_PPV_ARGS(&cmdSignature));
-	else e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, rootsig->getrootSignature(), IID_PPV_ARGS(&cmdSignature));
+	const HRESULT sigResult = cmdSigs.empty()
+		? e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(&cmdSignature))
+	: e_globRenderer.device->CreateCommandSignature(&commandSignatureDesc, rootsig->getrootSignature(), IID_PPV_ARGS(&cmdSignature));
+	TC_CONDITION(SUCCEEDED(sigResult), "Failed to create command signature");
 }
 
 void pipelinestate::close()
@@ -256,22 +260,22 @@ void pipelinestate::guiSetting()
 	ImGui::BulletText(data.psoName.c_str());
 	if (!data.cs)
 	{
-		shader* vs = shaders::getShader(data.vertexIndex);
-		shader* ps = shaders::getShader(data.pixelIndex);
+		const shader* vs = shaders::getShader(data.vertexIndex);
+		const shader* ps = shaders::getShader(data.pixelIndex);
 		ImGui::Text(("VertexShader : " + vs->getName()).c_str());
 		ImGui::Text(("PixelShader : " + ps->getName()).c_str());
 
-		std::string depthText = (data.depth ? "enabled" : "disabled");
+		const std::string depthText =(data.depth ? "enabled" : "disabled");
 		ImGui::Text(("Depth is " + depthText).c_str());
 
-		std::string numFormat = std::to_string(static_cast<uint>(data.formats.size()));
+		const std::string numFormat =std::to_string(static_cast<uint>(data.formats.size()));
 
 		ImGui::Text(("Num Formats : " + numFormat).c_str());
 
 		for (auto form : data.formats)
 		{
-			uint size;
-			uint channel;
+			uint size = 0;
+			uint channel = 0;
 
 			TC_ASSERT(form > 0);
 
@@ -287,11 +291,15 @@ void pipelinestate::guiSetting()
 				TC_BREAK();
 			}
 
-			if (form <= 4) channel = 4;
-			else if (form <= 8) channel = 3;
+			// NOLINTNEXTLINE(bugprone-branch-clone) -- channel table keyed by DXGI format family (enum ranges); the same channel count legitimately recurs across distinct format ranges
+				if (form <= 4) channel = 4;
+			// NOLINTNEXTLINE(bugprone-branch-clone) -- channel table keyed by DXGI format family (RGB32 range); the 3-channel body recurs for R11G11B10 (form 26) on purpose
+				else if (form <= 8) channel = 3;
 			else if (form <= 14) channel = 4;
-			else if (form <= 20) channel = 2;
-			else if (form <= 22) channel = 1;
+			// NOLINTNEXTLINE(bugprone-branch-clone) -- channel table keyed by DXGI format family; the 2-channel body recurs for the RG16/RG8/R24G8 ranges on purpose
+				else if (form <= 20) channel = 2;
+			// NOLINTNEXTLINE(bugprone-branch-clone) -- channel table keyed by DXGI format family; the 1-channel body recurs for the R32/R16/R8 ranges on purpose
+				else if (form <= 22) channel = 1;
 			else if (form <= 25) channel = 4;
 			else if (form <= 26) channel = 3;
 			else if (form <= 32) channel = 4;
@@ -307,14 +315,14 @@ void pipelinestate::guiSetting()
 				TC_BREAK();
 			}
 
-			std::string text = "size : " + std::to_string(size) + ", channel : " + std::to_string(channel);
+			const std::string text = "size : " + std::to_string(size) + ", channel : " + std::to_string(channel);
 
 			ImGui::Text(text.c_str());
 		}
 	}
 	else
 	{
-		shader* cs = shaders::getShader(data.vertexIndex);
+		const shader* cs = shaders::getShader(data.vertexIndex);
 		ImGui::Text(("ComputeShader : " + cs->getName()).c_str());
 	}
 }

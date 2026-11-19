@@ -35,7 +35,7 @@ namespace prof
 	template<unsigned N>
 	struct eventName
 	{
-		char value[N];
+		char value[N]{};
 		constexpr eventName(const char (&s)[N])
 		{
 			for (unsigned i = 0; i < N; ++i)

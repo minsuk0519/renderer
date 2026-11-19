@@ -63,20 +63,20 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		meshInfo meshinfo;
 		uint totalClusterCount = 0;
 
-		uint lodNum = meshdata->lodNum;
+		const uint lodNum = meshdata->lodNum;
 		meshinfo.numLod = lodNum;
 		meshinfo.lodOffset = curLodOffset;
 		meshinfo.vertexOffset = curVertexOffset;
 		meshinfo.flags = flags;
-		uint meshIndexOffset = curIndexOffset;
+		const uint meshIndexOffset = curIndexOffset;
 
 		for (uint j = 0; j < lodNum; ++j)
 		{
-			uint curClusterCount = meshdata->lodData[j].clusterNum;
+			const uint curClusterCount = meshdata->lodData[j].clusterNum;
 
 			totalClusterCount += curClusterCount;
 		}
-		uint vertexSize = vertex->getElemSize();
+		const uint vertexSize = vertex->getElemSize();
 		curVertexOffset += vertexSize;
 
 		lodInfo* lodInfos = new lodInfo[lodNum];
@@ -84,21 +84,21 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		clusterInfo* clusterInfos = new clusterInfo[totalClusterCount];
 		uint lodIndex = 0;
 		uint clusterIndex = 0;
-		uint clusterInfoOffset = curClusterOffset * sizeof(clusterInfo);
-		uint clusterBoundOffset = curClusterOffset * sizeof(clusterbounddata);
+		const uint clusterInfoOffset =curClusterOffset * sizeof(clusterInfo);
+		const uint clusterBoundOffset =curClusterOffset * sizeof(clusterbounddata);
 		uint indexOffset = curIndexOffset;
 		uint totalIndexSize = 0;
 
 		uint meshClusterIndex = 0;
 		for (uint j = 0; j < lodNum; ++j)
 		{
-			uint curClusterCount = meshdata->lodData[j].clusterNum;
+			const uint curClusterCount = meshdata->lodData[j].clusterNum;
 			lodInfos[lodIndex].clusterCount = curClusterCount;
 			uint lodIndexSize = 0;
 
 			for (uint k = 0; k < curClusterCount; ++k)
 			{
-				uint indexCount = meshdata->lodData[j].indexSize[k];
+				const uint indexCount = meshdata->lodData[j].indexSize[k];
 				clusterInfos[clusterIndex].indexCount = indexCount;
 				clusterInfos[clusterIndex].indexOffset = indexOffset;
 
@@ -133,7 +133,9 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		curIndexOffset += totalIndexSize;
 
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = getCmdQueue(QUEUE_COPY)->getCmdList();
-		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		HRESULT resetHr = S_OK;
+		resetHr = cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		TC_CONDITION(SUCCEEDED(resetHr), "Failed to reset copy command list");
 		{
 			GPU_EVENT(cmdList.Get(), "Upload MeshInfo");
 
@@ -141,7 +143,8 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		}
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
-		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		resetHr = cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		TC_CONDITION(SUCCEEDED(resetHr), "Failed to reset copy command list");
 		{
 			GPU_EVENT(cmdList.Get(), "Upload LodInfo");
 
@@ -149,7 +152,8 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		}
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
-		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		resetHr = cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		TC_CONDITION(SUCCEEDED(resetHr), "Failed to reset copy command list");
 		curLodOffset += lodNum;
 		{
 			GPU_EVENT(cmdList.Get(), "Upload ClusterInfo");
@@ -158,7 +162,8 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		}
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
-		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		resetHr = cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		TC_CONDITION(SUCCEEDED(resetHr), "Failed to reset copy command list");
 		{
 			GPU_EVENT(cmdList.Get(), "Upload ClusterBounds");
 
@@ -166,7 +171,8 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		}
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
-		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		resetHr = cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		TC_CONDITION(SUCCEEDED(resetHr), "Failed to reset copy command list");
 
 		delete[] clusterBounds;
 		delete[] lodInfos;
@@ -179,7 +185,8 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		}
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
-		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		resetHr = cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		TC_CONDITION(SUCCEEDED(resetHr), "Failed to reset copy command list");
 		{
 			GPU_EVENT(cmdList.Get(), "Copy Normal to UVB");
 
@@ -187,7 +194,8 @@ void UBManager::uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, mesh
 		}
 		render::getCmdQueue(render::QUEUE_COPY)->execute({ cmdList });
 		render::getCmdQueue(render::QUEUE_COPY)->flush();
-		cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		resetHr = cmdList->Reset(getCmdQueue(QUEUE_COPY)->getAllocator().Get(), nullptr);
+		TC_CONDITION(SUCCEEDED(resetHr), "Failed to reset copy command list");
 		{
 			GPU_EVENT(cmdList.Get(), "Copy Index to UIB");
 

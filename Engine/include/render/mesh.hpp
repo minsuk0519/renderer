@@ -54,9 +54,9 @@ namespace msh
 struct lodInfos
 {
 	//how many clusters in lod
-	uint clusterNum;
+	uint clusterNum = 0;
 	//number of indices in lods
-	uint totalIndicesCount;
+	uint totalIndicesCount = 0;
 	std::vector<uint> indexSize;
 };
 
@@ -90,7 +90,7 @@ struct meshData
 	uint lodNum = 1;
 	std::vector<lodInfos> lodData;
 
-	bound boundData;
+	bound boundData{};
 
 	std::vector<clusterbounddata> clusterBounds;
 };
@@ -112,5 +112,5 @@ public:
 
 	meshData* getData() const;
 
-	void draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+	void draw(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList);
 };

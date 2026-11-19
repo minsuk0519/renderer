@@ -23,8 +23,8 @@ public:
 	bool attachResource(ID3D12Resource* resource, uint width, uint height, DXGI_FORMAT format, DirectX::XMFLOAT4 clearColor = DirectX::XMFLOAT4(0.8f, 0.9f, 0.9f, 1.0f));
 	bool attachDepth(buffer* depth, float clear);
 
-	void openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool clear);
-	void closeFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+	void openFB(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, bool clear);
+	void closeFB(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList);
 
 	D3D12_GPU_DESCRIPTOR_HANDLE getDescHandle(uint FBOIndex);
 	ID3D12Resource* getFBOResource(uint FBOIndex);

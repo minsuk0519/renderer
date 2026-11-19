@@ -47,37 +47,37 @@ namespace render
 
 		private:
 			Microsoft::WRL::ComPtr<ID3D12QueryHeap> queryHeaps[GPUPROF_QUEUE_COUNT];
-			bool copyQueueSupported;
+			bool copyQueueSupported = false;
 
 			Microsoft::WRL::ComPtr<ID3D12CommandAllocator> resolveAlloc[GPUPROF_QUEUE_COUNT];
 			Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> resolveList[GPUPROF_QUEUE_COUNT];
 
-			buffer* readback;
+			buffer* readback = nullptr;
 
-			UINT64 frequency[GPUPROF_QUEUE_COUNT];
+			UINT64 frequency[GPUPROF_QUEUE_COUNT]{};
 
 			prof::profLane lanes[GPUPROF_QUEUE_COUNT];
 
-			bool frameActive;
-			bool enabled;
-			UINT64 frameIndex;
+			bool frameActive = false;
+			bool enabled = false;
+			UINT64 frameIndex = 0;
 
-			bool warnedCopyUnsupported;
-			bool warnedRegionFull[GPUPROF_QUEUE_COUNT];
-			bool warnedMismatchedStack;
-			bool warnedNegativeTick;
+			bool warnedCopyUnsupported = false;
+			bool warnedRegionFull[GPUPROF_QUEUE_COUNT]{};
+			bool warnedMismatchedStack = false;
+			bool warnedNegativeTick = false;
 
-			prof::profEventView snapshotEvents[GPUPROF_QUEUE_COUNT][GPUPROF_MAX_EVENTS_PER_QUEUE];
-			prof::profLaneView snapshotLanes[GPUPROF_QUEUE_COUNT];
-			const char* queueLabels[GPUPROF_QUEUE_COUNT];
-			float laneTotalHistory[GPUPROF_QUEUE_COUNT][prof::PROF_HISTORY_FRAMES];
-			float eventHistory[prof::EVENT_CAPACITY][prof::PROF_HISTORY_FRAMES];
-			uint historyHead;
+			prof::profEventView snapshotEvents[GPUPROF_QUEUE_COUNT][GPUPROF_MAX_EVENTS_PER_QUEUE]{};
+			prof::profLaneView snapshotLanes[GPUPROF_QUEUE_COUNT]{};
+			const char* queueLabels[GPUPROF_QUEUE_COUNT]{};
+			float laneTotalHistory[GPUPROF_QUEUE_COUNT][prof::PROF_HISTORY_FRAMES]{};
+			float eventHistory[prof::EVENT_CAPACITY][prof::PROF_HISTORY_FRAMES]{};
+			uint historyHead = 0;
 
-			prof::profEventInfoView eventCatalog[prof::EVENT_CAPACITY];
-			uint eventCatalogCount;
-			prof::EVENT_INDEX catalogOrder[prof::EVENT_CAPACITY];
-			uint catalogOrderCount;
+			prof::profEventInfoView eventCatalog[prof::EVENT_CAPACITY]{};
+			uint eventCatalogCount = 0;
+			prof::EVENT_INDEX catalogOrder[prof::EVENT_CAPACITY]{};
+			uint catalogOrderCount = 0;
 
 			GPUPROF_QUEUE getQueueFromListType(D3D12_COMMAND_LIST_TYPE type);
 			void resolveAllPending();
@@ -88,7 +88,7 @@ namespace render
 
 		GPUPROF_QUEUE gpuProfiler::getQueueFromListType(D3D12_COMMAND_LIST_TYPE type)
 		{
-			render::QUEUE_INDEX idx = render::queueIndexFromListType(type);
+			const render::QUEUE_INDEX idx = render::queueIndexFromListType(type);
 			if (idx >= render::QUEUE_MAX)
 			{
 				return GPUPROF_QUEUE_COUNT;
@@ -176,7 +176,7 @@ namespace render
 				}
 			}
 
-			uint readbackSize = GPUPROF_QUEUE_COUNT * GPUPROF_MAX_EVENTS_PER_QUEUE * 2 * sizeof(UINT64);
+			const uint readbackSize = GPUPROF_QUEUE_COUNT * GPUPROF_MAX_EVENTS_PER_QUEUE * 2 * sizeof(UINT64);
 			readback = e_globBufAllocator.alloc(nullptr, readbackSize, 1, 0, buf::RESOURCE_READBACK);
 			TC_CONDITIONB(readback != nullptr, "Failed to allocate readback buffer for GPU profiler");
 
@@ -207,7 +207,7 @@ namespace render
 
 			for (uint region = 0; region < GPUPROF_QUEUE_COUNT; ++region)
 			{
-				D3D12_COMMAND_LIST_TYPE cmdType;
+				D3D12_COMMAND_LIST_TYPE cmdType = D3D12_COMMAND_LIST_TYPE_DIRECT;
 				if (region == GPUPROF_QUEUE_GRAPHIC)
 				{
 					cmdType = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -271,8 +271,8 @@ namespace render
 				return -1;
 			}
 
-			D3D12_COMMAND_LIST_TYPE listType = cmdList->GetType();
-			GPUPROF_QUEUE region = getQueueFromListType(listType);
+			const D3D12_COMMAND_LIST_TYPE listType = cmdList->GetType();
+			const GPUPROF_QUEUE region = getQueueFromListType(listType);
 
 			if (region == GPUPROF_QUEUE_COUNT || !queryHeaps[region])
 			{
@@ -297,9 +297,9 @@ namespace render
 			}
 
 			prof::profLane& lane = lanes[region];
-			uint localSlot = lanes[region].recordedCount * 2;
+			const uint localSlot = lanes[region].recordedCount * 2;
 
-			int eventIndex = prof::laneBegin(lane, nameID, std::format("GPU-{}", static_cast<int>(region)).c_str());
+			const int eventIndex = prof::laneBegin(lane, nameID, std::format("GPU-{}", static_cast<int>(region)).c_str());
 			if (eventIndex < 0)
 			{
 				return -1;
@@ -318,8 +318,8 @@ namespace render
 				return;
 			}
 
-			D3D12_COMMAND_LIST_TYPE listType = cmdList->GetType();
-			GPUPROF_QUEUE region = getQueueFromListType(listType);
+			const D3D12_COMMAND_LIST_TYPE listType = cmdList->GetType();
+			const GPUPROF_QUEUE region = getQueueFromListType(listType);
 
 			if (region == GPUPROF_QUEUE_COUNT || !queryHeaps[region] || eventIndex < 0 || eventIndex >= static_cast<int>(lanes[region].pendingEvents.size()))
 			{
@@ -327,9 +327,9 @@ namespace render
 			}
 
 			prof::profLane& lane = lanes[region];
-			prof::profEvent& event = lane.pendingEvents[eventIndex];
+			const prof::profEvent& event = lane.pendingEvents[eventIndex];
 
-			uint endSlot = event.slot + 1;
+			const uint endSlot = event.slot + 1;
 			cmdList->EndQuery(queryHeaps[region].Get(), D3D12_QUERY_TYPE_TIMESTAMP, endSlot);
 
 			bool warnedMismatch = false;
@@ -368,15 +368,17 @@ namespace render
 					continue;
 				}
 
-				resolveAlloc[region]->Reset();
-				resolveList[region]->Reset(resolveAlloc[region].Get(), nullptr);
+				const HRESULT allocResetResult = resolveAlloc[region]->Reset();
+					TC_CONDITION(SUCCEEDED(allocResetResult), "Failed to reset resolve command allocator");
+				const HRESULT listResetResult = resolveList[region]->Reset(resolveAlloc[region].Get(), nullptr);
+					TC_CONDITION(SUCCEEDED(listResetResult), "Failed to reset resolve command list");
 
 				ID3D12QueryHeap* heap = queryHeaps[region].Get();
-				uint readbackBase = region * GPUPROF_MAX_EVENTS_PER_QUEUE * 2;
+				const uint readbackBase = region * GPUPROF_MAX_EVENTS_PER_QUEUE * 2;
 
-				uint numQueriesToResolve = (lanes[region].recordedCount - lanes[region].resolvedCount) * 2;
-				UINT resolveStartSlot = lanes[region].resolvedCount * 2;
-				UINT64 readbackByteOffset = (readbackBase + lanes[region].resolvedCount * 2) * sizeof(UINT64);
+				const uint numQueriesToResolve =(lanes[region].recordedCount - lanes[region].resolvedCount) * 2;
+				const UINT resolveStartSlot =lanes[region].resolvedCount * 2;
+				const UINT64 readbackByteOffset =(readbackBase + lanes[region].resolvedCount * 2) * sizeof(UINT64);
 
 				resolveList[region]->ResolveQueryData(
 					heap,
@@ -409,9 +411,9 @@ namespace render
 			for (uint queueIdx = 0; queueIdx < GPUPROF_QUEUE_COUNT; ++queueIdx)
 			{
 				prof::profLane& lane = lanes[queueIdx];
-				uint queueFirstOrderIndex = catalogOrderCount;
+				const uint queueFirstOrderIndex =catalogOrderCount;
 
-				uint eventCount = (std::min)(static_cast<uint>(lane.lastFrameEvents.size()), GPUPROF_MAX_EVENTS_PER_QUEUE);
+				const uint eventCount = (std::min)(static_cast<uint>(lane.lastFrameEvents.size()), GPUPROF_MAX_EVENTS_PER_QUEUE);
 				for (uint eventIdx = 0; eventIdx < eventCount; ++eventIdx)
 				{
 					const prof::profEvent& event = lane.lastFrameEvents[eventIdx];
@@ -431,8 +433,8 @@ namespace render
 							uint clampedDepth = event.depth;
 							if (catalogOrderCount > queueFirstOrderIndex)
 							{
-								uint prevEventId = static_cast<uint>(catalogOrder[catalogOrderCount - 1]);
-								uint prevDepth = eventCatalog[prevEventId].depth;
+								const uint prevEventId =static_cast<uint>(catalogOrder[catalogOrderCount - 1]);
+								const uint prevDepth =eventCatalog[prevEventId].depth;
 								if (clampedDepth > prevDepth + 1)
 								{
 									clampedDepth = prevDepth + 1;
@@ -470,7 +472,7 @@ namespace render
 				laneTotalHistory[queueIdx][historyHead] = static_cast<float>(lane.totalMs);
 			}
 
-			uint totalEventCount = (std::min)(static_cast<uint>(prof::getEventCount()), static_cast<uint>(prof::EVENT_CAPACITY));
+			const uint totalEventCount =(std::min)(static_cast<uint>(prof::getEventCount()), static_cast<uint>(prof::EVENT_CAPACITY));
 			for (uint i = 0; i < totalEventCount && catalogOrderCount < prof::EVENT_CAPACITY; ++i)
 			{
 				if (eventCatalog[i].nameID != prof::EVENT_INVALID && !eventCatalog[i].activeThisFrame)
@@ -505,7 +507,7 @@ namespace render
 				return;
 			}
 
-			uint readbackSize = GPUPROF_QUEUE_COUNT * GPUPROF_MAX_EVENTS_PER_QUEUE * 2 * sizeof(UINT64);
+			const uint readbackSize = GPUPROF_QUEUE_COUNT * GPUPROF_MAX_EVENTS_PER_QUEUE * 2 * sizeof(UINT64);
 			unsigned char* mappedPtr = nullptr;
 
 			if (!readback->mapReadbackBuffer(&mappedPtr, readbackSize))
@@ -524,7 +526,7 @@ namespace render
 				return;
 			}
 
-			UINT64* ticks = reinterpret_cast<UINT64*>(mappedPtr);
+			const UINT64* ticks = reinterpret_cast<UINT64*>(mappedPtr);
 
 			for (uint i = 0; i < GPUPROF_QUEUE_COUNT; ++i)
 			{
@@ -535,21 +537,21 @@ namespace render
 
 			for (uint region = 0; region < GPUPROF_QUEUE_COUNT; ++region)
 			{
-				uint readbackBase = region * GPUPROF_MAX_EVENTS_PER_QUEUE * 2;
+				const uint readbackBase = region * GPUPROF_MAX_EVENTS_PER_QUEUE * 2;
 				prof::profLane& lane = lanes[region];
 
 				for (auto& event : lane.lastFrameEvents)
 				{
-					uint localSlot = event.slot;
+					const uint localSlot = event.slot;
 
-					uint beginTickIdx = readbackBase + localSlot;
-					uint endTickIdx = readbackBase + localSlot + 1;
+					const uint beginTickIdx =readbackBase + localSlot;
+					const uint endTickIdx =readbackBase + localSlot + 1;
 
 					if (beginTickIdx < GPUPROF_QUEUE_COUNT * GPUPROF_MAX_EVENTS_PER_QUEUE * 2 &&
 						endTickIdx < GPUPROF_QUEUE_COUNT * GPUPROF_MAX_EVENTS_PER_QUEUE * 2)
 					{
 						event.beginTick = ticks[beginTickIdx];
-						UINT64 endTick = ticks[endTickIdx];
+						const UINT64 endTick = ticks[endTickIdx];
 
 						if (endTick >= event.beginTick)
 						{

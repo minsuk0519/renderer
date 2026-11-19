@@ -105,17 +105,17 @@ Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandqueue::getCmdList() con
 	return commandList;
 }
 
-void commandqueue::execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>> cmdLists)// const std::vector<ID3D12CommandList*> cmdLists)
+void commandqueue::execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>>& cmdLists)// const std::vector<ID3D12CommandList*> cmdLists)
 {
 	std::vector<ID3D12CommandList*> lists;
 
-	for (Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmd : cmdLists)
+	for (const auto& cmd : cmdLists)
 	{
-		HRESULT hr = cmd->Close();
+		const HRESULT hr = cmd->Close();
 
 		if (FAILED(hr))
 		{
-			std::string errorMsg = std::format("Failed to close cmd!");
+			const std::string errorMsg = std::format("Failed to close cmd!");
 			TC_LOG_ERROR(errorMsg.c_str());
 		}
 
@@ -136,8 +136,8 @@ bool commandqueue::createFence()
 {
 	TC_CONDITIONB(e_globRenderer.device->CreateFence(fence.fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence.fence)) == S_OK, "Failed to create fence");
 
-	HANDLE result = CreateEvent(NULL, FALSE, FALSE, NULL);
-	TC_CONDITION(result != NULL, "Failed to create event");
+	HANDLE result = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	TC_CONDITION(result != nullptr, "Failed to create event");
 
 	fenceEvent = result;
 
@@ -176,8 +176,8 @@ void commandqueue::bindPSO(render::PSO_INDEX psoIndex)
 {
 	currentPSO = render::getpipelinestate(psoIndex);
 
-	commandAllocator->Reset();
-	commandList->Reset(commandAllocator.Get(), currentPSO->getPSO());
+	TC_CONDITION(commandAllocator->Reset() == S_OK, "Failed to reset command allocator");
+	TC_CONDITION(commandList->Reset(commandAllocator.Get(), currentPSO->getPSO()) == S_OK, "Failed to reset command list");
 
 	rootsignature* rootsig = currentPSO->getRootSig();
 
@@ -191,7 +191,7 @@ void commandqueue::bindPSO(render::PSO_INDEX psoIndex)
 
 void commandqueue::sendData(uint pos, buffer* buf, buf::graphicBufferFlags viewType)
 {
-	descriptor* desc = buf->getDesc(viewType);
+	const descriptor* desc = buf->getDesc(viewType);
 
 	currentPSO->sendGraphicsData(commandList, pos, desc->getHandle());
 
@@ -229,7 +229,7 @@ void commandqueue::drainBindScratchToEvent(prof::EVENT_INDEX nameID)
 	{
 		for (uint i = 0; i < indirectBindScratch.count; ++i)
 		{
-			uint16_t pos = indirectBindScratch.indices[i];
+			const uint16_t pos = indirectBindScratch.indices[i];
 			const render::bindScratchEntry& entry = bindScratch.locs[pos];
 
 			if (currentPSO != nullptr && currentPSO->usesHlslLoc(pos))

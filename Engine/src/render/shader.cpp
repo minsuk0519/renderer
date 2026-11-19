@@ -40,7 +40,7 @@ namespace shaders
 		return true;
 	}
 
-	bool compileShader(std::wstring filePath, LPCWSTR entry, LPCWSTR target, DxcBuffer source, Microsoft::WRL::ComPtr<IDxcResult>& pResults)
+	bool compileShader(const std::wstring& filePath, LPCWSTR entry, LPCWSTR target, DxcBuffer source, Microsoft::WRL::ComPtr<IDxcResult>& pResults)
 	{
 		std::wstring path = filePath + L".cso";
 		LPCWSTR pszArgs[] =
@@ -80,7 +80,7 @@ namespace shaders
 			TC_LOG_WARNING(warning.c_str());
 		}
 
-		HRESULT hrStatus;
+		HRESULT hrStatus = E_FAIL;
 		pResults->GetStatus(&hrStatus);
 		if (FAILED(hrStatus))
 		{
@@ -100,7 +100,8 @@ namespace shaders
 
 		DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
 		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
-		pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
+		const HRESULT includeHandlerResult = pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
+	TC_CONDITION(SUCCEEDED(includeHandlerResult), "Failed to create default include handler");
 
 		shaders.resize(shaderJsons.size());
 
@@ -110,7 +111,7 @@ namespace shaders
 			std::wstring entryPoint = std::wstring(shaderData.entryPoint.begin(), shaderData.entryPoint.end());
 			std::wstring target = std::wstring(shaderData.target.begin(), shaderData.target.end());
 
-			DxcBuffer Source;
+			DxcBuffer Source{};
 			if (!loadShaderSource(Source, filePath.c_str()))
 			{
 				continue;
@@ -276,7 +277,7 @@ namespace shaders
 				if (!sh->bufData.constantContainer.empty())
 				{
 					ImGui::BulletText("Constant");
-					for (auto constant : sh->bufData.constantContainer)
+					for (const auto& constant : sh->bufData.constantContainer)
 					{
 						ImGui::Text(("Name : " + constant.name).c_str());
 						ImGui::Text("size : %d, loc : %d", constant.data, constant.loc);
@@ -286,7 +287,7 @@ namespace shaders
 				if (!sh->bufData.inputContainer.empty())
 				{
 					ImGui::BulletText("Input");
-					for (auto input : sh->bufData.inputContainer)
+					for (const auto& input : sh->bufData.inputContainer)
 					{
 						ImGui::Text(("Name : " + input.name).c_str());
 						ImGui::Text("size : float%d, loc : %d", input.data, input.loc);
@@ -296,7 +297,7 @@ namespace shaders
 				if (!sh->bufData.outputContainer.empty())
 				{
 					ImGui::BulletText("Output");
-					for (auto output : sh->bufData.outputContainer)
+					for (const auto& output : sh->bufData.outputContainer)
 					{
 						ImGui::Text(("Name : " + output.name).c_str());
 						ImGui::Text("size : float%d, loc : %d", output.data, output.loc);
@@ -306,7 +307,7 @@ namespace shaders
 				if (!sh->bufData.samplerContainer.empty())
 				{
 					ImGui::BulletText("Sampler");
-					for (auto sampler : sh->bufData.samplerContainer)
+					for (const auto& sampler : sh->bufData.samplerContainer)
 					{
 						ImGui::Text(("Name : " + sampler.name).c_str());
 						ImGui::Text("loc : %d", sampler.loc);
@@ -316,7 +317,7 @@ namespace shaders
 				if (!sh->bufData.textureContainer.empty())
 				{
 					ImGui::BulletText("Texture");
-					for (auto texture : sh->bufData.textureContainer)
+					for (const auto& texture : sh->bufData.textureContainer)
 					{
 						ImGui::Text(("Name : " + texture.name).c_str());
 						ImGui::Text("loc : %d", texture.loc);
@@ -360,13 +361,14 @@ namespace shaders
 	}
 }
 
-void shader::load(std::wstring filename)
+void shader::load(const std::wstring& filename)
 {
 	Microsoft::WRL::ComPtr<IDxcUtils> pUtils;
 	DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
 
 	Microsoft::WRL::ComPtr<IDxcIncludeHandler> pIncludeHandler;
-	pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
+	const HRESULT includeHandlerResult = pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
+	TC_CONDITION(SUCCEEDED(includeHandlerResult), "Failed to create default include handler");
 
 	pIncludeHandler->LoadSource(filename.c_str(), &shaderSource);
 }
@@ -378,19 +380,19 @@ void shader::close()
 	shaderSource->Release();
 }
 
-void shader::setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result, shaders::SHADER_TYPE shaderType, std::string shaderName)
+void shader::setshaderSource(const Microsoft::WRL::ComPtr<IDxcResult>& result, shaders::SHADER_TYPE shaderType, std::string shaderName)
 {
 	Microsoft::WRL::ComPtr<IDxcBlobUtf16> pShaderName = nullptr;
 	result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderSource), &pShaderName);
 
 	type = shaderType;
-	name = shaderName;
+	name = std::move(shaderName);
 }
 
 void shader::decipherHLSL()
 {
 	//get desaseembly from program
-	DxcBuffer source;
+	DxcBuffer source{};
 	source.Ptr = shaderSource->GetBufferPointer();
 	source.Size = shaderSource->GetBufferSize();
 
@@ -674,6 +676,7 @@ void shader::decipherHLSL()
 						cBufferLoc = str.substr(2);
 					}
 					else if(str.find("S") != std::string::npos)
+						// NOLINTNEXTLINE(bugprone-branch-clone) -- both the sampler ("S") and the fallback branch strip one leading register-type character, so the identical substr(1) is the intended parse
 					{
 						cBufferLoc = str.substr(1);
 					}

@@ -110,9 +110,9 @@ ID3D12DescriptorHeap* descriptorheap::getHeap() const
 }
 
 //TODO : change later
-uint descriptorheap::setRootTable([[maybe_unused]] Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint offset)
+uint descriptorheap::setRootTable([[maybe_unused]] const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint offset)
 {
-	uint off = offset;
+	const uint off = offset;
 
 	//for (uint i = 0; i < constantData.size(); ++i)
 	//{
@@ -131,15 +131,15 @@ T* getCorrespondingView(void* ptr)
 
 descriptor descriptorheap::requestdescriptor(const buf::BUFFER_TYPE type, buffer* buf, void* view)
 {
-	render::descriptorHeapIndex heapIdx;
+	render::descriptorHeapIndex heapIdx = render::DESCRIPTORHEAP_BUFFER;
 
 	if (type == buf::BUFFER_DEPTH_TYPE) heapIdx = render::DESCRIPTORHEAP_DEPTH;
 	else if (type == buf::BUFFER_RT_TYPE) heapIdx = render::DESCRIPTORHEAP_RENDERTARGET;
 	else heapIdx = render::DESCRIPTORHEAP_BUFFER;
 
-	uint pos = getRemainPos(heapIdx);
+	const uint pos = getRemainPos(heapIdx);
 
-	descriptor result;
+	descriptor result{};
 	result.heapOffset = pos;
 	result.heapIndex = heapIdx;
 

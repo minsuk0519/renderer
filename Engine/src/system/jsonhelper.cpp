@@ -1,6 +1,6 @@
 #include "system/jsonhelper.hpp"
 
-int rawFileRead(std::string fileName, char** data, uint bufferSize)
+int rawFileRead(const std::string& fileName, char** data, uint bufferSize)
 {
 	HANDLE hFile = CreateFileA(
 		fileName.c_str(),
@@ -27,7 +27,7 @@ int rawFileRead(std::string fileName, char** data, uint bufferSize)
 		return -1;
 	}
 
-	uint fileBufferSize;
+	uint fileBufferSize = 0;
 	if (bufferSize == 0)
 	{
 		fileBufferSize = BUFFERSIZE;
@@ -39,7 +39,7 @@ int rawFileRead(std::string fileName, char** data, uint bufferSize)
 	
 	*data = new char[fileBufferSize];
 
-	uint offset = 0;
+	const uint offset = 0;
 
 	HANDLE m_handle = CreateEventA(nullptr, FALSE, FALSE, nullptr);
 
@@ -54,9 +54,9 @@ int rawFileRead(std::string fileName, char** data, uint bufferSize)
 	overlapped.Offset = static_cast<DWORD>(offset);
 	overlapped.OffsetHigh = static_cast<DWORD>(offset >> 32);
 
-	DWORD bytesRead;
+	DWORD bytesRead = 0;
 
-	bool success = ReadFile(hFile, reinterpret_cast<void**>(*data), static_cast<DWORD>(BUFFERSIZE), &bytesRead, nullptr);
+	const bool success = ReadFile(hFile, reinterpret_cast<void**>(*data), static_cast<DWORD>(BUFFERSIZE), &bytesRead, nullptr);
 
 	(*data)[bytesRead] = '\0';
 

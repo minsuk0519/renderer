@@ -54,9 +54,10 @@ namespace render
 
 		commandqueue* queue = getCmdQueue(QUEUE_GRAPHIC);
 		auto cmdList = queue->getCmdList();
-		cmdList->Reset(queue->getAllocator().Get(), nullptr);
+		const HRESULT resetResult = cmdList->Reset(queue->getAllocator().Get(), nullptr);
+		TC_CONDITION(SUCCEEDED(resetResult), "readbackResourceBytes: failed to reset command list");
 
-		bool needsBarrier = (currentState != D3D12_RESOURCE_STATE_COPY_SOURCE);
+		const bool needsBarrier = (currentState != D3D12_RESOURCE_STATE_COPY_SOURCE);
 
 		if (needsBarrier)
 		{

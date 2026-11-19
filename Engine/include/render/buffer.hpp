@@ -34,10 +34,10 @@ namespace buf
 	bool loadResources();
 	void cleanUp();
 
-	void loadFiletoMesh(std::string fileName, meshData* meshdata, uint id);
+	void loadFiletoMesh(const std::string& fileName, meshData* meshdata, uint id);
 	void uploadLoadedMesh(meshData* meshdata, float* p, float* n, uint* i, uint vNum, uint iNum, uint id);
 
-	buffer* loadTextureFromFile(std::wstring filename, bool mip);
+	buffer* loadTextureFromFile(const std::wstring& filename, bool mip);
 
 	uint estimateBufferSize(uint_8 flags);
 
@@ -92,7 +92,7 @@ namespace buf
 struct buffer_allocator
 {
 private:
-	char* data;
+	char* data = nullptr;
 
 	uint16_t nextID = 0;
 
@@ -168,10 +168,10 @@ private:
 	friend struct buffer_allocator;
 	friend class buf::viewAllocator;
 
-	char* baseLoc;
+	char* baseLoc = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 
-	buffer_header header;
+	buffer_header header{};
 	D3D12_RESOURCE_STATES curState = D3D12_RESOURCE_STATE_COMMON;
 };
 

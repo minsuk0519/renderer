@@ -103,7 +103,7 @@ namespace render
 		}
 
 		// No SRV on this wrapper - look for a sibling wrapper over the same resource that has one.
-		ID3D12Resource* target = owner->getResource();
+		const ID3D12Resource* target = owner->getResource();
 		for (uint id = 0; id < buf::getResourceDebugInfoCount(); ++id)
 		{
 			if (id == bufferId)
@@ -141,7 +141,7 @@ namespace render
 
 		buffer* owner = buf::getResourceOwner(bufferId);
 		ID3D12Resource* res = owner->getResource();
-		D3D12_RESOURCE_DESC desc = res->GetDesc();
+		const D3D12_RESOURCE_DESC desc = res->GetDesc();
 
 		if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D)
 		{
@@ -178,7 +178,7 @@ namespace render
 
 	void updateTexturePreview()
 	{
-		uint id = render::getSelectedResourceId();
+		const uint id = render::getSelectedResourceId();
 
 		// Discard stale snapshot on selection change
 		if (texPreviewHasSnapshot && id != texPreviewSnapshotId)
@@ -203,7 +203,7 @@ namespace render
 			return;
 		}
 
-		buffer* owner = buf::getResourceOwner(id);
+		const buffer* owner = buf::getResourceOwner(id);
 		buffer* srvOwner = resolveTexPreviewSrvOwner(id);
 		if (srvOwner == nullptr)
 		{
@@ -211,18 +211,18 @@ namespace render
 		}
 
 		ID3D12Resource* res = owner->getResource();
-		D3D12_RESOURCE_DESC desc = res->GetDesc();
+		const D3D12_RESOURCE_DESC desc = res->GetDesc();
 
 		texPreviewMip = (std::max)(0, (std::min)(texPreviewMip, (int)desc.MipLevels - 1));
 
-		uint srcW = (std::max)(1u, (uint)(desc.Width >> texPreviewMip));
-		uint srcH = (std::max)(1u, (uint)(desc.Height >> texPreviewMip));
+		const uint srcW =(std::max)(1u, (uint)(desc.Width >> texPreviewMip));
+		const uint srcH =(std::max)(1u, (uint)(desc.Height >> texPreviewMip));
 
 		// Fit into the scratch preserving aspect
-		float scale = (std::min)(1.0f, (std::min)((float)TEXPREVIEW_MAX_DIM / (float)srcW,
+		const float scale = (std::min)(1.0f, (std::min)((float)TEXPREVIEW_MAX_DIM / (float)srcW,
 		                                           (float)TEXPREVIEW_MAX_DIM / (float)srcH));
-		uint dstW = (std::max)(1u, (uint)((float)srcW * scale));
-		uint dstH = (std::max)(1u, (uint)((float)srcH * scale));
+		const uint dstW =(std::max)(1u, (uint)((float)srcW * scale));
+		const uint dstH =(std::max)(1u, (uint)((float)srcH * scale));
 
 		// Dispatch the compute shader
 		auto computeCmdList = render::getCmdQueue(render::QUEUE_COMPUTE)->getCmdList();
@@ -384,7 +384,7 @@ void renderDebug::update()
 	ensureMemLayouts();
 
 #if ENGINE_DEBUG_MEMVIEW && ENGINE_DEBUG_RESOURCEVIEW
-	uint currentId = render::getSelectedResourceId();
+	const uint currentId = render::getSelectedResourceId();
 	if (currentId != lastReadbackSelectionId)
 	{
 		lastReadbackSelectionId = currentId;
@@ -442,7 +442,7 @@ static void memviewExtractLine(const std::string& text, uint lineIndex, std::str
 	size_t start = 0;
 	for (uint i = 0; i < lineIndex; ++i)
 	{
-		size_t newlinePos = text.find('\n', start);
+		const size_t newlinePos = text.find('\n', start);
 		if (newlinePos == std::string::npos)
 		{
 			outLine.clear();
@@ -451,7 +451,7 @@ static void memviewExtractLine(const std::string& text, uint lineIndex, std::str
 		start = newlinePos + 1;
 	}
 
-	size_t end = text.find('\n', start);
+	const size_t end = text.find('\n', start);
 	if (end == std::string::npos)
 	{
 		outLine = text.substr(start);
@@ -473,7 +473,7 @@ static void guiTexturePreviewSection(uint id)
 		return;
 	}
 
-	D3D12_RESOURCE_DESC desc = buf::getResourceOwner(id)->getResource()->GetDesc();
+	const D3D12_RESOURCE_DESC desc = buf::getResourceOwner(id)->getResource()->GetDesc();
 	ImGui::Text("%llu x %u, %u mip(s), format %u", desc.Width, desc.Height, desc.MipLevels, (uint)desc.Format);
 
 	int mip = render::getTexturePreviewMip();
@@ -491,7 +491,7 @@ static void guiTexturePreviewSection(uint id)
 
 	static const char* const modeNames[render::TEXPREVIEW_MODE_COUNT] =
 		{ "Raw bits", "Octahedral normal", "Object ID color", "visID cluster color", "Red as grayscale" };
-	render::TEXPREVIEW_MODE mode = render::getTexturePreviewMode();
+	const render::TEXPREVIEW_MODE mode = render::getTexturePreviewMode();
 	if (ImGui::BeginCombo("Interpret as", modeNames[mode]))
 	{
 		for (uint m = 0; m < render::TEXPREVIEW_MODE_COUNT; ++m)
@@ -507,7 +507,7 @@ static void guiTexturePreviewSection(uint id)
 	}
 
 	// Show mode applicability notes
-	bool isInteger = render::isIntegerFormat(desc.Format);
+	const bool isInteger = render::isIntegerFormat(desc.Format);
 	if ((mode >= 1 && mode <= 3) && !isInteger)
 	{
 		ImGui::TextDisabled("(mode applies to integer formats)");
@@ -523,9 +523,9 @@ static void guiTexturePreviewSection(uint id)
 	render::texPreviewInfo info;
 	if (render::getTexturePreviewInfo(info))
 	{
-		float availW = (std::min)(ImGui::GetContentRegionAvail().x, 512.0f);
-		float drawW = (std::max)(availW, 1.0f);
-		float drawH = drawW * ((float)info.height / (float)(std::max)(info.width, 1u));
+		const float availW =(std::min)(ImGui::GetContentRegionAvail().x, 512.0f);
+		const float drawW =(std::max)(availW, 1.0f);
+		const float drawH =drawW * ((float)info.height / (float)(std::max)(info.width, 1u));
 		ImGui::Text("mip %u: %u x %u", info.mip, info.width, info.height);
 		ImGui::Image((ImTextureID)info.handle.ptr, ImVec2(drawW, drawH), ImVec2(0, 0), ImVec2(info.u1, info.v1),
 			ImVec4(texPreviewGain, texPreviewGain, texPreviewGain, 1),
@@ -547,13 +547,14 @@ static void guiTexturePreviewSection(uint id)
 
 static void guiResourceCombo(uint selectedId)
 {
-	uint targetId = selectedId;
-	bool targetValid = (targetId != ~0u) && (targetId < buf::getResourceDebugInfoCount());
+	const uint targetId = selectedId;
+	const bool targetValid = (targetId != ~0u) && (targetId < buf::getResourceDebugInfoCount());
 
 	const char* preview = "(select a resource)";
 	if (targetValid)
 	{
 		if (buf::isBufferResource(targetId))
+			// NOLINTNEXTLINE(bugprone-branch-clone) -- buffer and texture branches intentionally share the type-agnostic display-name lookup; kept as separate type tests so per-type labels can diverge later
 		{
 			preview = buf::getResourceDisplayName(targetId);
 		}
@@ -567,15 +568,15 @@ static void guiResourceCombo(uint selectedId)
 	{
 		for (uint id = 0; id < buf::getResourceDebugInfoCount(); ++id)
 		{
-			bool isBuffer = buf::isBufferResource(id);
-			bool isTexture = buf::isTextureResource(id);
+			const bool isBuffer = buf::isBufferResource(id);
+			const bool isTexture = buf::isTextureResource(id);
 			if (!isBuffer && !isTexture)
 			{
 				continue;
 			}
 
 			const char* tag = isBuffer ? "[buf]" : "[tex]";
-			std::string label = std::string(buf::getResourceDisplayName(id)) + " " + tag;
+			const std::string label = std::string(buf::getResourceDisplayName(id)) + " " + tag;
 
 			ImGui::PushID((int)id);
 			if (ImGui::Selectable(label.c_str(), render::getSelectedResourceId() == id))
@@ -591,7 +592,7 @@ static void guiResourceCombo(uint selectedId)
 
 void renderDebug::guiUpdateButton(uint selectedId, bool selIsBuffer, bool selIsTexture)
 {
-	bool targetValid = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount());
+	const bool targetValid = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount());
 
 	ImGui::BeginDisabled(!targetValid);
 	if (ImGui::Button("Update"))
@@ -600,7 +601,7 @@ void renderDebug::guiUpdateButton(uint selectedId, bool selIsBuffer, bool selIsT
 		{
 			if (selIsBuffer)
 			{
-				uint maxBytes = (uint)(std::min)(buf::getResourceWidth(selectedId), (UINT64)render::MEMVIEW_MAX_READBACK_BYTES);
+				const uint maxBytes = (uint)(std::min)(buf::getResourceWidth(selectedId), (UINT64)render::MEMVIEW_MAX_READBACK_BYTES);
 				requestMemReadback(buf::getResourceOwner(selectedId), maxBytes);
 			}
 			else if (selIsTexture)
@@ -614,9 +615,9 @@ void renderDebug::guiUpdateButton(uint selectedId, bool selIsBuffer, bool selIsT
 
 void renderDebug::guiMemoryReadbackSetting()
 {
-	uint selectedId = render::getSelectedResourceId();
-	bool selIsBuffer = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isBufferResource(selectedId);
-	bool selIsTexture = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isTextureResource(selectedId);
+	const uint selectedId = render::getSelectedResourceId();
+	const bool selIsBuffer = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isBufferResource(selectedId);
+	const bool selIsTexture = (selectedId != ~0u) && (selectedId < buf::getResourceDebugInfoCount()) && buf::isTextureResource(selectedId);
 
 	guiResourceCombo(selectedId);
 
@@ -694,7 +695,7 @@ void renderDebug::guiMemoryReadbackSetting()
 			memviewOffsetBytes = (int)bytes.size();
 		}
 
-		bool layoutSelected = (selectedMemLayoutIndex >= 0 && selectedMemLayoutIndex < (int)memLayouts.size());
+		const bool layoutSelected =(selectedMemLayoutIndex >= 0 && selectedMemLayoutIndex < (int)memLayouts.size());
 
 		if (layoutSelected)
 		{
@@ -707,7 +708,7 @@ void renderDebug::guiMemoryReadbackSetting()
 				memviewRowLineIndex.clear();
 				for (uint f = 0; f < (uint)layout.fields.size(); ++f)
 				{
-					uint lineCount = render::memFieldRowCount(layout.fields[f].type);
+					const uint lineCount = render::memFieldRowCount(layout.fields[f].type);
 					for (uint line = 0; line < lineCount; ++line)
 					{
 						memviewRowFieldIndex.push_back(f);
@@ -718,17 +719,17 @@ void renderDebug::guiMemoryReadbackSetting()
 
 			ImGui::Text("Layout '%s' (%u bytes)", layout.name.c_str(), layout.size);
 
-			size_t blockBaseOffset = (size_t)memviewOffsetBytes;
-			size_t remainingBytes = bytes.size() - blockBaseOffset;
-			size_t blockStride = (layout.size > 0) ? (size_t)layout.size : 1;
+			const size_t blockBaseOffset =(size_t)memviewOffsetBytes;
+			const size_t remainingBytes =bytes.size() - blockBaseOffset;
+			const size_t blockStride =(layout.size > 0) ? (size_t)layout.size : 1;
 			size_t totalBlocks = (remainingBytes + blockStride - 1) / blockStride;
-			size_t rowsPerBlock = memviewRowFieldIndex.size() + 1;
-			size_t maxBlocks = (size_t)INT_MAX / rowsPerBlock;
+			const size_t rowsPerBlock =memviewRowFieldIndex.size() + 1;
+			const size_t maxBlocks =(size_t)INT_MAX / rowsPerBlock;
 			if (totalBlocks > maxBlocks)
 			{
 				totalBlocks = maxBlocks;
 			}
-			size_t totalRows = totalBlocks * rowsPerBlock;
+			const size_t totalRows =totalBlocks * rowsPerBlock;
 
 			if (totalBlocks == 0)
 			{
@@ -755,9 +756,9 @@ void renderDebug::guiMemoryReadbackSetting()
 					{
 						for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
 						{
-							size_t blockIndex = (size_t)row / rowsPerBlock;
-							size_t rowInBlock = (size_t)row % rowsPerBlock;
-							size_t blockOffset = blockBaseOffset + blockIndex * blockStride;
+							const size_t blockIndex =(size_t)row / rowsPerBlock;
+							const size_t rowInBlock =(size_t)row % rowsPerBlock;
+							const size_t blockOffset = blockBaseOffset + blockIndex * blockStride;
 
 							ImGui::TableNextRow();
 
@@ -768,9 +769,9 @@ void renderDebug::guiMemoryReadbackSetting()
 							}
 							else
 							{
-								size_t mapIndex = rowInBlock - 1;
-								uint fieldIndex = memviewRowFieldIndex[mapIndex];
-								uint lineIndex = memviewRowLineIndex[mapIndex];
+								const size_t mapIndex = rowInBlock - 1;
+								const uint fieldIndex = memviewRowFieldIndex[mapIndex];
+								const uint lineIndex = memviewRowLineIndex[mapIndex];
 								const render::memLayoutField& field = layout.fields[fieldIndex];
 
 								if (lineIndex == 0)
@@ -784,7 +785,7 @@ void renderDebug::guiMemoryReadbackSetting()
 
 								ImGui::TableSetColumnIndex(2);
 								std::string valueText;
-								render::MEMFIELD_DECODE_RESULT decodeResult = render::decodeMemField(
+								const render::MEMFIELD_DECODE_RESULT decodeResult =render::decodeMemField(
 									bytes.data(), bytes.size(), blockOffset, field, valueText);
 
 								if (decodeResult == render::MEMFIELD_DECODE_OUT_OF_BOUNDS)
@@ -828,12 +829,12 @@ void renderDebug::guiMemoryReadbackSetting()
 			}
 			memviewRawStrideBytes = (memviewRawStrideBytes / 4) * 4;
 
-			size_t offset = (size_t)memviewOffsetBytes;
+			const size_t offset = (size_t)memviewOffsetBytes;
 			const unsigned char* sliceData = bytes.data() + offset;
-			size_t sliceSize = bytes.size() - offset;
-			size_t fullWordCount = sliceSize / 4;
-			size_t trailingBytes = sliceSize % 4;
-			uint wordsPerRow = (uint)memviewRawStrideBytes / 4u;
+			const size_t sliceSize =bytes.size() - offset;
+			const size_t fullWordCount =sliceSize / 4;
+			const size_t trailingBytes =sliceSize % 4;
+			const uint wordsPerRow =(uint)memviewRawStrideBytes / 4u;
 
 			if (ImGui::BeginTable("MemviewHex", (int)(wordsPerRow + 1u), ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetContentRegionAvail().y)))
 			{
@@ -845,7 +846,7 @@ void renderDebug::guiMemoryReadbackSetting()
 				ImGui::TableSetupScrollFreeze(1, 1);
 				ImGui::TableHeadersRow();
 
-				uint rowCount = (uint)((fullWordCount + wordsPerRow - 1u) / wordsPerRow);
+				const uint rowCount =(uint)((fullWordCount + wordsPerRow - 1u) / wordsPerRow);
 				ImGuiListClipper clipper;
 				clipper.Begin((int)rowCount);
 				while (clipper.Step())
@@ -857,7 +858,7 @@ void renderDebug::guiMemoryReadbackSetting()
 						ImGui::Text("%u", (uint)memviewOffsetBytes + (uint)row * (uint)memviewRawStrideBytes);
 						for (uint c = 0; c < wordsPerRow; ++c)
 						{
-							uint wordIdx = (uint)row * wordsPerRow + c;
+							const uint wordIdx =(uint)row * wordsPerRow + c;
 							ImGui::TableSetColumnIndex((int)(c + 1u));
 							if (wordIdx < fullWordCount)
 							{

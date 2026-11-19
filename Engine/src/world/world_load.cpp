@@ -123,20 +123,20 @@ bool worldload::saveMap(const std::string& filePath, const world& source)
 		entity.material.albedo[2] = albedo.z;
 
 		// Transform
-		DirectX::XMVECTOR pos = obj->getTransform()->getPosition();
-		entity.transform.position[0] = pos.m128_f32[0];
-		entity.transform.position[1] = pos.m128_f32[1];
-		entity.transform.position[2] = pos.m128_f32[2];
+		const DirectX::XMVECTOR pos = obj->getTransform()->getPosition();
+		entity.transform.position[0] = DirectX::XMVectorGetX(pos);
+		entity.transform.position[1] = DirectX::XMVectorGetY(pos);
+		entity.transform.position[2] = DirectX::XMVectorGetZ(pos);
 
-		DirectX::XMVECTOR scale = obj->getTransform()->getScale();
-		entity.transform.scale[0] = scale.m128_f32[0];
-		entity.transform.scale[1] = scale.m128_f32[1];
-		entity.transform.scale[2] = scale.m128_f32[2];
+		const DirectX::XMVECTOR scale = obj->getTransform()->getScale();
+		entity.transform.scale[0] = DirectX::XMVectorGetX(scale);
+		entity.transform.scale[1] = DirectX::XMVectorGetY(scale);
+		entity.transform.scale[2] = DirectX::XMVectorGetZ(scale);
 
-		DirectX::XMVECTOR rot = obj->getTransform()->getRotation();
-		entity.transform.rotation[0] = rot.m128_f32[0];
-		entity.transform.rotation[1] = rot.m128_f32[1];
-		entity.transform.rotation[2] = rot.m128_f32[2];
+		const DirectX::XMVECTOR rot = obj->getTransform()->getRotation();
+		entity.transform.rotation[0] = DirectX::XMVectorGetX(rot);
+		entity.transform.rotation[1] = DirectX::XMVectorGetY(rot);
+		entity.transform.rotation[2] = DirectX::XMVectorGetZ(rot);
 
 		mapData.entities.push_back(entity);
 	}

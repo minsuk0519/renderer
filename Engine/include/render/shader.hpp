@@ -29,8 +29,8 @@ namespace shaders
 	{
 		std::string name;
 		//size of data or number of channel
-		uint data;
-		uint loc;
+		uint data = 0;
+		uint loc = 0;
 	};
 
 	struct hlslData
@@ -52,10 +52,10 @@ namespace shaders
 class shader
 {
 public:
-	void load(std::wstring filename);
+	void load(const std::wstring& filename);
 	void close();
 
-	void setshaderSource(Microsoft::WRL::ComPtr<IDxcResult> result, shaders::SHADER_TYPE shaderType, std::string shaderName);
+	void setshaderSource(const Microsoft::WRL::ComPtr<IDxcResult>& result, shaders::SHADER_TYPE shaderType, std::string shaderName);
 
 	void decipherHLSL();
 
@@ -69,7 +69,7 @@ public:
 
 private:
 	Microsoft::WRL::ComPtr<IDxcBlob> shaderSource;
-	shaders::SHADER_TYPE type;
+	shaders::SHADER_TYPE type = shaders::SHADER_VS;
 
 	std::string name;
 };

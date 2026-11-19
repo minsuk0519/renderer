@@ -52,15 +52,15 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList;
 
 	render::fence fence;
-	HANDLE fenceEvent;
+	HANDLE fenceEvent = nullptr;
 
-	D3D12_COMMAND_LIST_TYPE type;
+	D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
 	pipelinestate* currentPSO = nullptr;
 
 #if ENGINE_DEBUG_EVENTRESOURCE
-	render::bindScratchTable bindScratch;
-	render::indirectBindScratchTable indirectBindScratch;
+	render::bindScratchTable bindScratch{};
+	render::indirectBindScratchTable indirectBindScratch{};
 #endif // ENGINE_DEBUG_EVENTRESOURCE
 
 private:
@@ -74,7 +74,7 @@ public:
 
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> getCmdList() const;
 
-	void execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>> cmdLists);
+	void execute(const std::vector<Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>>& cmdLists);
 	void flush();
 
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> createCommandList(bool close);

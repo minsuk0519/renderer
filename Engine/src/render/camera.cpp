@@ -27,8 +27,8 @@ bool camera::init()
 {
 	transformPtr = new transform();
 
-	uint width = e_globWindow.width();
-	uint height = e_globWindow.height();
+	const uint width = e_globWindow.width();
+	const uint height = e_globWindow.height();
 
 	screenViewport.topLeftX = 0.0f;
 	screenViewport.topLeftY = 0.0f;
@@ -53,7 +53,7 @@ void camera::setCamAsMain()
 	type = cam::CAMTYPE_MAIN;
 }
 
-void camera::draw([[maybe_unused]] uint psoIndex, [[maybe_unused]] Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void camera::draw([[maybe_unused]] uint psoIndex, [[maybe_unused]] const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList)
 {
 	//if(psoIndex == pso::PSO_DEBUG) 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 
@@ -78,7 +78,7 @@ void camera::close()
 	delete transformPtr;
 }
 
-void camera::preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceFull)
+void camera::preDraw(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, bool forceFull)
 {
 	CD3DX12_VIEWPORT viewport = CD3DX12_VIEWPORT{ screenViewport.topLeftX, screenViewport.topLeftY, screenViewport.width, screenViewport.height };
 	CD3DX12_RECT scissorRect = CD3DX12_RECT{ scissor.left, scissor.top, scissor.right, scissor.bottom };
@@ -99,8 +99,8 @@ void camera::changeViewport(const cam::VIEWPORT_TYPE viewType)
 {
 	if (viewportType == viewType) return;
 
-	uint width = e_globWindow.width();
-	uint height = e_globWindow.height();
+	const uint width = e_globWindow.width();
+	const uint height = e_globWindow.height();
 
 	if (viewType == cam::VIEWPORT_MINI)
 	{
@@ -132,37 +132,37 @@ void camera::changeViewport(const cam::VIEWPORT_TYPE viewType)
 
 void camera::updateView()
 {
-	DirectX::XMVECTOR up = transformPtr->getUP();
+	const DirectX::XMVECTOR up = transformPtr->getUP();
 	DirectX::XMVECTOR right = transformPtr->getRIGHT();
 	DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);
 
-	DirectX::XMVECTOR camPos = transformPtr->getPosition();
+	const DirectX::XMVECTOR camPos = transformPtr->getPosition();
 
 	const float upScale = std::tanf(DirectX::XMConvertToRadians(FOV) * 0.5f);
 	const float rightScale = upScale * (screenViewport.width / (float)screenViewport.height);
 
 	frustum[0] = DirectX::XMVectorNegate(forward);
-	frustum[0].m128_f32[3] = -DirectX::XMVector3Dot(frustum[0], DirectX::XMVectorMultiplyAdd(frustum[0], DirectX::XMVECTOR{ NEAR_PLANE, NEAR_PLANE, NEAR_PLANE }, camPos)).m128_f32[0];
+	frustum[0] = DirectX::XMVectorSetW(frustum[0], -DirectX::XMVectorGetX(DirectX::XMVector3Dot(frustum[0], DirectX::XMVectorMultiplyAdd(frustum[0], DirectX::XMVECTOR{ NEAR_PLANE, NEAR_PLANE, NEAR_PLANE }, camPos))));
 	frustum[1] = forward;
-	frustum[1].m128_f32[3] = -DirectX::XMVector3Dot(frustum[1], DirectX::XMVectorMultiplyAdd(frustum[1], DirectX::XMVECTOR{ FAR_PLANE, FAR_PLANE, FAR_PLANE }, camPos)).m128_f32[0];
+	frustum[1] = DirectX::XMVectorSetW(frustum[1], -DirectX::XMVectorGetX(DirectX::XMVector3Dot(frustum[1], DirectX::XMVectorMultiplyAdd(frustum[1], DirectX::XMVECTOR{ FAR_PLANE, FAR_PLANE, FAR_PLANE }, camPos))));
 
-	DirectX::XMVECTOR scaledUp = DirectX::XMVectorMultiply(up, DirectX::XMVECTOR{ upScale, upScale, upScale });
-	DirectX::XMVECTOR scaledRight = DirectX::XMVectorMultiply(right, DirectX::XMVECTOR{ rightScale, rightScale, rightScale });
+	const DirectX::XMVECTOR scaledUp =DirectX::XMVectorMultiply(up, DirectX::XMVECTOR{ upScale, upScale, upScale });
+	const DirectX::XMVECTOR scaledRight =DirectX::XMVectorMultiply(right, DirectX::XMVECTOR{ rightScale, rightScale, rightScale });
 
-	DirectX::XMVECTOR topright = DirectX::XMVectorAdd(DirectX::XMVectorAdd(scaledRight, scaledUp), forward);
-	DirectX::XMVECTOR bottomleft = DirectX::XMVectorAdd(DirectX::XMVectorNegate(DirectX::XMVectorAdd(scaledRight, scaledUp)), forward);
+	const DirectX::XMVECTOR topright =DirectX::XMVectorAdd(DirectX::XMVectorAdd(scaledRight, scaledUp), forward);
+	const DirectX::XMVECTOR bottomleft =DirectX::XMVectorAdd(DirectX::XMVectorNegate(DirectX::XMVectorAdd(scaledRight, scaledUp)), forward);
 
 	frustum[2] = DirectX::XMVector3Cross(topright, scaledUp);
-	frustum[2].m128_f32[3] = -DirectX::XMVector3Dot(frustum[2], camPos).m128_f32[0];
+	frustum[2] = DirectX::XMVectorSetW(frustum[2], -DirectX::XMVectorGetX(DirectX::XMVector3Dot(frustum[2], camPos)));
 
 	frustum[3] = DirectX::XMVector3Cross(scaledRight, topright);
-	frustum[3].m128_f32[3] = -DirectX::XMVector3Dot(frustum[3], camPos).m128_f32[0];
+	frustum[3] = DirectX::XMVectorSetW(frustum[3], -DirectX::XMVectorGetX(DirectX::XMVector3Dot(frustum[3], camPos)));
 
 	frustum[4] = DirectX::XMVector3Cross(scaledUp, bottomleft);
-	frustum[4].m128_f32[3] = -DirectX::XMVector3Dot(frustum[4], camPos).m128_f32[0];
+	frustum[4] = DirectX::XMVectorSetW(frustum[4], -DirectX::XMVectorGetX(DirectX::XMVector3Dot(frustum[4], camPos)));
 
 	frustum[5] = DirectX::XMVector3Cross(bottomleft, scaledRight);
-	frustum[5].m128_f32[3] = -DirectX::XMVector3Dot(frustum[5], camPos).m128_f32[0];
+	frustum[5] = DirectX::XMVectorSetW(frustum[5], -DirectX::XMVectorGetX(DirectX::XMVector3Dot(frustum[5], camPos)));
 }
 
 DirectX::XMVECTOR* camera::getFrustum()
@@ -177,15 +177,15 @@ transform* camera::getTransform() const
 
 DirectX::XMMATRIX camera::getMat() const
 {
-	DirectX::XMVECTOR up = transformPtr->getUP();
+	const DirectX::XMVECTOR up = transformPtr->getUP();
 	DirectX::XMVECTOR right = transformPtr->getRIGHT();
 
 	DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);
 
 	DirectX::XMVECTOR pos = transformPtr->getPosition();
 
-	DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, up);
-	DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, FAR_PLANE, NEAR_PLANE);
+	const DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, up);
+	const DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(FOV), screenViewport.width / (float)screenViewport.height, FAR_PLANE, NEAR_PLANE);
 
 	return view * projection;
 }
@@ -240,7 +240,7 @@ void camera::update(float dt)
 
 	if (input::isPressed(input::KEY_RIGHTCLICK))
 	{
-		input::pos mouseMove = input::getMouseMove();
+		const input::pos mouseMove = input::getMouseMove();
 
 		mouseMovex = mouseMove.x;
 		mouseMovey = mouseMove.y;
@@ -262,7 +262,7 @@ void camera::move(float x, float y, int mousex, int mousey, float dt)
 
 	if (y != 0)
 	{
-		DirectX::XMVECTOR up = transformPtr->getUP();
+		const DirectX::XMVECTOR up = transformPtr->getUP();
 		DirectX::XMVECTOR right = transformPtr->getRIGHT();
 
 		DirectX::XMVECTOR forward = DirectX::XMVector3Cross(up, right);

@@ -25,12 +25,12 @@ namespace render
 
 	struct psoData
 	{
-		uint vertexIndex;
-		uint pixelIndex;
+		uint vertexIndex = 0;
+		uint pixelIndex = 0;
 		std::string psoName;
 		std::vector<uint> formats;
-		bool cs;
-		bool depth;
+		bool cs = false;
+		bool depth = false;
 	};
 
 	struct cmdSigData
@@ -52,7 +52,7 @@ private:
 	std::map<uint, uint> hlslLoc;
 	
 	render::psoData data;
-	bool isCompute;
+	bool isCompute = false;
 
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdSignature;
 
@@ -60,8 +60,8 @@ public:
 	bool init(std::string psoName, uint VS, uint PS, std::vector<uint> formats, D3D12_CULL_MODE cull, bool wireframe, bool depth);
 	bool initCS(std::string psoName, uint CS);
 
-	void sendGraphicsData(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
-	void sendConstantData(Microsoft::WRL::ComPtr< ID3D12GraphicsCommandList> cmdList, uint loc, uint dataSize, void* data);
+	void sendGraphicsData(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint loc, D3D12_GPU_DESCRIPTOR_HANDLE descLoc);
+	void sendConstantData(const Microsoft::WRL::ComPtr< ID3D12GraphicsCommandList>& cmdList, uint loc, uint dataSize, void* data);
 
 	void setCommandSignature(const std::vector<render::cmdSigData>& data);
 

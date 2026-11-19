@@ -58,19 +58,19 @@ public:
 	//the main camera have to be unique entity
 	void setCamAsMain();
 
-	void draw(uint psoIndex, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
-	void preDraw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceFull);
+	void draw(uint psoIndex, const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList);
+	void preDraw(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, bool forceFull);
 
 	void changeViewport(const cam::VIEWPORT_TYPE type);
 	void updateView();
 
 	DirectX::XMVECTOR* getFrustum();
 
-	cam::viewport screenViewport;
+	cam::viewport screenViewport{};
 	cam::scissorRect scissor = {};
 
-	buffer* projectionBuffer;
-	buffer* objectBuffer;
+	buffer* projectionBuffer = nullptr;
+	buffer* objectBuffer = nullptr;
 
 	cam::VIEWPORT_TYPE viewportType = cam::VIEWPORT_FULL;
 
@@ -98,7 +98,7 @@ private:
 
 	transform* transformPtr = nullptr;
 
-	DirectX::XMVECTOR frustum[6];
+	DirectX::XMVECTOR frustum[6]{};
 
 	DirectX::XMMATRIX prevViewProj = DirectX::XMMatrixIdentity();
 	bool prevViewProjValid = false;

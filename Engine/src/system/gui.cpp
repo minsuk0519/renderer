@@ -28,14 +28,15 @@ namespace gui
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> guiHeap;
 };
 
-bool gui::init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap, const descriptor& fontDesc)
+bool gui::init(void* hwnd, ID3D12Device* device, const Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& allocatedGuiHeap, const descriptor& fontDesc)
 {
     gui::guiHeap = allocatedGuiHeap;
 
     IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
+    ImGuiContext* imguiContext = ImGui::CreateContext();
+    TC_CONDITION(imguiContext != nullptr, "Failed to create ImGui context");
 
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    const ImGuiIO& io = ImGui::GetIO(); (void)io;
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
@@ -75,13 +76,13 @@ void gui::render(ID3D12GraphicsCommandList* cmdList)
     {
         if (ImGui::BeginMenu("Tools"))
         {
-            ImGui::MenuItem("ShaderViewer", NULL, &showShadersWindow);
-            ImGui::MenuItem("DebugWindow", NULL, &showDebugWindow);
+            ImGui::MenuItem("ShaderViewer", nullptr, &showShadersWindow);
+            ImGui::MenuItem("DebugWindow", nullptr, &showDebugWindow);
 #if ENGINE_DEBUG_GPUPROF
-            ImGui::MenuItem("EventViewer", NULL, &showEventViewerWindow);
+            ImGui::MenuItem("EventViewer", nullptr, &showEventViewerWindow);
 #endif
 #if ENGINE_DEBUG_RESOURCEVIEW
-            ImGui::MenuItem("ResourceViewer", NULL, &showResourceViewerWindow);
+            ImGui::MenuItem("ResourceViewer", nullptr, &showResourceViewerWindow);
 #endif // ENGINE_DEBUG_RESOURCEVIEW
 
             ImGui::EndMenu();
@@ -264,34 +265,34 @@ LRESULT gui::guiInputHandle(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam);
 }
 
-void gui::text(std::string text)
+void gui::text(const std::string& text)
 {
     ImGui::Text(text.c_str());
 }
 
-void gui::vector4(std::string str, float* data)
+void gui::vector4(const std::string& str, float* data)
 {
     ImGui::DragFloat4(str.c_str(), data);
 }
 
-void gui::boolean(std::string str, bool& data)
+void gui::boolean(const std::string& str, bool& data)
 {
     ImGui::Checkbox(str.c_str(), &data);
 }
 
-void gui::color(std::string str, float* data)
+void gui::color(const std::string& str, float* data)
 {
     ImGui::ColorEdit4(str.c_str(), data);
 }
 
-bool gui::collapsingHeader(std::string str)
+bool gui::collapsingHeader(const std::string& str)
 {
     return ImGui::CollapsingHeader(str.c_str());
 }
 
-void gui::editfloat(std::string str, uint floatNum, float* data, float min, float max)
+void gui::editfloat(const std::string& str, uint floatNum, float* data, float min, float max)
 {
-    float velocity = (min == max) ? 0.01f : (max - min) * 0.001f;
+    const float velocity = (min == max) ? 0.01f : (max - min) * 0.001f;
 
     if (floatNum == 1)
     {
@@ -311,7 +312,7 @@ void gui::editfloat(std::string str, uint floatNum, float* data, float min, floa
     }
 }
 
-void gui::edituint(std::string str, uint* data)
+void gui::edituint(const std::string& str, uint* data)
 {
     int integer = *data;
     if (ImGui::InputInt(str.c_str(), &integer))
@@ -320,7 +321,7 @@ void gui::edituint(std::string str, uint* data)
     }
 }
 
-void gui::editintwithrange(std::string str, int* data, int min, int max)
+void gui::editintwithrange(const std::string& str, int* data, int min, int max)
 {
     int integer = *data;
     if (ImGui::InputInt(str.c_str(), &integer))
@@ -329,10 +330,10 @@ void gui::editintwithrange(std::string str, int* data, int min, int max)
     }
 }
 
-void gui::editstring(std::string str, std::string* data)
+void gui::editstring(const std::string& str, std::string* data)
 {
 	char buf[GUI_STRING_BUF_SIZE];
-	size_t copySize = (std::min)(data->size(), GUI_STRING_BUF_SIZE - 1);
+	const size_t copySize = (std::min)(data->size(), GUI_STRING_BUF_SIZE - 1);
 	std::copy(data->begin(), data->begin() + copySize, buf);
 	buf[copySize] = '\0';
 
@@ -342,13 +343,13 @@ void gui::editstring(std::string str, std::string* data)
 	}
 }
 
-void gui::comboBox(std::string name, const char* const items[], uint size, uint& index)
+void gui::comboBox(const std::string& name, const char* const items[], uint size, uint& index)
 {
     if (ImGui::BeginCombo(name.c_str(), items[index]))
     {
         for (uint n = 0; n < size; ++n)
         {
-            bool is_selected = (index == n);
+            const bool is_selected = (index == n);
             if (ImGui::Selectable(items[n], is_selected))
             {
                 index = n;
@@ -362,7 +363,7 @@ void gui::comboBox(std::string name, const char* const items[], uint size, uint&
     }
 }
 
-bool gui::button(std::string str)
+bool gui::button(const std::string& str)
 {
     return ImGui::Button(str.c_str());
 }

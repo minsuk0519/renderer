@@ -37,7 +37,7 @@ namespace prof
 			flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 		}
 
-		bool open = ImGui::TreeNodeEx(name, flags);
+		const bool open = ImGui::TreeNodeEx(name, flags);
 
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
 		{
@@ -57,13 +57,13 @@ namespace prof
 	static uint renderLaneRows(const profEventView* events, uint count, uint i, EVENT_INDEX& selected)
 	{
 		const profEventView& e = events[i];
-		bool hasChildren = (i + 1 < count) && events[i + 1].depth > e.depth;
+		const bool hasChildren = (i + 1 < count) && events[i + 1].depth > e.depth;
 
 		ImGui::TableNextRow();
 		ImGui::TableSetColumnIndex(0);
 		ImGui::PushID(e.nameID);
 
-		bool recurse = eventTreeNodeCol0(e.name, e.nameID, hasChildren, selected);
+		const bool recurse = eventTreeNodeCol0(e.name, e.nameID, hasChildren, selected);
 
 		ImGui::TableSetColumnIndex(1);
 		ImGui::Text("%.3f", e.timeMs);
@@ -97,10 +97,10 @@ namespace prof
 			void endFrame();
 
 		private:
-			bool frameActive;
-			bool enabled;
-			UINT64 frameIndex;
-			bool warnedMismatchedStack;
+			bool frameActive = false;
+			bool enabled = false;
+			UINT64 frameIndex = 0;
+			bool warnedMismatchedStack = false;
 		};
 
 		gpuProfiler g_gpuProf;
@@ -215,7 +215,7 @@ namespace prof
 
 	static uint renderCatalogRows(uint i, EVENT_INDEX& selected)
 	{
-		EVENT_INDEX orderedId = getGPUEventCatalogOrder(i);
+		const EVENT_INDEX orderedId = getGPUEventCatalogOrder(i);
 		const profEventInfoView* entry = getGPUEventCatalog(orderedId);
 
 		if (!entry)
@@ -223,7 +223,7 @@ namespace prof
 			return i + 1;
 		}
 
-		bool hasChildren = (i + 1 < getGPUEventCatalogOrderCount()) &&
+		const bool hasChildren = (i + 1 < getGPUEventCatalogOrderCount()) &&
 			getGPUEventCatalog(getGPUEventCatalogOrder(i + 1))->depth > entry->depth;
 
 		ImGui::TableNextRow();
@@ -236,7 +236,7 @@ namespace prof
 		ImGui::TableSetColumnIndex(0);
 		ImGui::PushID(entry->nameID);
 
-		bool recurse = eventTreeNodeCol0(getEventName(entry->nameID), entry->nameID, hasChildren, selected);
+		const bool recurse = eventTreeNodeCol0(getEventName(entry->nameID), entry->nameID, hasChildren, selected);
 
 		ImGui::TableSetColumnIndex(1);
 		const profLaneView* laneView = getGPULaneView(entry->lane);
@@ -248,7 +248,7 @@ namespace prof
 		{
 			while (next < getGPUEventCatalogOrderCount())
 			{
-				EVENT_INDEX nextId = getGPUEventCatalogOrder(next);
+				const EVENT_INDEX nextId = getGPUEventCatalogOrder(next);
 				const profEventInfoView* nextEntry = getGPUEventCatalog(nextId);
 				if (!nextEntry || nextEntry->depth <= entry->depth)
 				{
@@ -262,7 +262,7 @@ namespace prof
 		{
 			while (next < getGPUEventCatalogOrderCount())
 			{
-				EVENT_INDEX nextId = getGPUEventCatalogOrder(next);
+				const EVENT_INDEX nextId = getGPUEventCatalogOrder(next);
 				const profEventInfoView* nextEntry = getGPUEventCatalog(nextId);
 				if (!nextEntry || nextEntry->depth <= entry->depth)
 				{
@@ -294,8 +294,8 @@ namespace prof
 
 	static const char* hlslRegisterLabel(uint loc)
 	{
-		uint index = loc >> 2;
-		uint type = loc & 3;
+		const uint index = loc >> 2;
+		const uint type = loc & 3;
 		static char buf[16];
 		const char* typeChar = "?";
 		if (type == 0)
@@ -321,11 +321,11 @@ namespace prof
 
 	void guiEventViewerSetting()
 	{
-		uint catalogCount = getGPUEventCatalogOrderCount();
+		const uint catalogCount = getGPUEventCatalogOrderCount();
 		uint activeCount = 0;
 		for (uint i = 0; i < catalogCount; ++i)
 		{
-			EVENT_INDEX orderedId = getGPUEventCatalogOrder(i);
+			const EVENT_INDEX orderedId = getGPUEventCatalogOrder(i);
 			const profEventInfoView* entry = getGPUEventCatalog(orderedId);
 			if (entry && entry->activeThisFrame)
 			{
@@ -366,7 +366,7 @@ namespace prof
 
 		if (selectedEventViewerEvent != EVENT_INVALID)
 		{
-			uint resCount = prof::getEventResourceCount(selectedEventViewerEvent);
+			const uint resCount = prof::getEventResourceCount(selectedEventViewerEvent);
 			if (resCount > 0)
 			{
 				ImGui::SeparatorText(prof::getEventName(selectedEventViewerEvent));
@@ -386,8 +386,8 @@ namespace prof
 							ImGui::PushID((int)i);
 							ImGui::TableNextRow();
 
-							bool bufferMatch = (selectedEventResourceBufferId != ~0u && entry->bufferId == selectedEventResourceBufferId);
-							bool viewMatch = (bufferMatch && entry->heapSlot == selectedEventResourceHeapSlot);
+							const bool bufferMatch = (selectedEventResourceBufferId != ~0u && entry->bufferId == selectedEventResourceBufferId);
+							const bool viewMatch = (bufferMatch && entry->heapSlot == selectedEventResourceHeapSlot);
 
 							if (viewMatch)
 							{
@@ -472,24 +472,24 @@ namespace prof
 
 		private:
 			profLane lanes[CPUPROF_MAX_THREADS];
-			DWORD laneThreadId[CPUPROF_MAX_THREADS];
+			DWORD laneThreadId[CPUPROF_MAX_THREADS]{};
 			std::atomic<uint> nextLane;
-			LARGE_INTEGER qpcFrequency;
-			bool frameActive;
-			bool enabled;
-			UINT64 frameIndex;
-			bool warnedMismatchedStack;
-			bool warnedNegativeTime;
-			bool warnedThreadOverflow;
+			LARGE_INTEGER qpcFrequency{};
+			bool frameActive = false;
+			bool enabled = false;
+			UINT64 frameIndex = 0;
+			bool warnedMismatchedStack = false;
+			bool warnedNegativeTime = false;
+			bool warnedThreadOverflow = false;
 
-			profEventView snapshotEvents[CPUPROF_MAX_THREADS][PROF_MAX_EVENTS_PER_LANE];
-			profLaneView snapshotLanes[CPUPROF_MAX_THREADS];
-			char laneLabels[CPUPROF_MAX_THREADS][16];
-			float laneTotalHistory[CPUPROF_MAX_THREADS][PROF_HISTORY_FRAMES];
-			float eventHistory[EVENT_CAPACITY][PROF_HISTORY_FRAMES];
-			float frameTotalMs;
-			float frameTotalHistory[PROF_HISTORY_FRAMES];
-			uint historyHead;
+			profEventView snapshotEvents[CPUPROF_MAX_THREADS][PROF_MAX_EVENTS_PER_LANE]{};
+			profLaneView snapshotLanes[CPUPROF_MAX_THREADS]{};
+			char laneLabels[CPUPROF_MAX_THREADS][16]{};
+			float laneTotalHistory[CPUPROF_MAX_THREADS][PROF_HISTORY_FRAMES]{};
+			float eventHistory[EVENT_CAPACITY][PROF_HISTORY_FRAMES]{};
+			float frameTotalMs = 0.0f;
+			float frameTotalHistory[PROF_HISTORY_FRAMES]{};
+			uint historyHead = 0;
 
 			void publishSnapshot();
 		};
@@ -572,7 +572,7 @@ namespace prof
 
 			if (t_laneIndex == -1)
 			{
-				uint laneIdx = nextLane.fetch_add(1);
+				const uint laneIdx = nextLane.fetch_add(1);
 				if (laneIdx >= CPUPROF_MAX_THREADS)
 				{
 					if (!warnedThreadOverflow)
@@ -588,7 +588,7 @@ namespace prof
 
 			profLane& lane = lanes[t_laneIndex];
 
-			int eventIndex = laneBegin(lane, nameID, std::format("T{}", t_laneIndex).c_str());
+			const int eventIndex = laneBegin(lane, nameID, std::format("T{}", t_laneIndex).c_str());
 
 			if (eventIndex >= 0)
 			{
@@ -621,8 +621,8 @@ namespace prof
 
 			profEvent& event = lane.pendingEvents[eventIndex];
 
-			UINT64 beginTick = event.beginTick;
-			UINT64 endTick = now.QuadPart;
+			const UINT64 beginTick = event.beginTick;
+			const UINT64 endTick = now.QuadPart;
 
 			if (endTick >= beginTick)
 			{
@@ -650,12 +650,12 @@ namespace prof
 				eventHistory[i][historyHead] = 0.0f;
 			}
 
-			uint numClaimedLanes = nextLane.load();
+			const uint numClaimedLanes = nextLane.load();
 			for (uint laneIdx = 0; laneIdx < numClaimedLanes && laneIdx < CPUPROF_MAX_THREADS; ++laneIdx)
 			{
 				profLane& lane = lanes[laneIdx];
 
-				uint eventCount = (std::min)(static_cast<uint>(lane.lastFrameEvents.size()), PROF_MAX_EVENTS_PER_LANE);
+				const uint eventCount = (std::min)(static_cast<uint>(lane.lastFrameEvents.size()), PROF_MAX_EVENTS_PER_LANE);
 				for (uint eventIdx = 0; eventIdx < eventCount; ++eventIdx)
 				{
 					const profEvent& event = lane.lastFrameEvents[eventIdx];
@@ -848,7 +848,7 @@ namespace prof
 #if ENGINE_DEBUG_GPUPROF
 		ImGui::SeparatorText("GPU");
 
-		uint gpuLaneCount = getGPULaneCount();
+		const uint gpuLaneCount = getGPULaneCount();
 		for (uint laneIdx = 0; laneIdx < gpuLaneCount; ++laneIdx)
 		{
 			const profLaneView* laneView = getGPULaneView(laneIdx);
@@ -857,7 +857,7 @@ namespace prof
 				continue;
 			}
 
-			std::string overlay = std::format("{} {:.3f} ms", laneView->label, laneView->totalMs);
+			const std::string overlay = std::format("{} {:.3f} ms", laneView->label, laneView->totalMs);
 			ImGui::PlotLines(laneView->label, laneView->totalHistory, (int)PROF_HISTORY_FRAMES,
 				(int)getGPUHistoryOffset(), overlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 60));
 
@@ -878,7 +878,7 @@ namespace prof
 				const float* eventHist = getGPUEventHistory(selectedGPUEvent);
 				if (eventHist)
 				{
-					std::string eventName = std::format("Event: {} (GPU)", getEventName(selectedGPUEvent));
+					const std::string eventName = std::format("Event: {} (GPU)", getEventName(selectedGPUEvent));
 					ImGui::PlotLines(eventName.c_str(), eventHist, (int)PROF_HISTORY_FRAMES,
 						(int)getGPUHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
 				}
@@ -892,7 +892,7 @@ namespace prof
 		ImGui::Text("CPU Total (all threads): %.3f ms", getCPUFrameTotalMs());
 		ImGui::PlotLines("CPU Total", getCPUFrameTotalHistory(), (int)PROF_HISTORY_FRAMES, (int)getCPUHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
 
-		uint cpuLaneCount = getCPULaneCount();
+		const uint cpuLaneCount = getCPULaneCount();
 		for (uint laneIdx = 0; laneIdx < cpuLaneCount; ++laneIdx)
 		{
 			const profLaneView* laneView = getCPULaneView(laneIdx);
@@ -901,7 +901,7 @@ namespace prof
 				continue;
 			}
 
-			std::string overlay = std::format("{} {:.3f} ms", laneView->label, laneView->totalMs);
+			const std::string overlay = std::format("{} {:.3f} ms", laneView->label, laneView->totalMs);
 			ImGui::PlotLines(laneView->label, laneView->totalHistory, (int)PROF_HISTORY_FRAMES,
 				(int)getCPUHistoryOffset(), overlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 60));
 
@@ -922,7 +922,7 @@ namespace prof
 				const float* eventHist = getCPUEventHistory(selectedCPUEvent);
 				if (eventHist)
 				{
-					std::string eventName = std::format("Event: {} (CPU)", getEventName(selectedCPUEvent));
+					const std::string eventName = std::format("Event: {} (CPU)", getEventName(selectedCPUEvent));
 					ImGui::PlotLines(eventName.c_str(), eventHist, (int)PROF_HISTORY_FRAMES,
 						(int)getCPUHistoryOffset(), nullptr, 0.0f, FLT_MAX, ImVec2(0, 60));
 				}

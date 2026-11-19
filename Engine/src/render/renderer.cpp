@@ -53,8 +53,8 @@ namespace renderGuiSetting
 
 	struct guiSetting
 	{
-		uint features;
-		uint debugDraw;
+		uint features = 0;
+		uint debugDraw = 0;
 		bool AABBDraw = false;
 	};
 
@@ -97,15 +97,15 @@ bool initGui()
 	//setting up gui
 	descriptorheap* descriptorHeap = render::getHeap(render::DESCRIPTORHEAP_BUFFER);
 	//buffer type does not matter
-	descriptor fontDesc = descriptorHeap->requestdescriptor(buf::BUFFER_IMAGE_TYPE, nullptr, nullptr);
+	const descriptor fontDesc = descriptorHeap->requestdescriptor(buf::BUFFER_IMAGE_TYPE, nullptr, nullptr);
 	gui::init(e_globWindow.getWindow(), e_globRenderer.device.Get(), descriptorHeap->getHeap(), fontDesc);
 
 	return true;
 }
 
-bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter)
+bool renderer::init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, const Microsoft::WRL::ComPtr<IDXGIAdapter1>& adapter)
 {
-	factory = dxFactory;
+	factory = std::move(dxFactory);
 
 	TC_CONDITIONB(createDevice(factory, adapter) == true, "Failed to create device");
 
@@ -194,9 +194,9 @@ void renderer::close()
 	shaders::cleanup();
 }
 
-bool renderer::createDevice(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter)
+bool renderer::createDevice(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, const Microsoft::WRL::ComPtr<IDXGIAdapter1>& adapter)
 {
-	factory = dxFactory;
+	factory = std::move(dxFactory);
 
 	TC_CONDITIONB(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&device)) == S_OK, "Failed to create device");
 
@@ -269,7 +269,7 @@ bool renderer::createSwapChain()
 	swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-	bool tearingSupport = checkFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING);
+	const bool tearingSupport = checkFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING);
 	if (!tearingSupport)
 	{
 		TC_LOG_WARNING("Tearing is not supported on this device!");
@@ -277,7 +277,7 @@ bool renderer::createSwapChain()
 	swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;// tearingSupport ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
 	Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain1;
-	HRESULT result = factory->CreateSwapChainForHwnd(
+	const HRESULT result = factory->CreateSwapChainForHwnd(
 		render::getCmdQueue(render::QUEUE_GRAPHIC)->getQueue(),
 		e_globWindow.getWindow(),
 		&swapChainDesc,
@@ -295,8 +295,8 @@ bool renderer::createSwapChain()
 
 bool renderer::createFrameResources()
 {
-	uint sWidth = e_globWindow.width();
-	uint sHeight = e_globWindow.height();
+	const uint sWidth = e_globWindow.width();
+	const uint sHeight = e_globWindow.height();
 
 	{
 		fbDepth = e_globBufAllocator.alloc(nullptr, 0, 1, buf::GBF_DEPTH_STENCIL, buf::RESOURCE_DEPTH | buf::RESOURCE_TEXTURE | buf::RESOURCE_CLEAR, DXGI_FORMAT_D32_FLOAT, sWidth, sHeight, 1);
@@ -330,7 +330,8 @@ bool renderer::createFrameResources()
 	{
 		Microsoft::WRL::ComPtr<ID3D12Resource> resource;
 
-		swapChain->GetBuffer(i, IID_PPV_ARGS(&resource));
+		const HRESULT bufferResult = swapChain->GetBuffer(i, IID_PPV_ARGS(&resource));
+		TC_CONDITION(SUCCEEDED(bufferResult), "Failed to get swapchain buffer");
 
 		//will corresponding with createSwapChain()
 		swapchainFB[i] = new framebuffer();
@@ -428,7 +429,7 @@ void renderer::copyGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& 
 {
 	TC_ASSERT(dst->getHeader()->dataSize >= size);
 
-	D3D12_RESOURCE_STATES srcBarrier = dst->getCurResourceState();
+	const D3D12_RESOURCE_STATES srcBarrier = dst->getCurResourceState();
 
 	CD3DX12_RESOURCE_BARRIER barrier;
 
@@ -447,7 +448,7 @@ void renderer::copyGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& 
 void renderer::uploadGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, buffer* dst, uint dstOffset, void* data, uint size)
 {
 	//todo : change it to srcOffset
-	uint offset = 0;
+	const uint offset = 0;
 
 	uploadBuffer->uploadBuffer(size, offset, data);
 
@@ -456,13 +457,14 @@ void renderer::uploadGPUBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>
 
 void renderer::uploadCopyGPUBuffer(ID3D12Resource* resource, void* data, uint size)
 {
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = render::getCmdQueue(render::QUEUE_COPY)->getCmdList();
+	const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = render::getCmdQueue(render::QUEUE_COPY)->getCmdList();
 
-	uint offset = 0;
+	const uint offset = 0;
 
 	uploadBuffer->uploadBuffer(size, offset, data);
 
-	cmdList->Reset(render::getCmdQueue(render::QUEUE_COPY)->getAllocator().Get(), nullptr);
+	const HRESULT copyResetResult = cmdList->Reset(render::getCmdQueue(render::QUEUE_COPY)->getAllocator().Get(), nullptr);
+	TC_CONDITION(SUCCEEDED(copyResetResult), "Failed to reset copy command list for buffer upload");
 
 	{
 		GPU_EVENT(cmdList.Get(), "Buffer Upload");
@@ -595,8 +597,8 @@ void renderer::guiCullingSetting()
 
 	ImGui::Separator();
 
-	float pass1Candidates = (float)(std::max)(1u, stats.pass1.clusterCandidates);
-	float pass2Candidates = (float)(std::max)(1u, stats.pass2.clusterCandidates);
+	const float pass1Candidates =(float)(std::max)(1u, stats.pass1.clusterCandidates);
+	const float pass2Candidates =(float)(std::max)(1u, stats.pass2.clusterCandidates);
 
 	ImGui::ProgressBar((float)stats.pass1.clusterOccluded / pass1Candidates, ImVec2(0, 0), "Pass1 occluded %");
 	ImGui::ProgressBar((float)stats.pass2.clusterOccluded / pass2Candidates, ImVec2(0, 0), "Pass2 occluded %");
@@ -670,7 +672,7 @@ uint renderer::getHZBMipCount() const
 
 D3D12_GPU_DESCRIPTOR_HANDLE renderer::getHZBMipHandle(uint mip) const
 {
-	uint clampedMip = hzbMipCount > 0 ? (std::min)(mip, hzbMipCount - 1) : 0;
+	const uint clampedMip = hzbMipCount > 0 ? (std::min)(mip, hzbMipCount - 1) : 0;
 	return hzbMipBuffer[clampedMip]->getDesc(buf::GBF_SRV)->getHandle();
 }
 
@@ -680,7 +682,7 @@ void renderer::getHZBMipSize(uint mip, uint& w, uint& h) const
 	h = (std::max)(1u, e_globWindow.height() >> mip);
 }
 
-void renderer::transitionHZBForGui(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void renderer::transitionHZBForGui(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList)
 {
 	std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
 
@@ -756,14 +758,14 @@ void renderer::preDraw([[maybe_unused]] float dt)
 
 void renderer::setUpTerrain()
 {
-	uint indexSize = 512 * 512 * sizeof(uint) * 3 * 2;
+	const uint indexSize = 512 * 512 * sizeof(uint) * 3 * 2;
 	buffer* terrainVert[3];
 	//TODO : arbitrary size
 	terrainVert[0] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME);
 	terrainVert[1] = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float) * 4 * 3, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME);
 	terrainVert[2] = e_globBufAllocator.alloc(nullptr, indexSize, 3, buf::GBF_SRV | buf::GBF_UAV, buf::RESOURCE_ONETIME);
 
-	buffer* noise;
+	buffer* noise = nullptr;
 
 	noise = e_globBufAllocator.alloc(nullptr, 513 * 513 * sizeof(float), 1, buf::GBF_UAV | buf::GBF_SRV, buf::RESOURCE_ONETIME);
 
@@ -925,14 +927,14 @@ void renderer::generateHZB()
 
 		for (uint m = 1; m < hzbMipCount; m += 4)
 		{
-			uint levels = (std::min)(4u, hzbMipCount - m);
+			const uint levels = (std::min)(4u, hzbMipCount - m);
 			GPU_EVENT(hzbCmdList.Get(), "genHZB Mip");
 
 			// Batch pre-barriers for all mips in this pass
 			CD3DX12_RESOURCE_BARRIER preBarriers[4];
 			for (uint k = 0; k < levels; ++k)
 			{
-				uint mipIdx = m + k;
+				const uint mipIdx = m + k;
 				preBarriers[k] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), hzbMipState[mipIdx], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, mipIdx);
 				hzbMipState[mipIdx] = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			}
@@ -944,8 +946,8 @@ void renderer::generateHZB()
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST2, hzbMipBuffer[(std::min)(m + 2, hzbMipCount - 1)], buf::GBF_UAV);
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(UAV_HZB_DST3, hzbMipBuffer[(std::min)(m + 3, hzbMipCount - 1)], buf::GBF_UAV);
 
-			uint dstW = (std::max)(1u, e_globWindow.width() >> m);
-			uint dstH = (std::max)(1u, e_globWindow.height() >> m);
+			const uint dstW = (std::max)(1u, e_globWindow.width() >> m);
+			const uint dstH = (std::max)(1u, e_globWindow.height() >> m);
 
 			uint texSize[3] = { dstW, dstH, levels };
 			render::getCmdQueue(render::QUEUE_GRAPHIC)->sendData(CBV_HZBCONST, 3, texSize);
@@ -955,7 +957,7 @@ void renderer::generateHZB()
 			CD3DX12_RESOURCE_BARRIER postBarriers[4];
 			for (uint k = 0; k < levels; ++k)
 			{
-				uint mipIdx = m + k;
+				const uint mipIdx = m + k;
 				postBarriers[k] = CD3DX12_RESOURCE_BARRIER::Transition(hzbDepth->getResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, mipIdx);
 				hzbMipState[mipIdx] = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 			}
@@ -1399,8 +1401,8 @@ void renderer::draw([[maybe_unused]] float dt)
 					cullStatsData.instancesPass2 = instCounts[1];
 					cullStatsData.hzbActive = hzbCullEnable;
 
-					float survivorTotal = (float)(cullStatsData.pass1.clusterSurvivors + cullStatsData.pass2.clusterSurvivors);
-					float triSurvivorTotal = (float)(cullStatsData.pass1.triSurvivors + cullStatsData.pass2.triSurvivors);
+					const float survivorTotal =(float)(cullStatsData.pass1.clusterSurvivors + cullStatsData.pass2.clusterSurvivors);
+					const float triSurvivorTotal =(float)(cullStatsData.pass1.triSurvivors + cullStatsData.pass2.triSurvivors);
 
 					cullStatsHistoryHead = (cullStatsHistoryHead + 1) % CULLSTATS_HISTORY;
 					clusterSurvivorHistory[cullStatsHistoryHead] = survivorTotal;
@@ -1494,8 +1496,8 @@ void renderer::draw([[maybe_unused]] float dt)
 			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
 
-			uint width = e_globWindow.width();
-			uint height = e_globWindow.height();
+			const uint width = e_globWindow.width();
+			const uint height = e_globWindow.height();
 			computeCmdList->Dispatch(((width + 1) / 2 + 7) / 8, ((height + 1) / 2 + 7) / 8, 1);
 		}
 
@@ -1542,8 +1544,8 @@ void renderer::draw([[maybe_unused]] float dt)
 			uint screenSize[2] = { e_globWindow.width(), e_globWindow.height() };
 			render::getCmdQueue(render::QUEUE_COMPUTE)->sendData(CBV_SCREEN, 2, screenSize);
 
-			uint quadW = (e_globWindow.width() + 1) / 2;
-			uint quadH = (e_globWindow.height() + 1) / 2;
+			const uint quadW = (e_globWindow.width() + 1) / 2;
+			const uint quadH = (e_globWindow.height() + 1) / 2;
 			computeCmdList->Dispatch((quadW + 7) / 8, (quadH + 3) / 4, 1);
 		}
 
@@ -1793,7 +1795,7 @@ bool renderer::getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP group, UINT64& budge
 	}
 
 	DXGI_QUERY_VIDEO_MEMORY_INFO info = {};
-	HRESULT hr = adapter3->QueryVideoMemoryInfo(0, group, &info);
+	const HRESULT hr = adapter3->QueryVideoMemoryInfo(0, group, &info);
 	if (FAILED(hr))
 	{
 		return false;

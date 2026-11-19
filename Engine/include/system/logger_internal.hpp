@@ -24,7 +24,7 @@ namespace logger
 
 	std::string generate_log_msg(const char* name, uint lineNum, const char* fileName, const LOG_LEVEL& logLevel);
 
-	void add_msg(const std::string msg, const LOG_LEVEL& logLevel);
+	void add_msg(const std::string& msg, const LOG_LEVEL& logLevel);
 
 	void print_log(const char* name, uint lineNum, const char* fileName, const LOG_LEVEL& logLevel);
 

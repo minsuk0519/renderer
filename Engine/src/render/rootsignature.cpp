@@ -27,7 +27,7 @@ struct dataInfo
 	uint size;
 };
 
-bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, uint>& hlslPos, bool cs)
+bool rootsignature::initFromShader(const std::vector<uint>& shaderIDs, std::map<uint, uint>& hlslPos, bool cs)
 {
 	compute = cs;
 
@@ -35,11 +35,11 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 
 	for (auto id : shaderIDs)
 	{
-		shader* pShader = shaders::getShader(id);
+		const shader* pShader = shaders::getShader(id);
 
-		for (auto constant : pShader->bufData.constantContainer)
+		for (const auto& constant : pShader->bufData.constantContainer)
 		{
-			uint descType;
+			uint descType = 0;
 
 			if (constant.name.find("cb_") != std::string::npos)
 			{
@@ -57,27 +57,27 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 
 			typeMaps[descType][constant.loc].vis |= (1 << pShader->getType());
 
-			uint hlslLoc = GET_HLSL_LOC_CBV(constant.loc);
+			const uint hlslLoc = GET_HLSL_LOC_CBV(constant.loc);
 
 			typeMaps[descType][constant.loc].hlslLocation = hlslLoc;
 		}
 
-		for (auto texture : pShader->bufData.textureContainer)
+		for (const auto& texture : pShader->bufData.textureContainer)
 		{
 			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture.loc].vis |= (1 << pShader->getType());
 
-			uint hlslLoc = GET_HLSL_LOC_SRV(texture.loc);
+			const uint hlslLoc = GET_HLSL_LOC_SRV(texture.loc);
 
 			typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_SRV][texture.loc].hlslLocation = hlslLoc;
 		}
 
 		if (cs)
 		{
-			for (auto uav : pShader->bufData.outputContainer)
+			for (const auto& uav : pShader->bufData.outputContainer)
 			{
 				typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_UAV][uav.loc].vis |= (1 << pShader->getType());
 
-				uint hlslLoc = GET_HLSL_LOC_UAV(uav.loc);
+				const uint hlslLoc = GET_HLSL_LOC_UAV(uav.loc);
 
 				typeMaps[D3D12_DESCRIPTOR_RANGE_TYPE_UAV][uav.loc].hlslLocation = hlslLoc;
 			}
@@ -103,7 +103,7 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 	{
 		for (auto typeData : typeMaps[i])
 		{
-			D3D12_SHADER_VISIBILITY vis;
+			D3D12_SHADER_VISIBILITY vis = D3D12_SHADER_VISIBILITY_ALL;
 			
 			if (cs)
 			{
@@ -141,7 +141,7 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 		}
 	}
 
-	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+	const D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
@@ -174,12 +174,13 @@ bool rootsignature::initFromShader(std::vector<uint> shaderIDs, std::map<uint, u
 		return false;
 	}
 
-	e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	const HRESULT createResult = e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	TC_CONDITION(SUCCEEDED(createResult), "Failed to create root signature");
 
 	return true;
 }
 
-bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::vector<uint> constantNums, bool CS)
+bool rootsignature::init(std::vector<render::root_init_param> descriptors, const std::vector<uint>& constantNums, bool CS)
 {
 	compute = CS;
 
@@ -192,9 +193,9 @@ bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::
 	uint index[render::D3D12_RANGE_TYPE_CONSTANT] = { 0 };
 	for (int i = 0; i < descriptors.size(); ++i)
 	{
-		D3D12_DESCRIPTOR_RANGE_TYPE type = descriptors[i].type;
-		D3D12_SHADER_VISIBILITY visibility = descriptors[i].vis;
-		uint descNum = descriptors[i].num;
+		const D3D12_DESCRIPTOR_RANGE_TYPE type = descriptors[i].type;
+		const D3D12_SHADER_VISIBILITY visibility = descriptors[i].vis;
+		const uint descNum = descriptors[i].num;
 
 		if (type == (D3D12_DESCRIPTOR_RANGE_TYPE)render::D3D12_RANGE_TYPE_CONSTANT)
 		{
@@ -219,7 +220,7 @@ bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::
 		++rootParamIndex;
 	}
 
-	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+	const D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
@@ -252,23 +253,24 @@ bool rootsignature::init(std::vector<render::root_init_param> descriptors, std::
 		return false;
 	}
 
-	e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	const HRESULT createResult = e_globRenderer.device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	TC_CONDITION(SUCCEEDED(createResult), "Failed to create root signature");
 
 	return true;
 }
 
 void rootsignature::setDescriptorHeap(std::vector<render::descriptorHeapIndex> descHeapsIdx)
 {
-	descHeaps = descHeapsIdx;
+	descHeaps = std::move(descHeapsIdx);
 }
 
-void rootsignature::setRootSignature(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void rootsignature::setRootSignature(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList)
 {
 	if(compute) cmdList->SetComputeRootSignature(rootSignature.Get());
 	else cmdList->SetGraphicsRootSignature(rootSignature.Get());
 }
 
-void rootsignature::registerDescHeap(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void rootsignature::registerDescHeap(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList)
 {
 	std::vector<ID3D12DescriptorHeap*> heaps;
 	for (auto descheap : descHeaps)

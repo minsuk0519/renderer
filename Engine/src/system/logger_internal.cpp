@@ -25,7 +25,7 @@ namespace logger
 		return result;
 	}
 
-	void logger::add_msg(const std::string msg, const LOG_LEVEL& logLevel)
+	void logger::add_msg(const std::string& msg, const LOG_LEVEL& logLevel)
 	{
 		if (logLevel == LOG_LEVEL::LOG_INFO) spdlog::info(msg);
 		else if (logLevel == LOG_LEVEL::LOG_WARNING) spdlog::warn(msg);
@@ -36,7 +36,7 @@ namespace logger
 
 	void logger::print_log(const char* name, uint lineNum, const char* fileName, const LOG_LEVEL& logLevel)
 	{
-		std::string log_msg = generate_log_msg(name, lineNum, fileName, logLevel);
+		const std::string log_msg = generate_log_msg(name, lineNum, fileName, logLevel);
 
 		add_msg(log_msg, logLevel);
 	}

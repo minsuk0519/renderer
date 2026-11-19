@@ -33,9 +33,9 @@ bool framebuffer::attachDepth(buffer* depth, float clear)
 	return false;
 }
 
-void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool clear)
+void framebuffer::openFB(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, bool clear)
 {
-	uint numFBO = (uint)FBOs.size();
+	const uint numFBO = (uint)FBOs.size();
 
 	std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
 	std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvs;
@@ -49,7 +49,7 @@ void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdLi
 
 	for (uint i = 0; i < numFBO; ++i)
 	{
-		D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = FBOs[i]->getDesc(buf::GBF_RT)->getCPUHandle();
+		const D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle =FBOs[i]->getDesc(buf::GBF_RT)->getCPUHandle();
 
 		rtvs.push_back(cpuHandle);
 
@@ -58,7 +58,7 @@ void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdLi
 
 	if (depthBuffer)
 	{
-		D3D12_CPU_DESCRIPTOR_HANDLE dsv = D3D12_CPU_DESCRIPTOR_HANDLE(depthBuffer->getDesc(buf::GBF_DEPTH_STENCIL)->getCPUHandle());
+		const D3D12_CPU_DESCRIPTOR_HANDLE dsv =D3D12_CPU_DESCRIPTOR_HANDLE(depthBuffer->getDesc(buf::GBF_DEPTH_STENCIL)->getCPUHandle());
 
 		if(clear) cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, clearDepth, 0, 0, nullptr);
 		
@@ -71,7 +71,7 @@ void framebuffer::openFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdLi
 }
 
 //close frame buffer and perform transition for image buffer
-void framebuffer::closeFB(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void framebuffer::closeFB(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList)
 {
 	std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
 	for (auto FBO : FBOs)

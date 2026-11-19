@@ -43,6 +43,7 @@ namespace worldload
 {
 	constexpr uint MAP_VERSION = 1;
 	const std::string DEFAULT_LEVEL_PATH = "data/level.json";
+	const std::string DEFAULT_SPATIAL_HIERARCHY_PATH = "data/level.sgh";
 
 	bool parseMapFile(const std::string& filePath, worldMapJson& outMap);
 	bool writeMapFile(const std::string& filePath, const worldMapJson& map);

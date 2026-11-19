@@ -27,7 +27,7 @@ private:
 	buffer* cbv = nullptr;
 
 	mesh* meshPtr = nullptr;
-	uint meshEnumIndex;
+	uint meshEnumIndex = 0;
 
 	float metal = 0.5f;
 	float roughness = 0.5f;

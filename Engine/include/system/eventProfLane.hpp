@@ -28,10 +28,10 @@ namespace prof
 		std::vector<int> openStack;
 		std::vector<profEvent> pendingEvents;
 		std::vector<profEvent> lastFrameEvents;
-		uint recordedCount;
-		uint resolvedCount;
-		double totalMs;
-		bool warnedFull;
+		uint recordedCount = 0;
+		uint resolvedCount = 0;
+		double totalMs = 0.0;
+		bool warnedFull = false;
 	};
 
 	inline int laneBegin(profLane& lane, EVENT_INDEX nameID, const char* laneLabel)

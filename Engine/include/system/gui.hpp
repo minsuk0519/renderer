@@ -15,7 +15,7 @@
 
 namespace gui
 {
-	bool init(void* hwnd, ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> allocatedGuiHeap, const descriptor& fontDesc);
+	bool init(void* hwnd, ID3D12Device* device, const Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& allocatedGuiHeap, const descriptor& fontDesc);
 
 	void render(ID3D12GraphicsCommandList* cmdList);
 
@@ -23,19 +23,19 @@ namespace gui
 
 	LRESULT guiInputHandle(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-	void text(std::string text);
-	void vector4(std::string str, float* data);
-	void boolean(std::string str, bool& data);
-	void color(std::string str, float* data);
+	void text(const std::string& text);
+	void vector4(const std::string& str, float* data);
+	void boolean(const std::string& str, bool& data);
+	void color(const std::string& str, float* data);
 
-	bool collapsingHeader(std::string str);
+	bool collapsingHeader(const std::string& str);
 
-	void comboBox(std::string name, const char* const items[], uint size, uint& index);
+	void comboBox(const std::string& name, const char* const items[], uint size, uint& index);
 
-	void editfloat(std::string str, uint floatNum, float* data, float min, float max);
-	void edituint(std::string str, uint* data);
-	void editintwithrange(std::string str, int* data, int min, int max);
-	void editstring(std::string str, std::string* data);
+	void editfloat(const std::string& str, uint floatNum, float* data, float min, float max);
+	void edituint(const std::string& str, uint* data);
+	void editintwithrange(const std::string& str, int* data, int min, int max);
+	void editstring(const std::string& str, std::string* data);
 
-	bool button(std::string str);
+	bool button(const std::string& str);
 }

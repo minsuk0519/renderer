@@ -23,9 +23,9 @@ constexpr uint FRAME_COUNT = 2;
 
 struct meshInfo
 {
-	uint lodOffset;
-	uint numLod;
-	uint vertexOffset;
+	uint lodOffset = 0;
+	uint numLod = 0;
+	uint vertexOffset = 0;
 	uint flags = 0;
 };
 
@@ -33,14 +33,14 @@ class renderBuf
 {
 public:
 //put GPU buffer
-	buffer* UVB;
-	buffer* UIB;
+	buffer* UVB = nullptr;
+	buffer* UIB = nullptr;
 };
 
 class renderer
 {
 public:
-	bool init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter);
+	bool init(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, const Microsoft::WRL::ComPtr<IDXGIAdapter1>& adapter);
 	void setUp();
 	void draw(float dt);
 	void drawWorld(float dt);
@@ -54,7 +54,7 @@ public:
 	renderDebug debugSubsystem;
 #endif // ENGINE_DEBUG_READBACK
 private:
-	bool createDevice(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter);
+	bool createDevice(Microsoft::WRL::ComPtr<IDXGIFactory4> dxFactory, const Microsoft::WRL::ComPtr<IDXGIAdapter1>& adapter);
 	bool checkFeatureSupport(DXGI_FEATURE feature);
 	bool createSwapChain();
 	bool createFrameResources();
@@ -73,7 +73,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12CommandSignature> cmdprepassSignature;
 
 private:
-	framebuffer* swapchainFB[FRAME_COUNT];
+	framebuffer* swapchainFB[FRAME_COUNT]{};
 	framebuffer* gbufferFB = nullptr;
 	framebuffer* visBufferFB = nullptr;
 #if ENGINE_DEBUG_CLEARGBUFFER
@@ -86,11 +86,11 @@ private:
 #if ENGINE_DEBUG_MESH
 	framebuffer* debugFB = nullptr;
 	bool debugFBRequest = false;
-	uint debugFBMeshID;
+	uint debugFBMeshID = 0;
 	buffer* debugProjection = nullptr;
 #endif // #if ENGINE_DEBUG_MESH
 
-	buffer* ssaoTex[3];
+	buffer* ssaoTex[3]{};
 
 	buffer* commandBuffer = nullptr;
 	buffer* objectConstBuffer = nullptr;
@@ -136,7 +136,7 @@ private:
 	uint curLodOffset = 0;
 	uint curClusterOffset = 0;
 
-	buffer* AABBwireframeBuffer[3];
+	buffer* AABBwireframeBuffer[3]{};
 	buffer* triangleBuffer = nullptr;
 	buffer* sceneTriangleBuffer = nullptr;
 
@@ -180,7 +180,7 @@ public:
 	void guiGBufferSetting();
 	void guiCullingSetting();
 	void guiHZBSetting();
-	void transitionHZBForGui(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList);
+	void transitionHZBForGui(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList);
 
 #if ENGINE_DEBUG_RESOURCEVIEW
 	bool getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP group, UINT64& budget, UINT64& currentUsage) const;
@@ -198,7 +198,7 @@ private:
 	void getHZBMipSize(uint mip, uint& w, uint& h) const;
 
 public:
-	render::UBManager* ubManager;
+	render::UBManager* ubManager = nullptr;
 	void uploadMeshToUB(buffer* vertex, buffer* norm, buffer* index, meshData* meshdata, uint meshID, uint flags);
 
 	void setVertexBuffer(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, uint slot, buffer* buf);

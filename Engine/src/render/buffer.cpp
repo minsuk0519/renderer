@@ -124,26 +124,26 @@ namespace buf
 
     struct resourceDebugInfo
     {
-        char                     name[64];         // formatted display name, written once at creation
-        buffer*                  owner;            // back-pointer; non-null == live, nullptr == freed
+        char                     name[64]{};         // formatted display name, written once at creation
+        buffer*                  owner = nullptr;    // back-pointer; non-null == live, nullptr == freed
         std::vector<resourceViewRecord> views;    // variable-length descriptor list
-        uint                     cpuArenaBytes;
-        uint_8                   viewFlags;
-        bool                     texture;
-        bool                     external;
-        bool                     oneTime;
+        uint                     cpuArenaBytes = 0;
+        uint_8                   viewFlags = 0;
+        bool                     texture = false;
+        bool                     external = false;
+        bool                     oneTime = false;
 
-        const char*              file;
-        uint                     line;
-        bool                     valid;
+        const char*              file = nullptr;
+        uint                     line = 0;
+        bool                     valid = false;
 
-        D3D12_RESOURCE_DIMENSION dimension;
-        DXGI_FORMAT              format;
-        UINT64                   width;
-        UINT                     height;
-        UINT16                   mipLevels;
-        D3D12_HEAP_TYPE          heapType;
-        UINT64                   gpuBytes;
+        D3D12_RESOURCE_DIMENSION dimension = D3D12_RESOURCE_DIMENSION_UNKNOWN;
+        DXGI_FORMAT              format = DXGI_FORMAT_UNKNOWN;
+        UINT64                   width = 0;
+        UINT                     height = 0;
+        UINT16                   mipLevels = 0;
+        D3D12_HEAP_TYPE          heapType = D3D12_HEAP_TYPE_DEFAULT;
+        UINT64                   gpuBytes = 0;
     };
 
     static resourceDebugInfo debugInfoTable[BUFFER_MAX_COUNT];
@@ -219,7 +219,7 @@ namespace buf
         if (buf == nullptr)
             return;
 
-        uint bufferId = buf->getHeader()->packedData.bufferId;
+        const uint bufferId = buf->getHeader()->packedData.bufferId;
         if (bufferId >= BUFFER_MAX_COUNT)
             return;
 
@@ -235,17 +235,17 @@ namespace buf
         fileName = fileName.substr(0, pos) + ".info";
 
         char* data = nullptr;
-        int size = rawFileRead(fileName, &data);
+        const int size = rawFileRead(fileName, &data);
 
         TC_ASSERT(size >= 0);
 
         if (size != -1)
         {
-            std::string stringData = data;
+            const std::string stringData = data;
             auto lodPos = stringData.find("Number of LODs : ") + 16;
 
             std::string subStr = stringData.substr(lodPos);
-            std::string lodNumString = subStr.substr(0, subStr.find('\n'));
+            const std::string lodNumString =subStr.substr(0, subStr.find('\n'));
             meshData->lodNum = std::stoi(lodNumString);
 
             subStr = subStr.substr(subStr.find("\n0 : ") + 1);
@@ -272,11 +272,11 @@ namespace buf
                 subStr = subStr.substr(nextPos + 1);
             }
 
-            size_t nextPos = subStr.find("\n") + 1;
+            const size_t nextPos = subStr.find("\n") + 1;
             subStr = subStr.substr(nextPos);
 
             {
-                uint count = 3;
+                const uint count = 3;
                 float values[3];
                 ParseReals(subStr, count, values);
 
@@ -305,20 +305,20 @@ namespace buf
 
                 for (uint j = 0; j < meshData->lodData[i].clusterNum; ++j)
                 {
-                    uint count = 11;
+                    const uint count = 11;
                     float values[11];
                     ParseReals(subStr, count, values);
 
                     meshData->lodData[i].indexSize.push_back(static_cast<uint>(values[0]));
 
-                    spherebound sphere;
+                    spherebound sphere{};
 
                     sphere.center[0] = values[1];
                     sphere.center[1] = values[2];
                     sphere.center[2] = values[3];
                     sphere.radius = values[4];
 
-                    aabbbound aabb;
+                    aabbbound aabb{};
 
                     aabb.center[0] = values[5];
                     aabb.center[1] = values[6];
@@ -338,14 +338,14 @@ namespace buf
         delete[] data;
     }
 
-    void loadFiletoMesh(std::string fileName, meshData* meshdata, uint id)
+    void loadFiletoMesh(const std::string& fileName, meshData* meshdata, uint id)
     {
         auto result = rapidobj::ParseFile(fileName);
 
         if (result.error)
         {
             auto errorMsg = result.error.code.message();
-            std::string errorLog = "Failed to load file : " + fileName + '\n' + errorMsg;
+            const std::string errorLog = "Failed to load file : " + fileName + '\n' + errorMsg;
             TC_LOG_ERROR(errorLog.c_str());
             return;
         }
@@ -355,7 +355,7 @@ namespace buf
         if (result.error)
         {
             auto errorMsg = result.error.code.message();
-            std::string errorLog = "Failed to triangulate file : " + fileName + '\n' + errorMsg;
+            const std::string errorLog = "Failed to triangulate file : " + fileName + '\n' + errorMsg;
             TC_LOG_ERROR(errorLog.c_str());
             return;
         }
@@ -383,9 +383,9 @@ namespace buf
 
         for (uint i = 0; i < result.attributes.positions.size(); i += 3)
         {
-            float x = result.attributes.positions[i + 0];
-            float y = result.attributes.positions[i + 1];
-            float z = result.attributes.positions[i + 2];
+            const float x = result.attributes.positions[i + 0];
+            const float y = result.attributes.positions[i + 1];
+            const float z = result.attributes.positions[i + 2];
 
 #if ENGINE_DEBUG_DATATEST
             meshdata->boundData.halfExtent[msh::AXIS_X] = std::max(meshdata->boundData.halfExtent[msh::AXIS_X], x);
@@ -441,9 +441,9 @@ namespace buf
         e_globRenderer.uploadMeshToUB(vbs, norm, idx, meshdata, id, 0);
     }
 
-    buffer* loadTextureFromFile(std::wstring filename, bool mip)
+    buffer* loadTextureFromFile(const std::wstring& filename, bool mip)
     {
-        DirectX::TexMetadata metadata;
+        DirectX::TexMetadata metadata{};
         DirectX::ScratchImage scratchImage;
         DirectX::ScratchImage mipImage;
 
@@ -452,7 +452,7 @@ namespace buf
         //we assume there will be only one image from one file
         const DirectX::Image* image = scratchImage.GetImages();
 
-        uint maxDim = std::max(static_cast<uint>(image->width), static_cast<uint>(image->height));
+        const uint maxDim = std::max(static_cast<uint>(image->width), static_cast<uint>(image->height));
 
         uint mipSize = 1;
 
@@ -475,19 +475,21 @@ namespace buf
             subresources.push_back(subresource);
         }
 
-        uint uWidth = static_cast<uint>(image->width);
-        uint uHeight = static_cast<uint>(image->height);
+        const uint uWidth = static_cast<uint>(image->width);
+        const uint uHeight = static_cast<uint>(image->height);
         buffer* buf = e_globBufAllocator.alloc(nullptr, uWidth * uHeight, 1, buf::GBF_SRV, buf::RESOURCE_TEXTURE, image->format, uWidth, uHeight, static_cast<UINT16>(mipSize));
 
         {
-            render::getCmdQueue(render::QUEUE_COPY)->getAllocator()->Reset();
-            render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->Reset(render::getCmdQueue(render::QUEUE_COPY)->getAllocator().Get(), nullptr);
+            const HRESULT allocResetResult = render::getCmdQueue(render::QUEUE_COPY)->getAllocator()->Reset();
+            TC_CONDITION(SUCCEEDED(allocResetResult), "Failed to reset copy allocator for texture upload");
+            const HRESULT listResetResult = render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->Reset(render::getCmdQueue(render::QUEUE_COPY)->getAllocator().Get(), nullptr);
+            TC_CONDITION(SUCCEEDED(listResetResult), "Failed to reset copy command list for texture upload");
             //render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->Close();
             //// The "before" state is not important. It will be resolved by the resource state tracker.
             //CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(buffer->resource.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
             //render::getCmdQueue(render::QUEUE_COPY)->getCmdList()->ResourceBarrier(1, &barrier);
         
-            UINT64 requiredSize = GetRequiredIntermediateSize(buf->getResource(), 0, static_cast<uint>(subresources.size()));
+            const UINT64 requiredSize = GetRequiredIntermediateSize(buf->getResource(), 0, static_cast<uint>(subresources.size()));
             
             // Create a temporary (intermediate) resource for uploading the subresources
             Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource;
@@ -495,7 +497,8 @@ namespace buf
             CD3DX12_HEAP_PROPERTIES heap_property = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
             CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(requiredSize);
             
-            e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediateResource));
+            const HRESULT intermediateResult = e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediateResource));
+            TC_CONDITION(SUCCEEDED(intermediateResult), "Failed to create intermediate upload resource");
             
             UpdateSubresources(render::getCmdQueue(render::QUEUE_COPY)->getCmdList().Get(), buf->getResource(), intermediateResource.Get(), 0, 0, static_cast<uint>(subresources.size()), subresources.data());
 
@@ -517,9 +520,10 @@ namespace buf
     {
         if (data != nullptr)
         {
-            UINT8* pVertexDataBegin;
+            UINT8* pVertexDataBegin = nullptr;
             CD3DX12_RANGE readRange(0, 0);
-            resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+            const HRESULT mapResult = resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+            TC_CONDITION(SUCCEEDED(mapResult), "Failed to map upload resource");
             memcpy(pVertexDataBegin + offset, data, size);
             resource->Unmap(0, nullptr);
         }
@@ -528,7 +532,7 @@ namespace buf
     D3D12_RESOURCE_STATES createResource(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, CD3DX12_RESOURCE_DESC* bufDesc, uint size, void* data, CD3DX12_CLEAR_VALUE* clear, uint flags)
     {
         CD3DX12_HEAP_PROPERTIES heap_property;
-        D3D12_RESOURCE_STATES state;
+        D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
 
         if (flags & RESOURCE_UPLOAD)
         {
@@ -556,8 +560,9 @@ namespace buf
             state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
         }
 
-        e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, bufDesc,
+        const HRESULT committedResult = e_globRenderer.device->CreateCommittedResource(&heap_property, D3D12_HEAP_FLAG_NONE, bufDesc,
             state, clear, IID_PPV_ARGS(&resource));
+        TC_CONDITION(SUCCEEDED(committedResult), "Failed to create committed resource");
 
         if (data)
         {
@@ -666,7 +671,7 @@ namespace buf
     {
         D3D12_CONSTANT_BUFFER_VIEW_DESC view = {};
 
-        uint size = buf->header.dataSize;
+        const uint size = buf->header.dataSize;
 
         view.BufferLocation = buf->resource->GetGPUVirtualAddress();
         view.SizeInBytes = size;
@@ -783,9 +788,10 @@ const buffer_header* buffer::getHeader() const
 
 void buffer::uploadBuffer(uint size, uint offset, void* data)
 {
-    UINT8* pVertexDataBegin;
+    UINT8* pVertexDataBegin = nullptr;
     CD3DX12_RANGE readRange(0, 0);
-    resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+    const HRESULT mapResult = resource->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+    TC_CONDITION(SUCCEEDED(mapResult), "Failed to map vertex buffer for upload");
     memcpy(pVertexDataBegin + offset, data, size);
     resource->Unmap(0, nullptr);
 }
@@ -812,7 +818,7 @@ CD3DX12_RESOURCE_BARRIER buffer::getTransition(D3D12_RESOURCE_STATES after)
 {
     if (curState == after) TC_LOG_WARNING("You are trying to transit same state");
 
-    D3D12_RESOURCE_STATES before = curState;
+    const D3D12_RESOURCE_STATES before = curState;
     curState = after;
 
     return CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), before, after);
@@ -826,7 +832,8 @@ D3D12_RESOURCE_STATES buffer::getCurResourceState() const
 void buffer::mapBuffer(unsigned char** dataPtr)
 {
     CD3DX12_RANGE readRange(0, 0);
-    resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
+    const HRESULT mapResult = resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
+    TC_CONDITION(SUCCEEDED(mapResult), "Failed to map buffer");
 }
 
 void buffer::unmapBuffer()
@@ -837,7 +844,7 @@ void buffer::unmapBuffer()
 bool buffer::mapReadbackBuffer(unsigned char** dataPtr, uint readSize)
 {
     CD3DX12_RANGE readRange(0, readSize);
-    HRESULT hr = resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
+    const HRESULT hr = resource->Map(0, &readRange, reinterpret_cast<void**>(dataPtr));
     if (FAILED(hr))
     {
         *dataPtr = nullptr;
@@ -854,7 +861,7 @@ void buffer::unmapReadbackBuffer()
 
 void buffer_allocator::freeInternal(uint startPos, uint size, uint bufferId)
 {
-    uint memSize = (uint)freedMem.size();
+    const uint memSize = (uint)freedMem.size();
 
     for (uint i = 0; i < (memSize - 1); ++i)
     {
@@ -951,8 +958,8 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
     {
         if ((*iter).second >= totalSize)
         {
-            uint remainSize = (*iter).second - totalSize;
-            int allocatedPos = (*iter).first + totalSize;
+            const uint remainSize = (*iter).second - totalSize;
+            const int allocatedPos = (*iter).first + totalSize;
 
             pos = (*iter).first;
 
@@ -1057,7 +1064,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
 
 #if ENGINE_DEBUG_RESOURCEVIEW
     {
-        uint bufferId = buf->header.packedData.bufferId;
+        const uint bufferId = buf->header.packedData.bufferId;
         if (bufferId < BUFFER_MAX_COUNT)
         {
             buf::debugInfoTable[bufferId].views.clear();
@@ -1086,13 +1093,13 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
         viewPos += size;
     }
 
-    uint addrDiff = (uint)(viewPos - allocatedData);
+    const uint addrDiff = (uint)(viewPos - allocatedData);
 
     TC_ASSERT(addrDiff == totalSize);
 
 #if ENGINE_DEBUG_RESOURCEVIEW
     {
-        uint bufferId = buf->header.packedData.bufferId;
+        const uint bufferId = buf->header.packedData.bufferId;
         if (bufferId < BUFFER_MAX_COUNT)
         {
             buf::resourceDebugInfo& info = buf::debugInfoTable[bufferId];
@@ -1146,7 +1153,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
             ID3D12Resource* res = buf->resource.Get();
             if (res != nullptr)
             {
-                D3D12_RESOURCE_DESC desc = res->GetDesc();
+                const D3D12_RESOURCE_DESC desc = res->GetDesc();
                 info.dimension = desc.Dimension;
                 info.format = desc.Format;
                 info.width = desc.Width;
@@ -1181,7 +1188,7 @@ buffer* buffer_allocator::alloc(char* bufferData, uint size, uint stride, uint_8
 
 void buffer_allocator::free(char* bufferData)
 {
-    buffer* buf = reinterpret_cast<buffer*>(bufferData);
+    const buffer* buf = reinterpret_cast<buffer*>(bufferData);
 
     freeInternal(static_cast<uint>(data - bufferData), buf->header.totalSize, buf->header.packedData.bufferId);
 }
@@ -1316,7 +1323,7 @@ namespace buf
                     viewCount, liveCount, viewsPerHeap[render::DESCRIPTORHEAP_RENDERTARGET],
                     viewsPerHeap[render::DESCRIPTORHEAP_BUFFER], viewsPerHeap[render::DESCRIPTORHEAP_DEPTH]);
 
-        ImVec2 tableOuterSize(0.0f, ImGui::GetContentRegionAvail().y * 0.65f);
+        const ImVec2 tableOuterSize(0.0f, ImGui::GetContentRegionAvail().y * 0.65f);
         if (ImGui::BeginTable("ViewList", 8, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, tableOuterSize))
         {
             ImGui::TableSetupColumn("Resource");
@@ -1397,7 +1404,7 @@ namespace buf
                     const char* stateStr = "COMMON";
                     if (info.owner != nullptr)
                     {
-                        D3D12_RESOURCE_STATES state = info.owner->getCurResourceState();
+                        const D3D12_RESOURCE_STATES state = info.owner->getCurResourceState();
                         switch (state)
                         {
                         case D3D12_RESOURCE_STATE_GENERIC_READ:
@@ -1431,7 +1438,7 @@ namespace buf
             ImGui::EndTable();
         }
 
-        uint selectedId = render::getSelectedResourceId();
+        const uint selectedId = render::getSelectedResourceId();
         if (selectedId != ~0u)
         {
             ImGui::Separator();
@@ -1454,28 +1461,28 @@ namespace buf
 
     void guiMemoryViewerSetting()
     {
-        uint capacity = e_globBufAllocator.getArenaCapacity();
-        uint used = e_globBufAllocator.getArenaUsed();
-        float fraction = (float)used / (float)capacity;
+        const uint capacity = e_globBufAllocator.getArenaCapacity();
+        const uint used = e_globBufAllocator.getArenaUsed();
+        const float fraction = (float)used / (float)capacity;
 
         ImGui::ProgressBar(fraction, ImVec2(-1, 0), "");
         ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
         ImGui::Text("%u / %u MiB", used / (1024 * 1024), capacity / (1024 * 1024));
 
         ImDrawList* drawList = ImGui::GetWindowDrawList();
-        ImVec2 contentPos = ImGui::GetCursorScreenPos();
+        const ImVec2 contentPos = ImGui::GetCursorScreenPos();
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
         contentSize.y = 30;
 
-        float barWidth = contentSize.x;
-        ImU32 allocColor = ImGui::GetColorU32(ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
-        ImU32 freeColor = ImGui::GetColorU32(ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+        const float barWidth = contentSize.x;
+        const ImU32 allocColor = ImGui::GetColorU32(ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
+        const ImU32 freeColor = ImGui::GetColorU32(ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
 
         uint allocatedStart = 0;
-        uint freeBlockCount = e_globBufAllocator.getFreeBlockCount();
+        const uint freeBlockCount = e_globBufAllocator.getFreeBlockCount();
         for (uint i = 0; i < freeBlockCount; ++i)
         {
-            uint start, size;
+            uint start = 0, size = 0;
             e_globBufAllocator.getFreeBlock(i, start, size);
 
             if (start > allocatedStart)
@@ -1523,8 +1530,8 @@ namespace buf
 
         UINT64 localBudget = 0, localUsage = 0;
         UINT64 nonLocalBudget = 0, nonLocalUsage = 0;
-        bool localAvailable = e_globRenderer.getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, localBudget, localUsage);
-        bool nonLocalAvailable = e_globRenderer.getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, nonLocalBudget, nonLocalUsage);
+        const bool localAvailable = e_globRenderer.getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP_LOCAL, localBudget, localUsage);
+        const bool nonLocalAvailable = e_globRenderer.getVideoMemoryInfo(DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, nonLocalBudget, nonLocalUsage);
 
         if (localAvailable)
         {
@@ -1651,7 +1658,7 @@ namespace buf
 
                         if (match && heapGroups[i].maxResourceSize > 0)
                         {
-                            float barFrac = (float)info.gpuBytes / (float)heapGroups[i].maxResourceSize;
+                            const float barFrac = (float)info.gpuBytes / (float)heapGroups[i].maxResourceSize;
                             ImGui::ProgressBar(barFrac, ImVec2(-1, 0), "");
                             ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
                             ImGui::Text("%s (%s)", info.name, formatBytes(info.gpuBytes));

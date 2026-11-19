@@ -9,19 +9,19 @@ namespace AXIS
 
 float* transform::getMatPointer()
 {
-	DirectX::XMMATRIX translationMatrix = DirectX::XMMatrixTranslationFromVector(position);
-	DirectX::XMMATRIX rotationMatrix = DirectX::XMMatrixRotationRollPitchYawFromVector(rotation);
-	DirectX::XMMATRIX scaleMatrix = DirectX::XMMatrixScalingFromVector(scale);
+	const DirectX::XMMATRIX translationMatrix =DirectX::XMMatrixTranslationFromVector(position);
+	const DirectX::XMMATRIX rotationMatrix =DirectX::XMMatrixRotationRollPitchYawFromVector(rotation);
+	const DirectX::XMMATRIX scaleMatrix =DirectX::XMMatrixScalingFromVector(scale);
 	worldMatrix = scaleMatrix * rotationMatrix * translationMatrix;
 
-	return &worldMatrix.r[0].m128_f32[0];
+	return reinterpret_cast<float*>(&worldMatrix.r[0]);
 }
 
 DirectX::XMMATRIX transform::getMat()
 {
-	DirectX::XMMATRIX translationMatrix = DirectX::XMMatrixTranslationFromVector(position);
-	DirectX::XMMATRIX rotationMatrix = DirectX::XMMatrixRotationRollPitchYawFromVector(rotation);
-	DirectX::XMMATRIX scaleMatrix = DirectX::XMMatrixScalingFromVector(scale);
+	const DirectX::XMMATRIX translationMatrix =DirectX::XMMatrixTranslationFromVector(position);
+	const DirectX::XMMATRIX rotationMatrix =DirectX::XMMatrixRotationRollPitchYawFromVector(rotation);
+	const DirectX::XMMATRIX scaleMatrix =DirectX::XMMatrixScalingFromVector(scale);
 	worldMatrix = scaleMatrix * rotationMatrix * translationMatrix;
 
 	return worldMatrix;
@@ -54,17 +54,17 @@ DirectX::XMVECTOR transform::getRotation() const
 
 float* transform::getPosPointer()
 {
-	return &position.m128_f32[0];
+	return reinterpret_cast<float*>(&position);
 }
 
 float* transform::getScalePointer()
 {
-	return &scale.m128_f32[0];
+	return reinterpret_cast<float*>(&scale);
 }
 
 float* transform::getRotationPointer()
 {
-	return &rotation.m128_f32[0];
+	return reinterpret_cast<float*>(&rotation);
 }
 
 DirectX::XMVECTOR transform::getQuaternion() const
@@ -110,15 +110,15 @@ DirectX::XMMATRIX buildProjMatrixInternal(float FovAngleY, float AspectRatio, fl
 
 #if defined(_XM_NO_INTRINSICS_)
 
-    float    SinFov;
-    float    CosFov;
+    float    SinFov = 0.0f;
+    float    CosFov = 0.0f;
     DirectX::XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
 
-    float Height = CosFov / SinFov;
+    const float Height = CosFov / SinFov;
     float Width = Height / AspectRatio;
     float fRange = FarZ / (NearZ - FarZ);
 
-    DirectX::XMMATRIX M;
+    DirectX::XMMATRIX M{};
     M.m[0][0] = Width;
     M.m[0][1] = 0.0f;
     M.m[0][2] = 0.0f;
@@ -141,28 +141,28 @@ DirectX::XMMATRIX buildProjMatrixInternal(float FovAngleY, float AspectRatio, fl
     return M;
 
 #elif defined(_XM_ARM_NEON_INTRINSICS_)
-    float    SinFov;
-    float    CosFov;
+    float    SinFov = 0.0f;
+    float    CosFov = 0.0f;
     DirectX::XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
     float fRange = FarZ / (NearZ - FarZ);
-    float Height = CosFov / SinFov;
+    const float Height = CosFov / SinFov;
     float Width = Height / AspectRatio;
     const float32x4_t Zero = vdupq_n_f32(0);
 
-    DirectX::XMMATRIX M;
+    DirectX::XMMATRIX M{};
     M.r[0] = vsetq_lane_f32(Width, Zero, 0);
     M.r[1] = vsetq_lane_f32(Height, Zero, 1);
     M.r[2] = vsetq_lane_f32(fRange, g_XMNegIdentityR3.v, 2);
     M.r[3] = vsetq_lane_f32(fRange * NearZ, Zero, 2);
     return M;
 #elif defined(_XM_SSE_INTRINSICS_)
-    float    SinFov;
-    float    CosFov;
+    float    SinFov = 0.0f;
+    float    CosFov = 0.0f;
     DirectX::XMScalarSinCos(&SinFov, &CosFov, 0.5f * FovAngleY);
-    float fRange = NearZ / (FarZ - NearZ);
+    const float fRange = NearZ / (FarZ - NearZ);
     // Note: This is recorded on the stack
-    float Height = CosFov / SinFov;
-    DirectX::XMVECTOR rMem = {
+    const float Height = CosFov / SinFov;
+    const DirectX::XMVECTOR rMem = {
         Height / AspectRatio,
         Height,
         fRange,
@@ -174,7 +174,7 @@ DirectX::XMMATRIX buildProjMatrixInternal(float FovAngleY, float AspectRatio, fl
     // Copy x only
     vTemp = _mm_move_ss(vTemp, vValues);
     // Height / AspectRatio,0,0,0
-    DirectX::XMMATRIX M;
+    DirectX::XMMATRIX M{};
     M.r[0] = vTemp;
     // 0,Height,0,0
     vTemp = vValues;
@@ -195,16 +195,16 @@ DirectX::XMMATRIX buildProjMatrixInternal(float FovAngleY, float AspectRatio, fl
 
 DirectX::XMMATRIX transform::buildViewProjMat(float fov, float aspectRatio, float nearZ, float farZ) const
 {
-    DirectX::XMVECTOR upVec = getUP();
-    DirectX::XMVECTOR rightVec = getRIGHT();
+    const DirectX::XMVECTOR upVec = getUP();
+    const DirectX::XMVECTOR rightVec = getRIGHT();
 
-    DirectX::XMVECTOR forward = DirectX::XMVector3Cross(upVec, rightVec);
+    const DirectX::XMVECTOR forward = DirectX::XMVector3Cross(upVec, rightVec);
 
-    DirectX::XMVECTOR pos = getPosition();
+    const DirectX::XMVECTOR pos = getPosition();
 
-    DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, upVec);
+    const DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(pos, forward, upVec);
 
-    DirectX::XMMATRIX proj = buildProjMatrixInternal(fov, aspectRatio, nearZ, farZ);
+    const DirectX::XMMATRIX proj = buildProjMatrixInternal(fov, aspectRatio, nearZ, farZ);
 
     return DirectX::XMMatrixMultiply(view, proj);
 }

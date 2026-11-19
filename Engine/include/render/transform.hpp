@@ -5,18 +5,18 @@
 struct transform
 {
 private:
-	DirectX::XMVECTOR position;
+	DirectX::XMVECTOR position{};
 	DirectX::XMVECTOR scale = DirectX::XMVECTOR{ 1, 1, 1 };
 
 	//rotation with euler angle
-	DirectX::XMVECTOR rotation;
+	DirectX::XMVECTOR rotation{};
 
-	DirectX::XMMATRIX mat;
+	DirectX::XMMATRIX mat{};
 
 	DirectX::XMVECTOR up = DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };
 	DirectX::XMVECTOR right = DirectX::XMVECTOR{ 1.0f, 0.0f, 0.0f };
 
-	DirectX::XMMATRIX worldMatrix;
+	DirectX::XMMATRIX worldMatrix{};
 
 public:
 	float* getMatPointer();

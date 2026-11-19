@@ -29,11 +29,12 @@ public:
 	uint writeInstanceBounds(unsigned char* dst) const;
 
 	void setupScene();
-	void setupCam(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList, bool forceMain, bool forceFull);
+	void setupCam(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList, bool forceMain, bool forceFull);
 
 	void guiLevelEditor();
 	bool loadCurrentMap(const std::string& filePath);
 	bool saveCurrentMap(const std::string& filePath);
+	bool buildSpatialHierarchy(const std::string& filePath);
 	void clearMap();
 
 	uint envIndex = 0;
@@ -44,7 +45,7 @@ public:
 	uint objectNum = 0;
 	std::string mapName;
 
-	object* objects;
+	object* objects = nullptr;
 
 	camera* getMainCam() const;
 

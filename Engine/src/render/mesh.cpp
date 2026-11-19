@@ -124,7 +124,7 @@ namespace msh
 
             newData->getData()->boundData.radius = 1.0f;
 
-            clusterbounddata bound;
+            clusterbounddata bound{};
             bound.sphere.center[0] = 0.0f;
             bound.sphere.center[1] = 0.0f;
             bound.sphere.center[2] = 0.0f;
@@ -212,13 +212,13 @@ namespace msh
 
     void guiMeshSetting(bool& openMeshWindow, uint& meshID)
     {
-        uint meshSize = MESH_END;
+        const uint meshSize = MESH_END;
 
         for (uint i = 0; i < meshSize; ++i)
         {
             //mesh* msh = meshes[i];
 
-            std::string nameText = std::format("Name : {}", MESHNAME[i]);
+            const std::string nameText = std::format("Name : {}", MESHNAME[i]);
 
             ImGui::BulletText(nameText.c_str()); ImGui::SameLine();
 
@@ -315,25 +315,25 @@ namespace msh
 
 			if (changed || openMeshClick)
 			{
-				float xPos = std::sinf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
-				float yPos = std::cosf(y) * meshDebugDrawCamArmLength;
-				float zPos = std::cosf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
+				const float xPos = std::sinf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
+				const float yPos = std::cosf(y) * meshDebugDrawCamArmLength;
+				const float zPos = std::cosf(x) * std::sinf(y) * meshDebugDrawCamArmLength;
 				meshDebugDrawCamPos = DirectX::XMVECTOR{ xPos, yPos, zPos };
 				e_globRenderer.debugFrameBufferRequest(meshID, debugProjectionBuffer);
 
-				DirectX::XMVECTOR forward = DirectX::XMVector3Normalize(DirectX::XMVectorNegate(meshDebugDrawCamPos));
-				DirectX::XMVECTOR globUp = DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };
+				const DirectX::XMVECTOR forward = DirectX::XMVector3Normalize(DirectX::XMVectorNegate(meshDebugDrawCamPos));
+				const DirectX::XMVECTOR globUp =DirectX::XMVECTOR{ 0.0f, 1.0f, 0.0f };
 
-				DirectX::XMVECTOR right = DirectX::XMVector3Cross(forward, globUp);
-				DirectX::XMVECTOR up = DirectX::XMVector3Cross(right, forward);
+				const DirectX::XMVECTOR right = DirectX::XMVector3Cross(forward, globUp);
+				const DirectX::XMVECTOR up = DirectX::XMVector3Cross(right, forward);
 
-				DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(meshDebugDrawCamPos, forward, up);
+				const DirectX::XMMATRIX view = DirectX::XMMatrixLookToRH(meshDebugDrawCamPos, forward, up);
 
-				DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), 1.0f, 0.1f, 10.0f);
+				const DirectX::XMMATRIX projection = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), 1.0f, 0.1f, 10.0f);
 
 				DirectX::XMMATRIX viewProj = DirectX::XMMatrixMultiply(view, projection);
 
-				float* aabbSize = msh::getMesh(meshID)->getData()->boundData.halfExtent;
+				const float* aabbSize = msh::getMesh(meshID)->getData()->boundData.halfExtent;
 
 				float safeExtent[3] =
 				{
@@ -389,7 +389,7 @@ meshData* mesh::getData() const
 }
 
 //TODO : move this to renderer
-void mesh::draw(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList)
+void mesh::draw(const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& cmdList)
 {
     if (data)
     {

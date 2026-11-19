@@ -13,14 +13,14 @@ namespace render
 		friend class ::renderer;
 
 	private:
-		buffer* unifiedVertexBuffer;
-		buffer* unifiedIndexBuffer;
-		buffer* vertexIDBuffer;
+		buffer* unifiedVertexBuffer = nullptr;
+		buffer* unifiedIndexBuffer = nullptr;
+		buffer* vertexIDBuffer = nullptr;
 
-		buffer* meshInfoBuffer;
-		buffer* lodInfoBuffer;
-		buffer* clusterInfoBuffer;
-		buffer* clusterBoundBuffer;
+		buffer* meshInfoBuffer = nullptr;
+		buffer* lodInfoBuffer = nullptr;
+		buffer* clusterInfoBuffer = nullptr;
+		buffer* clusterBoundBuffer = nullptr;
 
 		uint curVertexOffset = 0;
 		uint curLodOffset = 0;

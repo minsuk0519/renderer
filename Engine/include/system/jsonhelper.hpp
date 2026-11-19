@@ -18,20 +18,20 @@ struct shaderJson
 	std::string shaderFile;
 	std::string entryPoint;
 	std::string target;
-	uint shaderType;
-	uint shaderIndex;
+	uint shaderType = 0;
+	uint shaderIndex = 0;
 };
 
 struct psoJson
 {
-	uint psoIndex;
+	uint psoIndex = 0;
 	std::string psoName;
-	uint vertexIndex;
-	uint pixelIndex;
+	uint vertexIndex = 0;
+	uint pixelIndex = 0;
 	std::vector<uint> formats;
-	bool cs;
-	bool depth;
-	bool wireframe;
+	bool cs = false;
+	bool depth = false;
+	bool wireframe = false;
 };
 
 struct memLayoutFieldJson
@@ -64,7 +64,7 @@ const std::string JSON_FILE_PATHS[MAX_FILE] = {
 //arbitrary buffersize
 constexpr uint BUFFERSIZE = 1024 * 1024 * 64;
 
-int rawFileRead(std::string fileName, char** data, uint bufferSize = 0);
+int rawFileRead(const std::string& fileName, char** data, uint bufferSize = 0);
 
 template <typename Buffer>
 bool readJsonFile(Buffer& buf, const std::string& filePath)

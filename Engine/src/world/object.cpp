@@ -59,7 +59,7 @@ void object::update([[maybe_unused]] float dt)
 
 void object::submit(void* cbvLoc, uint localID)
 {
-	uint data;
+	uint data = 0;
 
 	data = (localID << 16) | (getMeshIdx() << 3) | lod;
 
@@ -90,7 +90,7 @@ void object::uploadMaterial(unsigned char* dataLoc)
 
 void object::boundData(unsigned char* data)
 {
-	meshData* mshData = getMesh()->getData();
+	const meshData* mshData = getMesh()->getData();
 
 	float aabbData[6];
 
@@ -98,13 +98,13 @@ void object::boundData(unsigned char* data)
 	float yScale = mshData->boundData.halfExtent[msh::AXIS_Y];
 	float zScale = mshData->boundData.halfExtent[msh::AXIS_Z];
 
-	aabbData[0] = xScale * trans->getScale().m128_f32[0];
-	aabbData[1] = yScale * trans->getScale().m128_f32[1];
-	aabbData[2] = zScale * trans->getScale().m128_f32[2];
+	aabbData[0] = xScale * DirectX::XMVectorGetX(trans->getScale());
+	aabbData[1] = yScale * DirectX::XMVectorGetY(trans->getScale());
+	aabbData[2] = zScale * DirectX::XMVectorGetZ(trans->getScale());
 
-	aabbData[3] = trans->getPosition().m128_f32[0];
-	aabbData[4] = trans->getPosition().m128_f32[1];
-	aabbData[5] = trans->getPosition().m128_f32[2];
+	aabbData[3] = DirectX::XMVectorGetX(trans->getPosition());
+	aabbData[4] = DirectX::XMVectorGetY(trans->getPosition());
+	aabbData[5] = DirectX::XMVectorGetZ(trans->getPosition());
 
 	memcpy(data, aabbData, sizeof(float) * 6);
 }

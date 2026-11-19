@@ -24,7 +24,7 @@ namespace render
 
 	struct indirectBindScratchTable
 	{
-		uint16_t indices[EVENTRESOURCE_MAX_LOC];
+		uint16_t indices[EVENTRESOURCE_MAX_LOC]{};
 		uint count = 0;
 		bool warnedFull = false;
 
