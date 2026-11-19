@@ -1,0 +1,56 @@
+# Root clang-tidy config (fast inner loop). clang-analyzer-* is intentionally
+# omitted here; run it in full CI only.
+Checks: >
+  -*,
+  performance-*,
+  -performance-enum-size,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  cppcoreguidelines-pro-type-member-init,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-slicing,
+  cppcoreguidelines-special-member-functions,
+  cppcoreguidelines-narrowing-conversions,
+  google-explicit-constructor,
+  modernize-use-override,
+  modernize-use-nullptr,
+  readability-misleading-indentation,
+  readability-redundant-member-init,
+  misc-unused-parameters,
+  misc-const-correctness
+
+# Only high-confidence, high-severity checks are hard errors. Everything else
+# stays a warning so there is no incentive to spam NOLINT.
+WarningsAsErrors: >
+  bugprone-use-after-move,
+  bugprone-dangling-handle,
+  bugprone-infinite-loop,
+  bugprone-misplaced-widening-cast,
+  bugprone-integer-division,
+  bugprone-sizeof-expression,
+  bugprone-suspicious-semicolon,
+  bugprone-branch-clone,
+  bugprone-copy-constructor-init,
+  bugprone-unused-return-value,
+  cppcoreguidelines-pro-type-member-init,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-slicing,
+  performance-for-range-copy,
+  performance-move-const-arg,
+  performance-unnecessary-value-param
+
+# Diagnose headers only under our own Engine/Game include+src trees;
+# external/, packages/, and the Windows SDK / MSVC headers are excluded.
+HeaderFilterRegex: '(^|[/\])(Engine|Game)[/\](include|src)[/\].*'
+FormatStyle: none
+
+CheckOptions:
+  bugprone-narrowing-conversions.WarnOnIntegerNarrowingConversion: false
+  cppcoreguidelines-narrowing-conversions.WarnOnIntegerNarrowingConversion: false
+  bugprone-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: true
+  cppcoreguidelines-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: true
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions: true
+  misc-const-correctness.WarnPointersAsValues: false
+  misc-const-correctness.TransformPointersAsValues: false
+  bugprone-unused-return-value.CheckedFunctions: '.*::Create.*;.*::Map;.*::Close;.*ID3D12CommandAllocator::Reset;.*ID3D12GraphicsCommandList.*::Reset;.*::Present;.*::GetBuffer;.*::Signal;.*::Wait'
