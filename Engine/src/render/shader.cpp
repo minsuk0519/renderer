@@ -701,11 +701,6 @@ bool shader::decipherHLSL()
 					{
 						cBufferLoc = str.substr(2);
 					}
-					else if(str.find("S") != std::string::npos)
-						// NOLINTNEXTLINE(bugprone-branch-clone) -- both the sampler ("S") and the fallback branch strip one leading register-type character, so the identical substr(1) is the intended parse
-					{
-						cBufferLoc = str.substr(1);
-					}
 					else
 					{
 						cBufferLoc = str.substr(1);

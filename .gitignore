@@ -44,3 +44,4 @@ tools/meshReconstructor/meshReconstructor.pdb
 /external
 *.bat
 *.flag
+/Tests/external

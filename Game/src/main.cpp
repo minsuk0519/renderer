@@ -23,7 +23,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmdArgs, int nCmdShow)
 	AllocConsole();
 #endif // #ifdef _DEBUG
 
-	TC_INIT(e_globEngine.init(hInstance, nCmdShow, cmdArgs));
+	if (!e_globEngine.init(hInstance, nCmdShow, cmdArgs))
+	{
+		TC_LOG_ERROR("Engine initialization failed; shutting down");
+		return 1;
+	}
 
 	e_globEngine.run();
 
