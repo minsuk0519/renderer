@@ -42,3 +42,5 @@ tools/meshReconstructor/meshReconstructor.pdb
 .claude/
 *.md
 /external
+*.bat
+*.flag
