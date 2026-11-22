@@ -16,8 +16,6 @@ namespace sgh
 		double worldMax[3] = {};
 	};
 
-	enum class SfcCurve : uint32_t { Morton = 0, Hilbert = 1 };
-
 	struct BuildParams
 	{
 		uint32_t quantShift = 8;
@@ -25,12 +23,9 @@ namespace sgh
 		uint32_t threadCount = 1;
 		uint32_t mergeKNum = 2;
 		uint32_t mergeKDen = 1;
-		uint32_t mergeWindow = 16;
-		SfcCurve curve = SfcCurve::Morton;
+		uint32_t blockEdgeShift = 1;
+		bool crossCheckExact = false;
 	};
-
-	constexpr uint8_t GROUP_OUTLIER     = 1u << 1;
-	constexpr uint8_t GROUP_MERGED      = 1u << 2;
 
 #if USE_WAVE64
 	constexpr uint32_t GROUP_MAX = 64;
@@ -41,7 +36,32 @@ namespace sgh
 	constexpr uint32_t MERGE_SIZE_RATIO = 2;
 	constexpr uint32_t CHILD_LEAF_BIT = 0x80000000u;
 	constexpr uint32_t CHILD_INST_BIT = 0x40000000u;
-	constexpr uint32_t FILE_VERSION = 2;
+	constexpr uint32_t FILE_VERSION = 3;
+
+	struct RoundStats
+	{
+		uint32_t poolSize = 0;
+		uint32_t blockCount = 0;
+		uint32_t maxBlockPop = 0;
+		uint32_t merges = 0;
+		uint32_t finalized = 0;
+		uint64_t aabbTests = 0;
+		uint64_t aabbPasses = 0;
+		uint64_t pairEvals = 0;
+	};
+
+	struct LevelStats
+	{
+		uint32_t exp = 0;
+		uint32_t groupCount = 0;
+		uint32_t leafCount = 0;
+		uint32_t rounds = 0;
+		uint64_t areaSum = 0;
+		uint64_t groupAreaSum = 0;
+		uint32_t fill[GROUP_MAX + 1] = {};
+		std::vector<RoundStats> roundStats;
+		double mergeMs = 0.0;
+	};
 
 	struct BuildStats
 	{
@@ -49,6 +69,11 @@ namespace sgh
 		uint32_t instanceCount = 0;
 		uint32_t groupCount = 0;
 		uint32_t nodeCount = 0;
+		uint32_t threadCount = 0;
+		double sweepMs = 0.0;
+		double bvhMs = 0.0;
+		double totalMs = 0.0;
+		std::vector<LevelStats> levels;
 	};
 
 	struct BuildResult
