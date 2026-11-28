@@ -68,14 +68,24 @@ namespace
 		return true;
 	}
 
+	std::string shrinkText(double finalArea, double quantizedArea)
+	{
+		if (quantizedArea <= 0.0)
+		{
+			return "n/a";
+		}
+		return std::format("{:.2f}% shrink", 100.0 * (quantizedArea - finalArea) / quantizedArea);
+	}
+
 	void logBuildStats(const sgh::BuildResult& r)
 	{
 		uint64_t totalLeaves = 0;
-		uint64_t totalAreaSum = 0;
-		uint64_t totalGroupAreaSum = 0;
+		double totalAreaSum = 0.0;
+		double totalGroupAreaSum = 0.0;
 		for (const sgh::LevelStats& ls : r.stats.levels)
 		{
-			const uint32_t poolSize = ls.roundStats.empty() ? 0u : ls.roundStats.front().poolSize;
+			const uint32_t poolGroups = ls.roundStats.empty() ? 0u : ls.roundStats.front().mergedPool;
+			const uint32_t poolSingles = ls.roundStats.empty() ? 0u : ls.roundStats.front().unmergedPool;
 			uint32_t maxBlockPop = 0;
 			uint64_t poolSum = 0;
 			uint64_t blockSum = 0;
@@ -84,7 +94,7 @@ namespace
 			for (const sgh::RoundStats& rs : ls.roundStats)
 			{
 				maxBlockPop = (std::max)(maxBlockPop, rs.maxBlockPop);
-				poolSum += rs.poolSize;
+				poolSum += static_cast<uint64_t>(rs.mergedPool) + rs.unmergedPool;
 				blockSum += rs.blockCount;
 				aabbTests += rs.aabbTests;
 				pairEvals += rs.pairEvals;
@@ -109,16 +119,20 @@ namespace
 				}
 			}
 
-			TC_LOG(std::format("[SpatialHierarchy] level exp {}: pool {}, {} groups, {} leaves, {} rounds{}, aabb tests {}, pair evals {}, area sum {}, group area sum {}, fill [{}], merge {:.2f} ms",
-				ls.exp, poolSize, ls.groupCount, ls.leafCount, ls.rounds, occupancy, aabbTests, pairEvals, ls.areaSum, ls.groupAreaSum, fill, ls.mergeMs).c_str());
+			TC_LOG(std::format("[SpatialHierarchy] level exp {}: pool {} groups + {} singles, {} groups, {} leaves, {} rounds{}, aabb tests {}, pair evals {}, area sum {:.0f}, group area sum {:.0f}, fill [{}], merge {:.2f} ms",
+				ls.exp, poolGroups, poolSingles, ls.groupCount, ls.leafCount, ls.roundStats.size(), occupancy, aabbTests, pairEvals, ls.areaSum, ls.groupAreaSum, fill, ls.mergeMs).c_str());
 
 			totalLeaves += ls.leafCount;
 			totalAreaSum += ls.areaSum;
 			totalGroupAreaSum += ls.groupAreaSum;
 		}
 
-		TC_LOG(std::format("[SpatialHierarchy] threads {}: groups {}, leaves {}, area sum {}, group area sum {}, sweep {:.2f} ms, bvh {:.2f} ms, total {:.2f} ms, hash {:016x}",
+		TC_LOG(std::format("[SpatialHierarchy] threads {}: groups {}, leaves {}, area sum {:.0f}, group area sum {:.0f}, sweep {:.2f} ms, bvh {:.2f} ms, total {:.2f} ms, hash {:016x}",
 			r.stats.threadCount, r.stats.groupCount, totalLeaves, totalAreaSum, totalGroupAreaSum, r.stats.sweepMs, r.stats.bvhMs, r.stats.totalMs, r.contentHash).c_str());
+
+		TC_LOG(std::format("[SpatialHierarchy] bounds: lane area {:.3f} of {:.3f} ({}), instance area {:.3f} of {:.3f} ({})",
+			r.stats.laneAreaFinal, r.stats.laneAreaQuantized, shrinkText(r.stats.laneAreaFinal, r.stats.laneAreaQuantized),
+			r.stats.instanceAreaFinal, r.stats.instanceAreaQuantized, shrinkText(r.stats.instanceAreaFinal, r.stats.instanceAreaQuantized)).c_str());
 	}
 }
 
@@ -353,12 +367,6 @@ bool world::saveCurrentMap(const std::string& filePath)
 
 bool world::buildSpatialHierarchy(const std::string& filePath)
 {
-	if (objectNum == 0)
-	{
-		TC_LOG_WARNING("[SpatialHierarchy] no objects, nothing to build");
-		return false;
-	}
-
 	const std::vector<sgh::InstanceIn> instances = gatherInstances(objects, objectNum);
 
 	sgh::setAssertHandler(&sghAssertHandler);
